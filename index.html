@@ -118,6 +118,30 @@
       margin-top: 12px;
       align-items: end;
     }
+    .filters-toggle {
+      margin-left: auto;
+      height: 32px;
+      padding: 0 12px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      color: var(--text);
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      white-space: nowrap;
+      flex: 0 0 auto;
+    }
+    .filters-toggle:hover { border-color: var(--blue); color: var(--blue); }
+    .filters-toggle-icon { display: inline-block; transition: transform .18s ease; }
+    .filters-toggle.collapsed .filters-toggle-icon { transform: rotate(180deg); }
+    /* 收起状态：只保留 日期 / 品牌 / 产品 一行 */
+    .filters.collapsed .field[data-keep] { grid-column: span 3; }
+    .filters.collapsed .field:not([data-keep]),
+    .filters.collapsed .advanced-filters { display: none; }
     .field { display: grid; gap: 4px; min-width: 0; }
     .field label { color: var(--muted); font-size: 11px; font-weight: 700; }
     .span2 { grid-column: span 2; }
@@ -1025,6 +1049,7 @@
       .top-actions { justify-content: flex-start; }
       .filters { grid-template-columns: 1fr; }
       .span2, .span3, .span4, .span12 { grid-column: 1 / -1; }
+      .filters.collapsed .field[data-keep] { grid-column: 1 / -1; }
       .kpis { grid-template-columns: repeat(2, minmax(118px, 1fr)); }
       .compare-row input[type="date"] { width: 100%; min-width: min(128px, 100%); }
       .barrow, .barrow.with-share { grid-template-columns: minmax(88px, 1fr) 1fr 78px; }
@@ -1052,13 +1077,16 @@
       <div class="tabs" id="countryTabs">
         <button class="tab active" data-view="overview" data-country="ALL" type="button">数据概览</button>
         <button class="tab" data-view="dms" type="button">DMS素材</button>
+        <button class="filters-toggle" id="filtersToggle" type="button" aria-expanded="true" aria-controls="filtersBar" title="收起筛选，仅保留日期 / 品牌 / 产品">
+          <span class="filters-toggle-icon">▾</span><span class="filters-toggle-text">收起筛选</span>
+        </button>
       </div>
-      <div class="filters">
-        <div class="field span2">
+      <div class="filters" id="filtersBar">
+        <div class="field span2" data-keep="1">
           <label>开始日期</label>
           <input id="from" type="date" />
         </div>
-        <div class="field span2">
+        <div class="field span2" data-keep="1">
           <label>结束日期</label>
           <input id="to" type="date" />
         </div>
@@ -1077,7 +1105,7 @@
             <label><input type="checkbox" value="视频" checked />视频</label>
           </div>
         </div>
-        <div class="field span2">
+        <div class="field span2" data-keep="1">
           <label>品牌</label>
           <div class="multi-select" data-key="brand">
             <button class="multi-button" type="button"><span id="brandLabel">全部品牌</span></button>
@@ -1091,7 +1119,7 @@
             <div class="multi-panel" id="countryPanel"></div>
           </div>
         </div>
-        <div class="field span2">
+        <div class="field span2" data-keep="1">
           <label>产品</label>
           <div class="multi-select" data-key="product">
             <button class="multi-button" type="button"><span id="productLabel">全部产品</span></button>
@@ -2832,6 +2860,31 @@
       state.initialized = true;
       applyFilters(false);
     }
+
+    const FILTERS_COLLAPSE_KEY = 'np-lxp-filters-collapsed';
+
+    function applyFiltersCollapsed(collapsed, persist = true) {
+      const bar = $('filtersBar');
+      const button = $('filtersToggle');
+      if (bar) bar.classList.toggle('collapsed', !!collapsed);
+      if (button) {
+        button.classList.toggle('collapsed', !!collapsed);
+        button.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+        button.title = collapsed ? '展开全部筛选条件' : '收起筛选，仅保留日期 / 品牌 / 产品';
+        const text = button.querySelector('.filters-toggle-text');
+        if (text) text.textContent = collapsed ? '展开筛选' : '收起筛选';
+      }
+      if (persist) {
+        try { localStorage.setItem(FILTERS_COLLAPSE_KEY, collapsed ? '1' : '0'); } catch { /* ignore */ }
+      }
+    }
+
+    let filtersCollapsedInit = false;
+    try { filtersCollapsedInit = localStorage.getItem(FILTERS_COLLAPSE_KEY) === '1'; } catch { /* ignore */ }
+    applyFiltersCollapsed(filtersCollapsedInit, false);
+    $('filtersToggle').addEventListener('click', () => {
+      applyFiltersCollapsed(!$('filtersBar').classList.contains('collapsed'));
+    });
 
     $('shareLink').addEventListener('click', copyShareLink);
     $('exportExcel').addEventListener('click', exportVisibleTablesToExcel);
