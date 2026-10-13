@@ -42,6 +42,25 @@ const OUT = process.argv[3] || 'C:/tmp/shot.png';
   });
 
   await page.screenshot({ path: OUT, fullPage: false });
-  console.log(JSON.stringify({ info, errors: errors.slice(0, 25), errorCount: errors.length }, null, 2));
+
+  // DMS素材 视图
+  let dms = {};
+  try {
+    await page.click('#countryTabs [data-view="dms"]');
+    await page.waitForTimeout(6000);
+    dms = await page.evaluate(() => ({
+      cards: document.querySelectorAll('#dmsCards .dms-card').length,
+      cardsWithImg: document.querySelectorAll('#dmsCards .dms-card img').length,
+      tableRows: document.querySelectorAll('#dmsTable tbody tr').length,
+      subtitle: (document.getElementById('dmsSubtitle') || {}).textContent || '',
+      brokenImgs: [...document.querySelectorAll('#dmsCards img')]
+        .filter(i => i.complete && i.naturalWidth === 0).length,
+    }));
+    await page.screenshot({ path: OUT.replace(/\.png$/, '-dms.png'), fullPage: false });
+  } catch (e) {
+    dms = { error: String(e && e.message) };
+  }
+
+  console.log(JSON.stringify({ info, dms, errors: errors.slice(0, 25), errorCount: errors.length }, null, 2));
   await browser.close();
 })().catch(e => { console.error('FATAL', e); process.exit(1); });

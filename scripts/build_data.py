@@ -16,7 +16,7 @@ RAW = os.path.join(ROOT, "raw")
 DATA = os.path.join(ROOT, "data")
 
 COMBO_KEYS = ["NP-ID", "NP-MY", "LXP-ID", "LXP-MY"]
-MATERIAL_TYPE = {1: "图文", 2: "视频"}
+MATERIAL_TYPE = {1: "图文", 2: "视频", 3: "视频"}
 SOURCE_TYPE = {
     1: "剪辑系统",
     2: "设计素材",
@@ -67,6 +67,25 @@ def media_urls(row):
 
 
 ACCOUNT_COUNTRY_RE = re.compile(r"[-_](ID|MY|TH|TW|VN|PH|SG|US)[-_]", re.I)
+CODE_PREFIX_RE = re.compile(r"^([A-Za-z]{2})-")
+PRODUCT_SUFFIX_RE = re.compile(r"-[A-Za-z]{2}$")
+CJK_RE = re.compile(r"[\u4e00-\u9fff]")
+
+
+def product_from_ad(ad):
+    """广告行 / 广告名兜底解析产品名（DMS 广告命名约定：产品_类型_品牌_...）。"""
+    if not ad:
+        return ""
+    for key in ("productItemNames", "materialProductItemNames"):
+        value = ad.get(key)
+        if isinstance(value, str) and value.strip():
+            return PRODUCT_SUFFIX_RE.sub("", value.strip())
+        if isinstance(value, list) and value:
+            return PRODUCT_SUFFIX_RE.sub("", str(value[0]).strip())
+    head = str(ad.get("adName") or "").split("_")[0].strip()
+    if head and CJK_RE.search(head):
+        return head
+    return ""
 
 
 def ad_matches_country(ad, country):
@@ -142,12 +161,51 @@ def collect(combo):
                 values["addToCart"] = round(totals["cartGmv"] * w, 4)
         return days, totals
 
-    # 素材库（按国家隔离）为准；广告表仅用于补充 ad / campaign 元信息
-    all_codes = set(material_by_code)
+    # 素材级口径：趋势接口里有花费的全部素材（含未入库的 KOL / 剪辑系统素材）。
+    # 市场归属 = materialCode 前缀（ID-*/MY-*）；无前缀编码必须能在本国素材库中找到。
+    code_spend = {}
+    for fn in os.listdir(trend_dir):
+        code = fn[:-5].replace("_", "/")
+        try:
+            rows = load(os.path.join(trend_dir, fn)) or []
+        except Exception:  # noqa: BLE001
+            continue
+        s = sum(float(x.get("spend") or 0) for x in rows)
+        g = sum(float(x.get("gmv") or 0) for x in rows)
+        if s > 0 or g > 0:
+            code_spend[code] = (s, g)
+
+    def owns_market(code):
+        m = CODE_PREFIX_RE.match(code)
+        if m:
+            return m.group(1).lower() == country.lower()
+        return code in material_by_code
+
+    all_codes = {c for c in code_spend if owns_market(c)}
+    for code in material_by_code:
+        if code in code_spend:
+            continue
+        detail = load(os.path.join(detail_dir, code.replace("/", "_") + ".json"), None) or {}
+        if float(detail.get("spend") or 0) > 0 or float(detail.get("roi") or 0) > 0:
+            all_codes.add(code)
+
     for code in sorted(all_codes):
         meta = material_by_code.get(code) or {}
         ad_list = ads_by_code.get(code) or []
         detail = load(os.path.join(detail_dir, code.replace("/", "_") + ".json"), None) or {}
+        if not meta:
+            det_rows0 = detail.get("stats") or []
+            d0 = det_rows0[0] if det_rows0 else {}
+            meta = {
+                "materialName": detail.get("materialName") or code,
+                "productItemNames": detail.get("productItemNames") or "",
+                "adProductNames": "",
+                "materialType": None,
+                "dataFromType": d0.get("dataFromType"),
+                "ossFiles": d0.get("ossFiles") or [],
+                "networkDiskLink": d0.get("networkDiskLink") or "",
+                "createdAt": str(d0.get("startCostDate") or "")[:10],
+            }
         days, metric_totals = build_days(code)
         spend = round(sum(v["spend"] for v in days.values()), 4)
         gmv = round(sum(v["purchaseValue"] for v in days.values()), 4)
@@ -159,19 +217,26 @@ def collect(combo):
             spend, gmv = round(ad_spend, 4), round(ad_gmv, 4)
 
         mtype = meta.get("materialType")
-        type_label = MATERIAL_TYPE.get(mtype)
-        if not type_label:
-            type_label = "视频" if any((a.get("adName") or "").find("_V_") >= 0 for a in ad_list) else "图文"
+        preview, download, poster, is_video = media_urls(meta)
+        # 类型 3 实际也是视频文件；以 OSS 文件为准，避免误判
+        type_label = "视频" if is_video else MATERIAL_TYPE.get(mtype) or "图文"
 
         tag1_names = label_names(meta.get("firstLevelLabels"))
         tag2_names = label_names(meta.get("secondLevelLabels"))
         tag3_names = label_names(meta.get("thirdLevelLabels"))
         all_tags = tag1_names + tag2_names + tag3_names
 
-        product = (meta.get("adProductNames") or meta.get("productItemNames") or "未标注").strip()
         product_raw = (meta.get("productItemNames") or "").strip()
+        product = (meta.get("adProductNames") or product_raw or "未标注").strip()
+        # KOL / 剪辑系统素材的产品名常带国家后缀（如 黑色美白洁面皂-ID）-> 归一组去掉
+        product = PRODUCT_SUFFIX_RE.sub("", product) or "未标注"
+        if product == "未标注":
+            for ad in ad_list:
+                hit = product_from_ad(ad)
+                if hit:
+                    product = hit
+                    break
         created_at = str(meta.get("createdAt") or meta.get("uploadTime") or "")[:10]
-        preview, download, poster, is_video = media_urls(meta)
         primary_ad = ad_list[0] if ad_list else {}
         dates = sorted(days.keys())
 

@@ -99,15 +99,31 @@ def fetch_combo(key, brand, host, brand_id, country, tenant, token, log):
             log(f"    !! {tag} failed: {exc}")
             dump(os.path.join(out_dir, f"{tag}.json"), None)
 
-    # per-material daily trend.
-    # NOTE: igad/ads/page/all is NOT country-scoped (it mixes TH/US/MY/... rows),
-    # while igad/advertisement/allPage IS country-scoped. So the material library
-    # for this brand+country is the authoritative row set for the dashboard.
-    lib_codes = sorted({(m.get("materialCode") or "").strip() for m in materials} - {""})
-    ad_codes = {(a.get("materialCode") or "").strip() for a in ads} - {""}
-    targets = lib_codes
+    # per-material daily trend + detail.
+    # NOTE: igad/ads/page/all is NOT country-scoped (brand-wide, mixes TH/US/MY/...
+    # rows), while igad/advertisement/allPage IS country-scoped. Trend/detail APIs
+    # are brand-global (same payload regardless of fm-country), so we attribute the
+    # market in build_data.py via the materialCode prefix (ID-*/MY-*) plus library
+    # membership. Country attribution is also done in build_data.py.
+    lib_codes = {(m.get("materialCode") or "").strip() for m in materials} - {""}
+    spend_by_code = {}
+    last_cost = {}
+    for a in ads:
+        code = (a.get("materialCode") or "").strip()
+        if not code:
+            continue
+        spend_by_code[code] = spend_by_code.get(code, 0) + (a.get("totalSpend") or 0)
+        started = str(a.get("startCostDate") or "")
+        if started > last_cost.get(code, ""):
+            last_cost[code] = started
+    # Only fetch codes that were active in 2026 (plus the whole library) so the
+    # historical long tail does not explode the request count.
+    targets = sorted(
+        c for c, s in spend_by_code.items()
+        if s > 0 and (c in lib_codes or last_cost.get(c, "") >= "2026-01-01")
+    )
     log(f"  [{key}] per-material trend for {len(targets)} materials "
-        f"(library={len(lib_codes)}, ads-pool={len(ad_codes)}) ...")
+        f"(library={len(lib_codes)}, ads-pool={len(spend_by_code)}) ...")
 
     trend_dir = os.path.join(out_dir, "trend")
     detail_dir = os.path.join(out_dir, "detail")
@@ -145,12 +161,39 @@ def fetch_combo(key, brand, host, brand_id, country, tenant, token, log):
         done_d += 1
 
     with ThreadPoolExecutor(max_workers=TREND_WORKERS) as pool:
-        futures = [pool.submit(work, c) for c in targets] + [pool.submit(work_detail, c) for c in targets]
+        futures = [pool.submit(work, c) for c in targets]
         total = len(futures)
         for idx, fut in enumerate(as_completed(futures), 1):
             fut.result()
             if idx % 100 == 0:
-                log(f"      trend/detail {idx}/{total} (trend={done}/{failed}f detail={done_d}/{failed_d}f)")
+                log(f"      trend {idx}/{total} (fetched={done} failed={failed})")
+
+    # Detail payloads carry impressions / clicks / orders, but are much heavier
+    # than trends, so only fetch them for the library plus materials that
+    # actually spent money in the recent window.
+    detail_targets = set(lib_codes)
+    recent_from = "2026-04-01"
+    for code in targets:
+        path = os.path.join(trend_dir, code.replace("/", "_") + ".json")
+        if not os.path.exists(path):
+            continue
+        try:
+            days = load(path)
+        except Exception:  # noqa: BLE001
+            continue
+        if any(float(x.get("spend") or 0) > 0 and str(x.get("dataDate") or "") >= recent_from
+               for x in days):
+            detail_targets.add(code)
+    detail_targets = sorted(detail_targets)
+    log(f"  [{key}] detail for {len(detail_targets)} materials ...")
+
+    with ThreadPoolExecutor(max_workers=TREND_WORKERS) as pool:
+        futures = [pool.submit(work_detail, c) for c in detail_targets]
+        total_d = len(futures)
+        for idx, fut in enumerate(as_completed(futures), 1):
+            fut.result()
+            if idx % 100 == 0:
+                log(f"      detail {idx}/{total_d} (fetched={done_d} failed={failed_d})")
 
     meta = {
         "key": key, "brand": brand, "country": country, "host": host,
