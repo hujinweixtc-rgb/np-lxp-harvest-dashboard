@@ -1,0 +1,480 @@
+"""Build dashboard JSON payloads from raw DMS responses.
+
+Outputs:
+  data/materials.json      -> main dashboard payload (template-compatible posts[])
+  data/dms_materials.json  -> DMS material library payload (media previews)
+"""
+from __future__ import annotations
+
+import json
+import os
+import re
+from collections import defaultdict
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+RAW = os.path.join(ROOT, "raw")
+DATA = os.path.join(ROOT, "data")
+
+COMBO_KEYS = ["NP-ID", "NP-MY", "LXP-ID", "LXP-MY"]
+MATERIAL_TYPE = {1: "图文", 2: "视频"}
+SOURCE_TYPE = {
+    1: "剪辑系统",
+    2: "设计素材",
+    3: "KOL内容",
+    4: "KOL内容",
+    5: "UGC",
+}
+
+import time  # noqa: E402
+
+
+def load(path, default=None):
+    if not os.path.exists(path):
+        return default
+    with open(path, encoding="utf-8") as fh:
+        return json.load(fh)
+
+
+def label_names(labels):
+    if not labels:
+        return []
+    return [str(item.get("name") or "").strip() for item in labels if item.get("name")]
+
+
+def pick_tag(names, fallback="未标注"):
+    clean = [n for n in names if n]
+    return clean[0] if clean else fallback
+
+
+def media_urls(row):
+    """Return (previewUrl, downloadUrl, posterUrl, isVideo)."""
+    files = row.get("ossFiles") or []
+    if not files:
+        return "", "", "", False
+    first = files[0]
+    origin = str(first.get("originName") or "").lower()
+    is_video = origin.endswith((".mp4", ".mov", ".m4v")) or (first.get("mimeType") or "").startswith("video")
+    full = first.get("fullUrlWithHttps") or ""
+    if not full:
+        raw = first.get("fullUrl") or ""
+        full = ("https:" + raw) if raw.startswith("//") else raw
+    poster = ""
+    if is_video and full and "aliyuncs.com" in full:
+        poster = f"{full}{'&' if '?' in full else '?'}x-oss-process=video/snapshot,t_1000,f_jpg,w_800,m_fast"
+    elif not is_video:
+        poster = full
+    return poster, full, poster, is_video
+
+
+ACCOUNT_COUNTRY_RE = re.compile(r"[-_](ID|MY|TH|TW|VN|PH|SG|US)[-_]", re.I)
+
+
+def ad_matches_country(ad, country):
+    hit = ACCOUNT_COUNTRY_RE.search(ad.get("adAccountName") or "")
+    return bool(hit) and hit.group(1).upper() == country.upper()
+
+
+def collect(combo):
+    brand, country = combo.split("-")
+    base = os.path.join(RAW, combo)
+    materials = load(os.path.join(base, "materials.json"), []) or []
+    ads = load(os.path.join(base, "ads.json"), []) or []
+
+    # igad/ads/page/all is a cross-country pool -> keep only rows whose ad account
+    # belongs to this market, falling back to everything when nothing matches.
+    ads_by_code = defaultdict(list)
+    for ad in ads:
+        code = (ad.get("materialCode") or "").strip()
+        if code:
+            ads_by_code[code].append(ad)
+    for code, items in list(ads_by_code.items()):
+        scoped = [a for a in items if ad_matches_country(a, country)]
+        ads_by_code[code] = scoped or items
+
+    material_by_code = {}
+    for m in materials:
+        code = (m.get("materialCode") or "").strip()
+        if code and code not in material_by_code:
+            material_by_code[code] = m
+
+    trend_dir = os.path.join(base, "trend")
+    detail_dir = os.path.join(base, "detail")
+    posts = []
+    dms_rows = []
+
+    def build_days(code):
+        """趋势接口只给 spend/gmv；曝光 / 点击 / 订单来自 getAdvertisementDetials 的区间总量，
+        按当日花费占比摊到每一天（区间总量保持精确）。"""
+        raw_days = load(os.path.join(trend_dir, code.replace("/", "_") + ".json"), []) or []
+        detail = load(os.path.join(detail_dir, code.replace("/", "_") + ".json"), None) or {}
+        rows = detail.get("stats") or []
+        totals = {}
+        for key in ("impressions", "clicks", "orderCount", "cartGmv", "reach",
+                    "videoPlayActions", "videoP100WatchedActions"):
+            totals[key] = sum(float(r.get(key) or 0) for r in rows)
+
+        days = {}
+        for item in raw_days:
+            day = item.get("dataDate")
+            if not day:
+                continue
+            spend = float(item.get("spend") or 0)
+            gmv = float(item.get("gmv") or 0)
+            if spend <= 0 and gmv <= 0:
+                continue
+            days[day] = {"spend": round(spend, 4), "purchaseValue": round(gmv, 4)}
+        if not days:
+            return days, totals
+
+        total_spend = sum(v["spend"] for v in days.values())
+        if total_spend > 0:
+            weights = {d: v["spend"] / total_spend for d, v in days.items()}
+        else:
+            first = sorted(days)[0]
+            weights = {d: (1.0 if d == first else 0.0) for d in days}
+        for day, values in days.items():
+            w = weights[day]
+            values["impressions"] = int(round(totals.get("impressions", 0) * w))
+            values["allClick"] = int(round(totals.get("clicks", 0) * w))
+            values["linkClick"] = int(round(totals.get("clicks", 0) * w))
+            values["conversions"] = int(round(totals.get("orderCount", 0) * w))
+            if totals.get("cartGmv"):
+                values["addToCart"] = round(totals["cartGmv"] * w, 4)
+        return days, totals
+
+    # 素材库（按国家隔离）为准；广告表仅用于补充 ad / campaign 元信息
+    all_codes = set(material_by_code)
+    for code in sorted(all_codes):
+        meta = material_by_code.get(code) or {}
+        ad_list = ads_by_code.get(code) or []
+        detail = load(os.path.join(detail_dir, code.replace("/", "_") + ".json"), None) or {}
+        days, metric_totals = build_days(code)
+        spend = round(sum(v["spend"] for v in days.values()), 4)
+        gmv = round(sum(v["purchaseValue"] for v in days.values()), 4)
+        if spend <= 0 and gmv <= 0:
+            ad_spend = sum(float(a.get("totalSpend") or 0) for a in ad_list)
+            ad_gmv = sum(float(a.get("totalGmv") or 0) for a in ad_list)
+            if ad_spend <= 0 and ad_gmv <= 0:
+                continue
+            spend, gmv = round(ad_spend, 4), round(ad_gmv, 4)
+
+        mtype = meta.get("materialType")
+        type_label = MATERIAL_TYPE.get(mtype)
+        if not type_label:
+            type_label = "视频" if any((a.get("adName") or "").find("_V_") >= 0 for a in ad_list) else "图文"
+
+        tag1_names = label_names(meta.get("firstLevelLabels"))
+        tag2_names = label_names(meta.get("secondLevelLabels"))
+        tag3_names = label_names(meta.get("thirdLevelLabels"))
+        all_tags = tag1_names + tag2_names + tag3_names
+
+        product = (meta.get("adProductNames") or meta.get("productItemNames") or "未标注").strip()
+        product_raw = (meta.get("productItemNames") or "").strip()
+        created_at = str(meta.get("createdAt") or meta.get("uploadTime") or "")[:10]
+        preview, download, poster, is_video = media_urls(meta)
+        primary_ad = ad_list[0] if ad_list else {}
+        dates = sorted(days.keys())
+
+        det_rows = detail.get("stats") or []
+        det_first = det_rows[0] if det_rows else {}
+        impressions = int(sum(float(r.get("impressions") or 0) for r in det_rows))
+        clicks = int(sum(float(r.get("clicks") or 0) for r in det_rows))
+        conversions = int(sum(float(r.get("orderCount") or 0) for r in det_rows))
+        video_plays = int(sum(float(r.get("videoPlayActions") or 0) for r in det_rows))
+
+        post = {
+            "key": f"{brand}|{country}|{code}",
+            "materialCode": code,
+            "materialName": meta.get("materialName") or "",
+            "adName": meta.get("adName") or det_first.get("adName") or primary_ad.get("adName") or "",
+            "brand": brand,
+            "country": country,
+            "product": product or "未标注",
+            "productRaw": product_raw or product,
+            "materialType": type_label,
+            "graphicType": SOURCE_TYPE.get(meta.get("dataFromType"), "未标注"),
+            "tag1": pick_tag(tag1_names),
+            "tag2": pick_tag(tag2_names),
+            "tag3": pick_tag(tag3_names),
+            "tagsAll": " / ".join(all_tags),
+            "tag1List": tag1_names,
+            "tag2List": tag2_names,
+            "tag3List": tag3_names,
+            "materialCreatedAt": created_at,
+            "firstDate": dates[0] if dates else "",
+            "lastDate": dates[-1] if dates else "",
+            "designerName": meta.get("designerName") or "",
+            "planPicName": meta.get("planPicName") or "",
+            "advertiser": det_first.get("advertiserName") or primary_ad.get("advertiserName") or "",
+            "accountName": det_first.get("accountName") or primary_ad.get("adAccountName") or "",
+            "campaignName": det_first.get("campaignName") or primary_ad.get("campaignName") or "",
+            "adSetName": det_first.get("adSetName") or primary_ad.get("adSetName") or "",
+            "adStatus": det_first.get("adStatus") or primary_ad.get("status") or "",
+            "deliveryPlatform": det_first.get("deliveryPlatform") or "",
+            "startCostDate": str(det_first.get("startCostDate") or primary_ad.get("startCostDate") or "")[:10],
+            "sourceAdCount": max(len(ad_list), len(det_rows)),
+            "mediaUrl": download,
+            "previewUrl": preview,
+            "posterUrl": poster,
+            "isVideo": is_video,
+            "networkDiskLink": meta.get("networkDiskLink") or "",
+            "spend": spend,
+            "purchaseValue": gmv,
+            "impressions": impressions,
+            "allClick": clicks,
+            "linkClick": clicks,
+            "conversions": conversions,
+            "addToCart": 0,
+            "videoPlays": video_plays,
+            "days": days,
+        }
+        posts.append(post)
+
+        if spend > 0 or gmv > 0:
+            dms_rows.append({
+                "key": code,
+                "materialCode": code,
+                "materialId": code,
+                "materialName": meta.get("materialName") or "",
+                "adName": post["adName"],
+                "brand": brand,
+                "country": country,
+                "product": post["product"],
+                "materialType": type_label,
+                "graphicType": post["graphicType"],
+                "tag1": post["tag1"],
+                "tag2": post["tag2"],
+                "tag3": post["tag3"],
+                "spend": spend,
+                "orders": conversions,
+                "gmv": gmv,
+                "impressions": impressions,
+                "clicks": clicks,
+                "roi": round(gmv / spend, 4) if spend else 0,
+                "createdAt": created_at,
+                "uploadTime": str(meta.get("uploadTime") or "")[:10],
+                "designerName": post["designerName"],
+                "planPicName": post["planPicName"],
+                "advertiser": post["advertiser"],
+                "campaignName": post["campaignName"],
+                "adSetName": post["adSetName"],
+                "adStatus": post["adStatus"],
+                "matchedDms": True,
+                "downloadReady": bool(download),
+                "hasMedia": bool(download),
+                "isVideo": is_video,
+                "mediaUrl": download,
+                "previewUrl": preview,
+                "posterUrl": poster,
+                "downloadUrl": download,
+                "networkDiskLink": post["networkDiskLink"],
+                "videoScale": meta.get("videoScale") or "",
+                "paidMonth": (dates[0][:7] if dates else ""),
+            })
+
+    return posts, dms_rows
+
+
+COUNTRY_LABEL = {"id": "印尼", "my": "马来"}
+BRAND_LABEL = {"NP": "NP", "LXP": "LXP"}
+DAY_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+
+# DMS board payloads use different key names across endpoints -> normalize.
+FIELD_ALIASES = {
+    "date": ("dataDate", "date", "statDate", "statisticDate", "dataDateStr", "category"),
+    "spend": ("spend", "totalSpend", "cost", "costAmount"),
+    "gmv": ("gmv", "totalGmv", "orderGmv", "purchaseValue", "payGmv"),
+    "roi": ("roi", "totalRoi"),
+    "impressions": ("impressions", "showCount", "exposureCount", "impressionCount"),
+    "clicks": ("clicks", "clickCount", "allClick", "allClickCount"),
+    "linkClicks": ("linkClicks", "linkClickCount", "linkClick"),
+    "orderCount": ("orderCount", "orderNum", "orders", "conversionCount", "payOrderCount"),
+    "cartGmv": ("cartGmv", "addCartGmv", "cartAmount"),
+    "reach": ("reach", "reachCount", "reachNum"),
+    "newMaterialCount": ("newMaterialCount", "materialCount", "newMaterialNum"),
+}
+
+
+def pick_field(item, name, default=0):
+    for alias in FIELD_ALIASES.get(name, (name,)):
+        if isinstance(item, dict) and item.get(alias) is not None:
+            return item.get(alias)
+    return default
+
+
+def as_list(payload):
+    if payload is None:
+        return []
+    if isinstance(payload, list):
+        return payload
+    if isinstance(payload, dict):
+        for key in ("list", "records", "rows", "data", "items", "content"):
+            value = payload.get(key)
+            if isinstance(value, list):
+                return value
+    return []
+
+
+def build_board():
+    combos = []
+    days_all = []
+    for combo in COMBO_KEYS:
+        brand, country = combo.split("-")
+        base = os.path.join(RAW, combo)
+        daily_raw = as_list(load(os.path.join(base, "board_daily.json"), None))
+        daily = []
+        for item in daily_raw:
+            day = str(pick_field(item, "date", "") or "")[:10]
+            if not DAY_RE.match(day):
+                continue
+            daily.append({
+                "date": day,
+                "spend": round(float(pick_field(item, "spend") or 0), 4),
+                "gmv": round(float(pick_field(item, "gmv") or 0), 4),
+                "roi": round(float(pick_field(item, "roi") or 0), 4),
+                "impressions": int(float(pick_field(item, "impressions") or 0)),
+                "clicks": int(float(pick_field(item, "clicks") or 0)),
+                "linkClicks": int(float(pick_field(item, "linkClicks") or 0)),
+                "orderCount": int(float(pick_field(item, "orderCount") or 0)),
+                "cartGmv": round(float(pick_field(item, "cartGmv") or 0), 4),
+                "reach": int(float(pick_field(item, "reach") or 0)),
+            })
+        daily.sort(key=lambda x: x["date"])
+
+        summary = {"spend": 0.0, "gmv": 0.0, "impressions": 0, "clicks": 0,
+                   "linkClicks": 0, "orderCount": 0, "cartGmv": 0.0, "reach": 0}
+        for item in daily:
+            summary["spend"] += item["spend"]
+            summary["gmv"] += item["gmv"]
+            summary["impressions"] += item["impressions"]
+            summary["clicks"] += item["clicks"]
+            summary["linkClicks"] += item["linkClicks"]
+            summary["orderCount"] += item["orderCount"]
+            summary["cartGmv"] += item["cartGmv"]
+            summary["reach"] += item["reach"]
+        summary["spend"] = round(summary["spend"], 4)
+        summary["gmv"] = round(summary["gmv"], 4)
+        summary["roi"] = round(summary["gmv"] / summary["spend"], 4) if summary["spend"] else 0
+        summary["ctr"] = round(summary["linkClicks"] / summary["impressions"], 6) if summary["impressions"] else 0
+        summary["cpm"] = round(summary["spend"] / summary["impressions"] * 1000, 4) if summary["impressions"] else 0
+        summary["cpa"] = round(summary["spend"] / summary["orderCount"], 4) if summary["orderCount"] else 0
+        summary["aov"] = round(summary["gmv"] / summary["orderCount"], 4) if summary["orderCount"] else 0
+
+        # product-level board (可选，用于后续扩展)
+        products = []
+        for item in as_list(load(os.path.join(base, "board_product.json"), None)):
+            name = item.get("productItemName") or item.get("productName") or item.get("name")
+            if not name:
+                continue
+            spend = float(pick_field(item, "spend") or 0)
+            gmv = float(pick_field(item, "gmv") or 0)
+            products.append({
+                "name": str(name),
+                "spend": round(spend, 4),
+                "gmv": round(gmv, 4),
+                "roi": round(gmv / spend, 4) if spend else 0,
+                "orderCount": int(float(pick_field(item, "orderCount") or 0)),
+                "impressions": int(float(pick_field(item, "impressions") or 0)),
+                "newMaterialCount": int(float(pick_field(item, "newMaterialCount") or 0)),
+            })
+        products.sort(key=lambda x: x["spend"], reverse=True)
+
+        days_all.extend(item["date"] for item in daily)
+        combos.append({
+            "key": combo,
+            "brand": BRAND_LABEL.get(brand, brand),
+            "country": country.upper(),
+            "countryLabel": COUNTRY_LABEL.get(country, country.upper()),
+            "summary": summary,
+            "daily": daily,
+            "products": products,
+        })
+
+    days_all = sorted(set(days_all))
+    payload = {
+        "generatedAt": time.strftime("%Y-%m-%d %H:%M:%S"),
+        "source": "NP / LXP DMS igad 大盘（selectAdDateBoardData）",
+        "range": {"start": days_all[0] if days_all else "", "end": days_all[-1] if days_all else ""},
+        "combos": combos,
+    }
+    with open(os.path.join(DATA, "board.json"), "w", encoding="utf-8") as fh:
+        json.dump(payload, fh, ensure_ascii=False)
+    for combo in combos:
+        print(f"board {combo['key']}: days={len(combo['daily'])} spend={combo['summary']['spend']} gmv={combo['summary']['gmv']}", flush=True)
+    return payload
+
+
+def main():
+    posts, dms_rows = [], []
+    for combo in COMBO_KEYS:
+        try:
+            p, d = collect(combo)
+            print(f"{combo}: posts={len(p)} dms={len(d)}", flush=True)
+            posts.extend(p)
+            dms_rows.extend(d)
+        except Exception as exc:  # noqa: BLE001
+            print(f"{combo}: FAILED {exc}", flush=True)
+
+    days_all = sorted({day for post in posts for day in post["days"]})
+    include_from = days_all[0] if days_all else ""
+    include_to = days_all[-1] if days_all else ""
+    # 默认展示最近 30 天（模板同样默认单月区间）
+    default_from = include_from
+    if include_to:
+        end = time.strptime(include_to, "%Y-%m-%d")
+        start_ts = time.mktime(end) - 29 * 86400
+        default_from = time.strftime("%Y-%m-%d", time.localtime(start_ts))
+        if default_from < include_from:
+            default_from = include_from
+
+    raw_rows = 0
+    for combo in COMBO_KEYS:
+        raw_rows += len(load(os.path.join(RAW, combo, "materials.json"), []) or [])
+
+    type_counts = defaultdict(int)
+    for post in posts:
+        type_counts[post["materialType"]] += 1
+
+    payload = {
+        "generatedAt": time.strftime("%Y-%m-%d %H:%M:%S"),
+        "source": "NP / LXP DMS（IG 素材库 + 广告投放 + 素材每日趋势）",
+        "currency": "USD",
+        "rawRows": raw_rows,
+        "includedRows": len(posts),
+        "materialTypeCounts": dict(type_counts),
+        "filters": {
+            "performanceFrom": default_from,
+            "performanceTo": include_to,
+            "dataFrom": include_from,
+            "dataTo": include_to,
+            "materialTypes": ["图文", "视频"],
+        },
+        "brands": ["NP", "LXP"],
+        "countries": ["ID", "MY"],
+        "posts": posts,
+    }
+    os.makedirs(DATA, exist_ok=True)
+    try:
+        build_board()
+    except Exception as exc:  # noqa: BLE001
+        print(f"board: FAILED {exc}", flush=True)
+    with open(os.path.join(DATA, "materials.json"), "w", encoding="utf-8") as fh:
+        json.dump(payload, fh, ensure_ascii=False)
+
+    dms_payload = {
+        "generatedAt": time.strftime("%Y-%m-%d %H:%M:%S"),
+        "source": "NP / LXP DMS IG 已投放素材（有花费）",
+        "paidFrom": include_from,
+        "paidTo": include_to,
+        "dmsUrl": "https://web.npdms.com/dms/id/ad/#/place/material",
+        "count": len(dms_rows),
+        "rows": dms_rows,
+    }
+    with open(os.path.join(DATA, "dms_materials.json"), "w", encoding="utf-8") as fh:
+        json.dump(dms_payload, fh, ensure_ascii=False)
+
+    print(f"\nposts={len(posts)} dms_rows={len(dms_rows)} days={include_from}~{include_to}")
+
+
+if __name__ == "__main__":
+    main()

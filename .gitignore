@@ -1,0 +1,11 @@
+# 原始抓取缓存（体积大，可随时用 scripts/fetch_dms.py 重新生成）
+raw/
+
+# 数据临时文件
+*.log
+*.tmp
+
+# Python
+__pycache__/
+*.pyc
+.venv/

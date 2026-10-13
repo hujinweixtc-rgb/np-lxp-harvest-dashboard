@@ -1,0 +1,2955 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>NP / LXP 收割素材看板</title>
+  <link rel="icon" href="data:," />
+  <style>
+    :root {
+      --bg: #f4f6f8;
+      --panel: #ffffff;
+      --ink: #1f2933;
+      --muted: #667085;
+      --line: #d8dee6;
+      --deep: #17202a;
+      --blue: #2f6f9f;
+      --teal: #0f766e;
+      --green: #157347;
+      --red: #b42318;
+      --amber: #9b6a32;
+      --soft-blue: #e8f1f7;
+      --soft-green: #e9f7ef;
+      --soft-red: #feeceb;
+      --soft-amber: #fff4e5;
+      --shadow: 0 10px 24px rgba(18, 30, 46, .06);
+      --radius: 8px;
+      --sans: Arial, "Microsoft YaHei", sans-serif;
+      --mono: Consolas, ui-monospace, monospace;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: linear-gradient(180deg, #f7f8fb, #edf1f5);
+      color: var(--ink);
+      font: 13px/1.45 var(--sans);
+    }
+    .shell { max-width: 1480px; margin: 0 auto; padding: 0 18px 42px; }
+    .top {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      background: rgba(244, 246, 248, .96);
+      backdrop-filter: blur(8px);
+      border-bottom: 1px solid var(--line);
+      padding: 14px 0 12px;
+    }
+    .topline { display: flex; justify-content: space-between; align-items: flex-start; gap: 14px; }
+    h1 { margin: 0; font-size: 21px; color: var(--deep); }
+    .sub { margin-top: 4px; color: var(--muted); font: 11px var(--mono); }
+    .top-actions { display: flex; align-items: flex-start; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+    .badge {
+      display: inline-flex;
+      min-height: 28px;
+      align-items: center;
+      border-radius: 7px;
+      padding: 0 9px;
+      font-size: 11px;
+      font-weight: 800;
+      white-space: nowrap;
+      background: var(--soft-blue);
+      color: #34495a;
+      border: 1px solid transparent;
+    }
+    .version-badge {
+      background: #fff;
+      border-color: var(--line);
+      color: var(--deep);
+      font-family: var(--mono);
+    }
+    button {
+      height: 32px;
+      border-radius: 7px;
+      border: 1px solid var(--line);
+      background: #fff;
+      color: var(--ink);
+      padding: 0 10px;
+      font: inherit;
+      font-weight: 800;
+      cursor: pointer;
+      min-width: 0;
+    }
+    button.primary { background: var(--deep); border-color: var(--deep); color: #fff; }
+    button.ghost { background: #eef3f8; color: #25313d; }
+    button:disabled { cursor: wait; opacity: .72; }
+    input {
+      width: 100%;
+      height: 32px;
+      border-radius: 7px;
+      border: 1px solid var(--line);
+      background: #fff;
+      color: var(--ink);
+      padding: 0 9px;
+      font: inherit;
+      min-width: 0;
+    }
+    .tabs { display: flex; gap: 8px; margin-top: 12px; overflow: auto; }
+    .tab {
+      height: 34px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--panel);
+      color: var(--muted);
+      font-weight: 800;
+      padding: 0 12px;
+      white-space: nowrap;
+    }
+    .tab.active { background: var(--deep); border-color: var(--deep); color: #fff; }
+    .status {
+      margin-top: 9px;
+      color: var(--muted);
+      font-size: 12px;
+      min-height: 18px;
+    }
+    .filters {
+      display: grid;
+      grid-template-columns: repeat(12, minmax(0, 1fr));
+      gap: 9px;
+      margin-top: 12px;
+      align-items: end;
+    }
+    .field { display: grid; gap: 4px; min-width: 0; }
+    .field label { color: var(--muted); font-size: 11px; font-weight: 700; }
+    .span2 { grid-column: span 2; }
+    .span3 { grid-column: span 3; }
+    .span4 { grid-column: span 4; }
+    .span12 { grid-column: 1 / -1; }
+    .type-toggle {
+      min-height: 32px;
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .type-toggle label {
+      height: 32px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      background: #fff;
+      color: var(--deep);
+      padding: 0 9px;
+      font-size: 12px;
+      font-weight: 900;
+      cursor: pointer;
+    }
+    .type-toggle input {
+      width: 14px;
+      height: 14px;
+      min-width: 14px;
+      accent-color: var(--deep);
+    }
+    .multi-select { position: relative; min-width: 0; }
+    .multi-select.open { z-index: 80; }
+    .multi-button {
+      width: 100%;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      text-align: left;
+      font-weight: 400;
+      background: #fff;
+    }
+    .multi-button span {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .multi-button::after { content: "⌄"; color: var(--muted); font-size: 13px; }
+    .multi-panel {
+      position: absolute;
+      top: calc(100% + 5px);
+      left: 0;
+      z-index: 60;
+      width: max(100%, 286px);
+      max-height: 360px;
+      overflow: auto;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      background: #fff;
+      box-shadow: 0 14px 28px rgba(18, 30, 46, .16);
+      padding: 8px;
+      display: none;
+    }
+    .multi-select.open .multi-panel { display: block; }
+    .multi-actions {
+      display: flex;
+      gap: 6px;
+      padding-bottom: 7px;
+      border-bottom: 1px solid var(--line);
+      margin-bottom: 6px;
+    }
+    .multi-actions button {
+      height: 26px;
+      padding: 0 8px;
+      font-size: 11px;
+      background: #eef3f8;
+    }
+    .multi-search {
+      width: 100%;
+      height: 28px;
+      margin: 0 0 6px;
+      border-radius: 6px;
+      border: 1px solid var(--line);
+      padding: 0 8px;
+      font-size: 12px;
+      background: #fff;
+    }
+    .multi-list {
+      display: grid;
+      gap: 2px;
+    }
+    .multi-option {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      min-height: 28px;
+      padding: 3px 4px;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    .multi-option:hover { background: #f1f5f9; }
+    .multi-option input {
+      width: 16px;
+      height: 16px;
+      min-width: 16px;
+      accent-color: var(--deep);
+    }
+    .multi-option span {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .multi-empty {
+      padding: 8px 4px 4px;
+      color: var(--muted);
+      font-size: 12px;
+      text-align: center;
+    }
+    .search-hidden { display: none !important; }
+    .advanced-filters {
+      grid-column: 1 / -1;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(255, 255, 255, .72);
+      box-shadow: 0 4px 12px rgba(18, 30, 46, .04);
+    }
+    .advanced-filters summary {
+      min-height: 34px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 0 11px;
+      color: var(--deep);
+      font-size: 12px;
+      font-weight: 900;
+      cursor: pointer;
+      list-style: none;
+    }
+    .advanced-filters summary::-webkit-details-marker { display: none; }
+    .advanced-filters summary::after {
+      content: "+";
+      color: var(--muted);
+      font-size: 15px;
+      line-height: 1;
+    }
+    .advanced-filters[open] summary::after { content: "-"; }
+    .advanced-count {
+      margin-left: auto;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 800;
+    }
+    .advanced-body {
+      display: grid;
+      gap: 9px;
+      padding: 0 11px 11px;
+    }
+    .compare-field { min-width: 0; overflow-x: auto; }
+    .compare-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      min-height: 32px;
+      flex-wrap: wrap;
+    }
+    .switch {
+      width: 38px;
+      height: 22px;
+      position: relative;
+      display: inline-block;
+      flex: 0 0 auto;
+    }
+    .switch input { display: none; }
+    .switch span {
+      position: absolute;
+      inset: 0;
+      border-radius: 999px;
+      background: #d8dee6;
+      cursor: pointer;
+      transition: .15s;
+    }
+    .switch span::after {
+      content: "";
+      position: absolute;
+      top: 3px;
+      left: 3px;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: #fff;
+      box-shadow: 0 1px 3px rgba(0,0,0,.22);
+      transition: .15s;
+    }
+    .switch input:checked + span { background: var(--deep); }
+    .switch input:checked + span::after { transform: translateX(16px); }
+    .compare-mode {
+      height: 28px;
+      padding: 0 9px;
+      font-size: 11px;
+      background: #fff;
+      color: var(--deep);
+      white-space: nowrap;
+    }
+    .compare-mode.active {
+      background: var(--deep);
+      border-color: var(--deep);
+      color: #fff;
+    }
+    .compare-row input { height: 28px; padding: 0 7px; }
+    .compare-row input[type="date"] { width: 128px; min-width: 128px; }
+    .compare-off { color: var(--muted); font-size: 12px; white-space: nowrap; }
+    .compare-row:not(.disabled) .compare-off { display: none; }
+    .compare-row.disabled .compare-mode,
+    .compare-row.disabled input { display: none; }
+    .main { padding-top: 16px; }
+    .view[hidden] { display: none; }
+    .kpis {
+      display: grid;
+      grid-template-columns: repeat(8, minmax(118px, 1fr));
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+    .kpi, .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+    }
+    .kpi { padding: 11px; min-height: 90px; }
+    .kpi.primary-kpi {
+      border-color: #b9c7d5;
+      background: linear-gradient(180deg, #fff, #f8fbfd);
+    }
+    .kpi .label { color: var(--muted); font-size: 12px; }
+    .kpi .value { margin-top: 6px; font-size: 22px; font-weight: 900; color: var(--deep); }
+    .kpi .note { margin-top: 3px; font-size: 11px; color: var(--muted); }
+    .delta-line {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+      margin-top: 7px;
+      font-size: 11px;
+    }
+    .delta {
+      display: inline-flex;
+      align-items: center;
+      min-height: 20px;
+      border-radius: 6px;
+      padding: 0 6px;
+      font-weight: 900;
+      background: #f1f5f9;
+      color: #475467;
+      white-space: nowrap;
+    }
+    .delta.good { background: #e8f5f3; color: var(--teal); }
+    .delta.bad { background: #fef3f2; color: var(--red); }
+    .delta-range {
+      display: inline-flex;
+      align-items: center;
+      min-height: 20px;
+      color: var(--muted);
+      white-space: nowrap;
+    }
+    .metric-cell {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 3px;
+    }
+    .metric-value {
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+    .roi-high { color: var(--red); font-weight: 900; }
+    .roi-low { color: var(--teal); font-weight: 900; }
+    .roi-mid { color: var(--ink); font-weight: 900; }
+    .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px; }
+    .grid2 > * { min-width: 0; }
+    .grid3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin-bottom: 14px; }
+    .grid3 > * { min-width: 0; }
+    .head {
+      min-height: 44px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--line);
+    }
+    .head h2 { margin: 0; font-size: 14px; color: var(--deep); }
+    .small { color: var(--muted); font-size: 11px; }
+    .pad { padding: 14px; }
+    .chart { width: 100%; height: 280px; display: block; cursor: pointer; }
+    .barrow {
+      display: grid;
+      grid-template-columns: minmax(112px, 1fr) 1.4fr 88px 58px 52px;
+      align-items: center;
+      gap: 8px;
+      margin: 8px 0;
+    }
+    .barrow.with-share {
+      grid-template-columns: minmax(112px, 1fr) 1.4fr 88px 58px 52px 70px;
+    }
+    .barrow.header {
+      margin-top: 0;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 800;
+    }
+    .name { font-weight: 800; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .track { height: 10px; background: #e8edf2; border-radius: 999px; overflow: hidden; }
+    .fill { height: 100%; background: var(--deep); border-radius: 999px; }
+    .fill.video { background: var(--teal); }
+    .fill.image { background: var(--blue); }
+    .num { text-align: right; font-family: var(--mono); }
+    #productBars {
+      overflow: auto;
+      max-height: 420px;
+    }
+    .compact-table {
+      width: 100%;
+      min-width: 760px;
+      border-collapse: collapse;
+      background: #fff;
+    }
+    .compact-table th,
+    .compact-table td {
+      padding: 8px 10px;
+      font-size: 12px;
+    }
+    .sortable { cursor: pointer; user-select: none; }
+    .sort-indicator {
+      margin-left: 3px;
+      font-size: 10px;
+      color: var(--muted);
+    }
+    .sort-indicator.active { color: var(--deep); }
+    .tag-groups {
+      display: grid;
+      gap: 10px;
+    }
+    .tag-group {
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      overflow: hidden;
+      background: #fff;
+    }
+    .tag-group-head {
+      display: grid;
+      grid-template-columns: minmax(120px, 1fr) 62px 52px 52px;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 10px;
+      background: #f7fafc;
+      border-bottom: 1px solid var(--line);
+      font-weight: 800;
+    }
+    .tag-group-title {
+      grid-column: 1 / 3;
+      min-width: 0;
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      overflow: hidden;
+    }
+    .tag-group-title > span:first-child { flex: 0 0 auto; }
+    .tag-group-head .small {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-weight: 700;
+    }
+    .tag-column-head {
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 800;
+      text-align: right;
+      white-space: nowrap;
+    }
+    .tag-group-body {
+      display: grid;
+      gap: 6px;
+      padding: 8px 10px 10px;
+    }
+    .tag-row {
+      display: grid;
+      grid-template-columns: minmax(120px, 1fr) 62px 52px 52px;
+      gap: 8px;
+      align-items: center;
+      min-height: 20px;
+    }
+    .tag-row .label {
+      font-weight: 800;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .tag-row .track { height: 8px; }
+    .tag-row .num { font-size: 12px; }
+    .tree-section { margin-bottom: 14px; }
+    .tree-shell {
+      padding: 14px;
+      display: grid;
+      gap: 14px;
+    }
+    .tree-map {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      min-height: 320px;
+      align-items: stretch;
+    }
+    .tree-root {
+      min-width: 0;
+      min-width: 240px;
+      flex: 1 1 0;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      overflow: hidden;
+      background: #f8fafc;
+      display: flex;
+      flex-direction: column;
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,.4);
+    }
+    .tree-root-head {
+      padding: 10px 11px 8px;
+      border-bottom: 1px solid rgba(215, 221, 230, .9);
+      display: grid;
+      gap: 4px;
+      background: rgba(255,255,255,.65);
+    }
+    .tree-root-title,
+    .tree-child-title {
+      font-weight: 900;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .tree-root-meta,
+    .tree-child-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px 8px;
+      font-size: 11px;
+      color: var(--muted);
+    }
+    .tree-root-body {
+      flex: 1 1 auto;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      padding: 10px;
+    }
+    .tree-child {
+      min-height: 0;
+      border-radius: 7px;
+      padding: 9px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      color: #fff;
+      box-shadow: 0 1px 2px rgba(0,0,0,.08);
+    }
+    .tree-child.roi-high { background: linear-gradient(180deg, #c82b24, #aa2119); }
+    .tree-child.roi-low { background: linear-gradient(180deg, #588845, #4d7b3d); }
+    .tree-child.roi-mid { background: linear-gradient(180deg, #6f7f8f, #5e6e7d); }
+    .tree-child .tree-child-title,
+    .tree-child .tree-child-meta { color: #fff; }
+    .tree-child-leaves {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .tree-leaf {
+      display: inline-flex;
+      align-items: center;
+      min-height: 20px;
+      padding: 0 7px;
+      border-radius: 999px;
+      background: rgba(255,255,255,.18);
+      font-size: 11px;
+      font-weight: 800;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 100%;
+    }
+    .tree-legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 12px;
+      color: var(--muted);
+      font-size: 11px;
+    }
+    .tree-table-wrap { max-height: 480px; }
+    .tree-table-wrap table { min-width: 1040px; }
+    .tree-indent {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      min-width: 0;
+    }
+    .tree-indent .depth {
+      flex: 0 0 auto;
+      color: var(--muted);
+      font-size: 11px;
+      width: 18px;
+      text-align: center;
+    }
+    .table-tools {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+    }
+    .table-wrap { overflow: auto; max-height: 720px; border-top: 1px solid var(--line); }
+    table { width: 100%; min-width: 1480px; border-collapse: collapse; background: #fff; }
+    .product-dim-wrap { max-height: 460px; }
+    .product-dim-wrap table { min-width: 920px; }
+    th, td { border-bottom: 1px solid var(--line); padding: 9px 10px; text-align: left; vertical-align: top; }
+    th {
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      background: #eef4f8;
+      color: #344054;
+      font-size: 11px;
+      white-space: nowrap;
+      cursor: pointer;
+    }
+    td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+    td.heat {
+      background-image: linear-gradient(90deg, var(--heat-color) var(--heat-width), transparent var(--heat-width));
+      background-repeat: no-repeat;
+      font-weight: 900;
+    }
+    .heat-spend { --heat-color: rgba(52, 64, 84, .22); }
+    .heat-gmv { --heat-color: rgba(47, 111, 159, .18); }
+    .heat-roi { --heat-color: rgba(180, 35, 24, .14); }
+    .heat-cpm { --heat-color: rgba(15, 118, 110, .12); }
+    .heat-ctr { --heat-color: rgba(180, 83, 9, .16); }
+    .heat-posts { --heat-color: rgba(15, 118, 110, .18); }
+    .table-wrap table th:first-child,
+    .table-wrap table td:first-child {
+      position: sticky;
+      left: 0;
+      z-index: 2;
+      background: inherit;
+      box-shadow: 1px 0 0 var(--line);
+      min-width: 270px;
+      max-width: 330px;
+    }
+    .table-wrap table th:first-child {
+      z-index: 3;
+      background: #eef4f8;
+    }
+    .creative-cell { display: grid; gap: 4px; }
+    .creative-cell b {
+      display: block;
+      max-width: 290px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      color: var(--deep);
+    }
+    .creative-cell span {
+      display: block;
+      max-width: 290px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      color: var(--muted);
+      font-size: 11px;
+    }
+    .dms-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 12px;
+    }
+    .creative-count { color: var(--muted); font-size: 12px; }
+    .creative-count b { color: var(--deep); font: 15px var(--mono); }
+    .sort-pills { display: flex; gap: 6px; flex-wrap: wrap; }
+    .sort-pills button { height: 28px; padding: 0 9px; font-size: 12px; }
+    .sort-pills button.active { background: var(--deep); border-color: var(--deep); color: #fff; }
+    .dms-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+      gap: 12px;
+    }
+    .dms-card {
+      min-width: 0;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: #fff;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    .dms-cover {
+      aspect-ratio: 4 / 5;
+      display: grid;
+      place-items: center;
+      background: #f2f7fb;
+      color: var(--muted);
+      font-weight: 900;
+      position: relative;
+      overflow: hidden;
+    }
+    .dms-cover img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+    .dms-cover video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+      background: #f2f7fb;
+    }
+    .dms-video-wrap {
+      width: 100%;
+      height: 100%;
+      display: block;
+      position: relative;
+      background: #f2f7fb;
+      overflow: hidden;
+    }
+    .dms-media-shell {
+      width: 100%;
+      height: 100%;
+      position: relative;
+      display: block;
+      overflow: hidden;
+      background: #f2f7fb;
+    }
+    .dms-media-shell > img,
+    .dms-media-shell > video {
+      position: absolute;
+      inset: 0;
+      z-index: 2;
+    }
+    .dms-fallback-cover {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 16px;
+      color: #0f2537;
+      background:
+        linear-gradient(135deg, rgba(255,255,255,.78), rgba(255,255,255,.24) 42%, rgba(255,255,255,.68)),
+        linear-gradient(145deg, #dff6f0 0%, #f7edf8 46%, #e7f1ff 100%);
+    }
+    .dms-fallback-cover.video {
+      background:
+        linear-gradient(135deg, rgba(255,255,255,.78), rgba(255,255,255,.18) 44%, rgba(255,255,255,.72)),
+        linear-gradient(145deg, #e5f7ff 0%, #fff0d7 48%, #e8f6df 100%);
+    }
+    .dms-fallback-brand,
+    .dms-fallback-sub,
+    .dms-fallback-code {
+      font-size: 11px;
+      line-height: 1.2;
+      color: #52677a;
+    }
+    .dms-fallback-brand {
+      align-self: flex-end;
+      max-width: 54%;
+      text-align: right;
+    }
+    .dms-fallback-kind {
+      align-self: flex-start;
+      border: 1px solid rgba(15,37,55,.14);
+      border-radius: 999px;
+      padding: 5px 9px;
+      background: rgba(255,255,255,.62);
+      color: #075d6f;
+      font-size: 12px;
+      line-height: 1;
+      font-weight: 900;
+    }
+    .dms-fallback-title {
+      margin-top: auto;
+      color: #102a3f;
+      font-size: 18px;
+      line-height: 1.18;
+      font-weight: 900;
+      overflow-wrap: anywhere;
+    }
+    .dms-fallback-code {
+      font-family: var(--mono);
+      font-weight: 800;
+      overflow-wrap: anywhere;
+    }
+    .dms-video-wrap img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+    .dms-play-badge {
+      position: absolute;
+      right: 8px;
+      bottom: 8px;
+      border-radius: 999px;
+      background: rgba(17,24,39,.82);
+      color: #fff;
+      padding: 5px 8px;
+      font-size: 11px;
+      font-weight: 900;
+      pointer-events: none;
+      z-index: 3;
+    }
+    .dms-cover .chip {
+      position: absolute;
+      top: 8px;
+      left: 8px;
+      background: rgba(255,255,255,.92);
+    }
+    .dms-body {
+      padding: 10px;
+      display: flex;
+      flex: 1;
+      flex-direction: column;
+      gap: 7px;
+    }
+    .dms-title {
+      min-height: 48px;
+      line-height: 1.25;
+      font-weight: 900;
+      color: var(--deep);
+      overflow: hidden;
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+    }
+    .dms-body > .small {
+      min-height: 28px;
+      line-height: 1.25;
+      overflow: hidden;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+    }
+    .dms-meta {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+      color: var(--muted);
+      font-size: 11px;
+      align-items: start;
+      min-height: 62px;
+    }
+    .dms-meta span {
+      min-width: 0;
+      line-height: 1.2;
+    }
+    .dms-meta b {
+      display: block;
+      margin-top: 2px;
+      color: var(--ink);
+      font: 12px var(--mono);
+      font-weight: 900;
+      text-align: left;
+      font-variant-numeric: tabular-nums;
+    }
+    .dms-meta .roi-high b { color: var(--red); }
+    .dms-meta .roi-low b { color: var(--teal); }
+    .dms-actions {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      align-items: center;
+      margin-top: auto;
+      min-height: 30px;
+    }
+    .dms-actions a {
+      min-height: 28px;
+      display: inline-flex;
+      align-items: center;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      padding: 0 8px;
+      background: #fff;
+      color: var(--deep);
+      text-decoration: none;
+      font-weight: 900;
+      font-size: 12px;
+    }
+    .dms-list-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin: 16px 0 8px;
+    }
+    .dms-list-head h3 {
+      margin: 0;
+      font-size: 15px;
+    }
+    .dms-source-note {
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .dms-table-wrap {
+      overflow: auto;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: #fff;
+    }
+    table.dms-table {
+      width: 100%;
+      min-width: 1280px;
+      border-collapse: collapse;
+    }
+    .dms-table .thumb-cell {
+      width: 54px;
+    }
+    .dms-thumb {
+      width: 36px;
+      height: 46px;
+      border-radius: 5px;
+      background: #eef3f8;
+      display: grid;
+      place-items: center;
+      color: var(--muted);
+      font-size: 10px;
+      overflow: hidden;
+    }
+    .dms-thumb img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+    .dms-thumb video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+      background: #f2f7fb;
+    }
+    .dms-thumb .dms-fallback-cover {
+      padding: 4px;
+      gap: 2px;
+    }
+    .dms-thumb .dms-fallback-brand,
+    .dms-thumb .dms-fallback-title,
+    .dms-thumb .dms-fallback-sub {
+      display: none;
+    }
+    .dms-thumb .dms-fallback-kind {
+      padding: 3px 4px;
+      font-size: 8px;
+    }
+    .dms-thumb .dms-fallback-code {
+      font-size: 7px;
+      line-height: 1.1;
+    }
+    .dms-thumb .dms-play-badge { display: none; }
+    .dms-download-state.ready { color: var(--green); font-weight: 900; }
+    .dms-download-state.pending { color: var(--amber); font-weight: 900; }
+    .chip {
+      display: inline-flex;
+      min-height: 22px;
+      align-items: center;
+      border-radius: 6px;
+      padding: 0 7px;
+      font-size: 11px;
+      font-weight: 900;
+      white-space: nowrap;
+    }
+    .chip.video { background: #e8f5f3; color: var(--teal); }
+    .chip.image { background: var(--soft-blue); color: var(--blue); }
+    .chip.neutral { background: #eef3f8; color: #475467; }
+    .empty { padding: 24px; color: var(--muted); text-align: center; }
+    @media (max-width: 1180px) {
+      .kpis { grid-template-columns: repeat(4, minmax(118px, 1fr)); }
+      .grid2 { grid-template-columns: 1fr; }
+      .grid3 { grid-template-columns: 1fr; }
+      .filters { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+      .span2, .span3, .span4 { grid-column: span 3; }
+    }
+    @media (max-width: 720px) {
+      .shell { padding-left: 12px; padding-right: 12px; }
+      .topline { display: grid; }
+      .top-actions { justify-content: flex-start; }
+      .filters { grid-template-columns: 1fr; }
+      .span2, .span3, .span4, .span12 { grid-column: 1 / -1; }
+      .kpis { grid-template-columns: repeat(2, minmax(118px, 1fr)); }
+      .compare-row input[type="date"] { width: 100%; min-width: min(128px, 100%); }
+      .barrow, .barrow.with-share { grid-template-columns: minmax(88px, 1fr) 1fr 78px; }
+      .barrow .hide-mobile { display: none; }
+      .tag-group-head,
+      .tag-row { grid-template-columns: minmax(100px, 1fr) 46px 42px 42px; gap: 6px; }
+      .tag-group-title { gap: 6px; }
+    }
+  </style>
+</head>
+<body>
+  <header class="top">
+    <div class="shell">
+      <div class="topline">
+        <div>
+          <h1>NP / LXP 收割素材看板</h1>
+          <div class="sub" id="sourceLine">DMS · 素材类型=图文/视频 · loading</div>
+        </div>
+        <div class="top-actions">
+          <span class="badge version-badge" id="appVersion">local</span>
+          <button id="shareLink" type="button">分享链接</button>
+          <button id="exportExcel" type="button">导出Excel</button>
+        </div>
+      </div>
+      <div class="tabs" id="countryTabs">
+        <button class="tab active" data-view="overview" data-country="ALL" type="button">数据概览</button>
+        <button class="tab" data-view="dms" type="button">DMS素材</button>
+      </div>
+      <div class="filters">
+        <div class="field span2">
+          <label>开始日期</label>
+          <input id="from" type="date" />
+        </div>
+        <div class="field span2">
+          <label>结束日期</label>
+          <input id="to" type="date" />
+        </div>
+        <div class="field span2">
+          <label>素材创建开始</label>
+          <input id="materialFrom" type="date" />
+        </div>
+        <div class="field span2">
+          <label>素材创建结束</label>
+          <input id="materialTo" type="date" />
+        </div>
+        <div class="field span2">
+          <label>素材类型</label>
+          <div class="type-toggle" id="materialTypes">
+            <label><input type="checkbox" value="图文" checked />图文</label>
+            <label><input type="checkbox" value="视频" checked />视频</label>
+          </div>
+        </div>
+        <div class="field span2">
+          <label>品牌</label>
+          <div class="multi-select" data-key="brand">
+            <button class="multi-button" type="button"><span id="brandLabel">全部品牌</span></button>
+            <div class="multi-panel" id="brandPanel"></div>
+          </div>
+        </div>
+        <div class="field span2">
+          <label>国家</label>
+          <div class="multi-select" data-key="country">
+            <button class="multi-button" type="button"><span id="countryLabel">全部国家</span></button>
+            <div class="multi-panel" id="countryPanel"></div>
+          </div>
+        </div>
+        <div class="field span2">
+          <label>产品</label>
+          <div class="multi-select" data-key="product">
+            <button class="multi-button" type="button"><span id="productLabel">全部产品</span></button>
+            <div class="multi-panel" id="productPanel"></div>
+          </div>
+        </div>
+        <div class="field span2">
+          <label>收割一级标签--大方向</label>
+          <div class="multi-select" data-key="tag1">
+            <button class="multi-button" type="button"><span id="tag1Label">全部大方向</span></button>
+            <div class="multi-panel" id="tag1Panel"></div>
+          </div>
+        </div>
+        <div class="field span2">
+          <label>收割二级标签--主题</label>
+          <div class="multi-select" data-key="tag2">
+            <button class="multi-button" type="button"><span id="tag2Label">全部主题</span></button>
+            <div class="multi-panel" id="tag2Panel"></div>
+          </div>
+        </div>
+        <div class="field span4">
+          <label>搜索素材 / 广告 / 标签</label>
+          <input id="search" placeholder="输入素材编号、Ad name、Campaign 或标签" />
+        </div>
+        <div class="field span2">
+          <label>操作</label>
+          <button id="resetFilters" class="ghost" type="button">重置筛选</button>
+        </div>
+        <details class="advanced-filters" id="advancedFilters">
+          <summary><span>高级筛选</span><span class="advanced-count" id="advancedCount">0 项启用</span></summary>
+          <div class="advanced-body">
+            <div class="field compare-field">
+              <label>开启环比对比</label>
+              <div class="compare-row disabled" id="compareRow">
+                <label class="switch"><input id="compareEnabled" type="checkbox"><span></span></label>
+                <span class="compare-off">未启用</span>
+                <button type="button" class="compare-mode active" data-mode="previous">上期</button>
+                <button type="button" class="compare-mode" data-mode="month">上月同期</button>
+                <button type="button" class="compare-mode" data-mode="custom">自定义</button>
+                <input id="compareFrom" type="date" disabled>
+                <input id="compareTo" type="date" disabled>
+              </div>
+            </div>
+          </div>
+        </details>
+      </div>
+      <div class="status" id="status">Ready</div>
+    </div>
+  </header>
+
+  <main class="shell main view" id="overviewView">
+    <section class="kpis" id="kpis"></section>
+
+    <section class="grid2">
+      <div class="panel">
+        <div class="head">
+          <h2>每日趋势</h2>
+          <div class="small">柱=花费，线=订单/ROI</div>
+        </div>
+        <div class="pad">
+          <canvas id="trendChart" class="chart"></canvas>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="head">
+          <h2>图文 vs 视频</h2>
+          <div class="small">按当前筛选汇总</div>
+        </div>
+        <div class="pad" id="typeBars"></div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="head">
+        <div>
+          <h2>产品排序</h2>
+          <div class="small" id="productCount">按花费排序</div>
+        </div>
+      </div>
+      <div class="pad" id="productBars"></div>
+    </section>
+
+    <section class="panel">
+      <div class="head">
+        <div>
+          <h2>DMS 大盘投放数据</h2>
+          <div class="small" id="boardNote">品牌 × 市场口径（DMS 原始数据，不受产品 / 标签筛选影响）</div>
+        </div>
+      </div>
+      <div class="pad table-wrap">
+        <table id="boardTable"></table>
+      </div>
+    </section>
+
+    <section class="grid3">
+      <div class="panel">
+        <div class="head">
+          <h2>收割一级标签--大方向分布</h2>
+          <div class="small">仅统计 awa / consi / conv · Top 12</div>
+        </div>
+        <div class="pad" id="tag1Bars"></div>
+      </div>
+      <div class="panel">
+        <div class="head">
+          <h2>收割二级标签--主题分布</h2>
+          <div class="small">按上述一级标签展开 · Top 12</div>
+        </div>
+        <div class="pad" id="tag2Bars"></div>
+      </div>
+      <div class="panel">
+        <div class="head">
+          <h2>收割三级标签--测试点分布</h2>
+          <div class="small">按上述一级标签展开 · Top 12</div>
+        </div>
+        <div class="pad" id="tag3Bars"></div>
+      </div>
+    </section>
+
+    <section class="panel tree-section">
+      <div class="head">
+        <div>
+          <h2>标签树状图与层级汇总</h2>
+          <div class="small">仅统计 conv / consi / awa · MTD · 本月创建的新素材</div>
+        </div>
+        <div class="small" id="tagTreeNote">成功率按一级标签阈值统计</div>
+      </div>
+      <div class="tree-shell">
+        <div class="tree-legend" id="tagTreeLegend"></div>
+        <div id="tagTreemap" class="tree-map"></div>
+        <div class="table-wrap tree-table-wrap">
+          <table id="tagHierarchyTable"></table>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="head">
+        <div>
+          <h2>素材明细</h2>
+          <div class="small" id="tableNote">按花费排序，最多展示 250 条</div>
+        </div>
+        <div class="table-tools">
+          <button id="downloadCsv" class="ghost" type="button">导出当前表</button>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table id="postTable"></table>
+      </div>
+    </section>
+  </main>
+
+  <main class="shell main view" id="dmsView" hidden>
+    <section class="panel">
+      <div class="head">
+        <div>
+          <h2>DMS素材</h2>
+          <div class="small" id="dmsSubtitle">6-7月有花费的图文 / 视频素材</div>
+        </div>
+        <div class="table-tools">
+          <button id="downloadDmsCsv" class="ghost" type="button">导出当前DMS列表</button>
+          <button id="openDmsExport" class="ghost" type="button">打开DMS导出页</button>
+        </div>
+      </div>
+      <div class="pad">
+        <div class="dms-toolbar">
+          <div class="creative-count" id="dmsCount">命中素材 <b>0</b> 个</div>
+          <div class="sort-pills" id="dmsSort">
+            <button type="button" class="active" data-dms-sort="spend">花费</button>
+            <button type="button" data-dms-sort="orders">订单</button>
+            <button type="button" data-dms-sort="gmv">GMV</button>
+            <button type="button" data-dms-sort="roi">ROI</button>
+            <button type="button" data-dms-sort="downloadReady">可下载</button>
+            <button type="button" data-dms-sort="createdAt">创建时间</button>
+          </div>
+        </div>
+        <section class="dms-grid" id="dmsCards"></section>
+        <div class="dms-list-head">
+          <div>
+            <h3>视频 / 图文素材列表</h3>
+            <div class="dms-source-note" id="dmsSourceNote">DMS 素材列表导出 + 7月有花费素材</div>
+          </div>
+        </div>
+        <div class="dms-table-wrap">
+          <table class="dms-table" id="dmsTable"></table>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const DEFAULT_TYPES = ['图文', '视频'];
+    const TABLE_LIMIT = 250;
+    const state = {
+      raw: null,
+      dms: { rows: [] },
+      board: null,
+      rows: [],
+      filtered: [],
+      currentView: 'overview',
+      dmsSortKey: 'spend',
+      brand: [],
+      country: [],
+      product: [],
+      tag1: [],
+      tag2: [],
+      materialTypes: [...DEFAULT_TYPES],
+      query: '',
+      from: '',
+      to: '',
+      materialFrom: '',
+      materialTo: '',
+      compareEnabled: false,
+      compareMode: 'previous',
+      compareFrom: '',
+      compareTo: '',
+      compareFiltered: [],
+      compareAppliedRange: null,
+      trendVisible: {
+        spend: true,
+        orders: true,
+        roi: true,
+        compareSpend: true,
+        compareOrders: true,
+        compareRoi: true
+      },
+      trendLegendHits: [],
+      sortKey: 'spend',
+      sortDir: -1,
+      productSortKey: 'spend',
+      productSortDir: -1,
+      options: { brand: [], country: [], product: [], tag1: [], tag2: [] },
+      multiSearch: { brand: '', country: '', product: '', tag1: '', tag2: '' },
+      multiMode: { brand: 'default', country: 'default', product: 'default', tag1: 'default', tag2: 'default' },
+      initialized: false
+    };
+
+    const safe = (value) => String(value ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+    const fmt = (n, d = 0) => Number(n || 0).toLocaleString('en-US', { maximumFractionDigits: d, minimumFractionDigits: d });
+    const money = (n) => Number(n || 0).toLocaleString('en-US', { maximumFractionDigits: 0 });
+    const pct = (n) => `${((Number(n) || 0) * 100).toFixed(2)}%`;
+    const roi = (n) => (Number(n) || 0).toFixed(2);
+    const short = (text, len = 88) => {
+      const s = String(text || '');
+      return s.length > len ? `${s.slice(0, len - 1)}…` : s;
+    };
+    const dayMs = 24 * 60 * 60 * 1000;
+
+    function parseDate(value) {
+      const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value || '');
+      if (!match) return null;
+      return new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])));
+    }
+
+    function dateText(date) {
+      return date ? date.toISOString().slice(0, 10) : '';
+    }
+
+    function addDays(value, delta) {
+      const date = parseDate(value);
+      if (!date) return '';
+      date.setUTCDate(date.getUTCDate() + delta);
+      return dateText(date);
+    }
+
+    function addMonthsClamped(value, delta) {
+      const date = parseDate(value);
+      if (!date) return '';
+      const year = date.getUTCFullYear();
+      const month = date.getUTCMonth() + delta;
+      const day = date.getUTCDate();
+      const lastDay = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
+      return dateText(new Date(Date.UTC(year, month, Math.min(day, lastDay))));
+    }
+
+    function daysInclusive(from, to) {
+      const start = parseDate(from);
+      const end = parseDate(to);
+      if (!start || !end || end < start) return 0;
+      return Math.round((end - start) / dayMs) + 1;
+    }
+
+    function emptyMetrics() {
+      return { spend: 0, impressions: 0, allClick: 0, linkClick: 0, conversions: 0, purchaseValue: 0, addToCart: 0 };
+    }
+
+    function finalize(metrics) {
+      metrics.roi = metrics.spend ? metrics.purchaseValue / metrics.spend : 0;
+      metrics.cpm = metrics.impressions ? metrics.spend / metrics.impressions * 1000 : 0;
+      metrics.ctr = metrics.impressions ? metrics.linkClick / metrics.impressions : 0;
+      metrics.cvr = metrics.linkClick ? metrics.conversions / metrics.linkClick : 0;
+      metrics.cpa = metrics.conversions ? metrics.spend / metrics.conversions : 0;
+      metrics.cpc = metrics.linkClick ? metrics.spend / metrics.linkClick : 0;
+      return metrics;
+    }
+
+    function addMetrics(target, source) {
+      for (const key of ['spend', 'impressions', 'allClick', 'linkClick', 'conversions', 'purchaseValue', 'addToCart']) {
+        target[key] += Number(source?.[key] || 0);
+      }
+      return target;
+    }
+
+    function sumDays(days, from, to) {
+      const metrics = emptyMetrics();
+      for (const [day, values] of Object.entries(days || {})) {
+        if (from && day < from) continue;
+        if (to && day > to) continue;
+        addMetrics(metrics, values);
+      }
+      return finalize(metrics);
+    }
+
+    function hasPaidActivity(row) {
+      return Number(row.spend || 0) > 0;
+    }
+
+    function matchesMulti(key, value) {
+      return !state[key].length || state[key].includes(value || '未标注');
+    }
+
+    function materialLabel(row) {
+      return row.materialCode || row.postCode || row.adName || row.key;
+    }
+
+    function normalizeMaterialKey(value) {
+      return String(value || '').replace(/[^A-Za-z0-9]+/g, '').toUpperCase();
+    }
+
+    function enrichRowsWithDmsCreatedAt() {
+      const dmsByKey = new Map();
+      for (const item of (state.dms?.rows || [])) {
+        const createdAt = item.createdAt || '';
+        if (!createdAt) continue;
+        [item.materialKey, item.materialId, item.materialCode, item.key].forEach(value => {
+          const key = normalizeMaterialKey(value);
+          if (key && !dmsByKey.has(key)) dmsByKey.set(key, createdAt);
+        });
+      }
+      for (const row of state.rows) {
+        const key = normalizeMaterialKey(row.materialCode || row.postCode || row.key);
+        row.dmsCreatedAt = key ? (dmsByKey.get(key) || '') : '';
+      }
+    }
+
+    function materialCreatedDay(row) {
+      return row.materialCreatedAt || row.dmsCreatedAt || '';
+    }
+
+    function matchesMaterialCreated(row) {
+      if (!state.materialFrom && !state.materialTo) return true;
+      const day = materialCreatedDay(row);
+      if (!day) return false;
+      if (state.materialFrom && day < state.materialFrom) return false;
+      if (state.materialTo && day > state.materialTo) return false;
+      return true;
+    }
+
+    function readFilterControls() {
+      state.from = $('from').value;
+      state.to = $('to').value;
+      state.materialFrom = $('materialFrom').value;
+      state.materialTo = $('materialTo').value;
+      state.query = $('search').value.trim().toLowerCase();
+      state.compareEnabled = $('compareEnabled').checked;
+      state.compareMode = document.querySelector('.compare-mode.active')?.dataset.mode || state.compareMode;
+      state.compareFrom = $('compareFrom').value;
+      state.compareTo = $('compareTo').value;
+    }
+
+    function autoCompareRange(mode = state.compareMode) {
+      const length = daysInclusive(state.from, state.to);
+      if (!length) return null;
+      if (mode === 'month') {
+        const from = addMonthsClamped(state.from, -1);
+        const to = addMonthsClamped(state.to, -1);
+        return from && to ? { from, to } : null;
+      }
+      const to = addDays(state.from, -1);
+      const from = addDays(to, 1 - length);
+      return from && to ? { from, to } : null;
+    }
+
+    function compareRange() {
+      if (!state.compareEnabled) return null;
+      if (state.compareMode === 'custom') {
+        return daysInclusive(state.compareFrom, state.compareTo)
+          ? { from: state.compareFrom, to: state.compareTo }
+          : null;
+      }
+      return autoCompareRange();
+    }
+
+    function updateCompareControls() {
+      const row = $('compareRow');
+      const enabled = state.compareEnabled;
+      document.querySelectorAll('.compare-mode').forEach(button => {
+        button.classList.toggle('active', button.dataset.mode === state.compareMode);
+      });
+      if (enabled && state.compareMode !== 'custom') {
+        const range = autoCompareRange();
+        state.compareFrom = range?.from || '';
+        state.compareTo = range?.to || '';
+        $('compareFrom').value = state.compareFrom;
+        $('compareTo').value = state.compareTo;
+      }
+      $('compareFrom').disabled = !enabled || state.compareMode !== 'custom';
+      $('compareTo').disabled = !enabled || state.compareMode !== 'custom';
+      row.classList.toggle('disabled', !enabled);
+      $('advancedCount').textContent = enabled ? '1 项启用' : '0 项启用';
+      if (enabled) $('advancedFilters').open = true;
+    }
+
+    function collectFilteredRows(from, to) {
+      const query = state.query;
+      const rows = [];
+      for (const row of state.rows) {
+        if (!matchesMulti('brand', row.brand)) continue;
+        if (!matchesMulti('country', row.country)) continue;
+        if (!matchesMaterialCreated(row)) continue;
+        if (!state.materialTypes.includes(row.materialType)) continue;
+        if (!matchesMulti('product', row.product)) continue;
+        if (!matchesMulti('tag1', row.tag1)) continue;
+        if (!matchesMulti('tag2', row.tag2)) continue;
+        if (query) {
+          const haystack = [
+            row.adName, row.adsetName, row.campaignName, row.materialCode, row.postCode, row.product,
+            row.graphicType, row.adDetail, row.tag1, row.tag2, row.tag3, row.investor
+          ].join(' ').toLowerCase();
+          if (!haystack.includes(query)) continue;
+        }
+        const metrics = sumDays(row.days, from, to);
+        if (!hasPaidActivity(metrics)) continue;
+        rows.push({ ...row, ...metrics });
+      }
+      return rows;
+    }
+
+    function applyFilters(pushUrl = true) {
+      readFilterControls();
+      updateCompareControls();
+      state.filtered = collectFilteredRows(state.from, state.to);
+      state.compareAppliedRange = compareRange();
+      state.compareFiltered = state.compareAppliedRange
+        ? collectFilteredRows(state.compareAppliedRange.from, state.compareAppliedRange.to)
+        : [];
+      renderAll();
+      updateView();
+      if (pushUrl && state.initialized) updateUrlParams();
+    }
+
+    function sumRows(rows) {
+      const metrics = emptyMetrics();
+      rows.forEach(row => addMetrics(metrics, row));
+      metrics.posts = rows.length;
+      metrics.orderMaterials = rows.filter(row => Number(row.conversions || 0) > 0).length;
+      return finalize(metrics);
+    }
+
+    function groupRows(rows, field) {
+      const groups = new Map();
+      rows.forEach(row => {
+        const name = row[field] || '未标注';
+        if (!groups.has(name)) groups.set(name, []);
+        groups.get(name).push(row);
+      });
+      return [...groups.entries()].map(([name, items]) => ({ name, ...sumRows(items) }))
+        .sort((a, b) => (b.spend - a.spend) || (b.conversions - a.conversions));
+    }
+
+    function monthScopeAnchor() {
+      return (state.materialTo || state.to || state.raw?.filters?.performanceTo || dateText(new Date())).slice(0, 7);
+    }
+
+    // DMS 的素材打标通常滞后于素材创建：报表末期（当月）的新素材往往还没有一级标签，
+    // 直接按报表月份取「当月新素材」会让收割树状图为空。这里若目标月没有带标签素材，
+    // 就自动回退到最近一个有带标签素材的创建月份（用户手动指定素材创建区间时不回退）。
+    function harvestAnchorMonth(sourceRows = state.filtered) {
+      if (state.materialFrom || state.materialTo) return monthScopeAnchor();
+      const target = monthScopeAnchor();
+      const months = new Set();
+      for (const row of sourceRows) {
+        if (!isHarvestRow(row)) continue;
+        const created = materialCreatedDay(row);
+        if (created) months.add(String(created).slice(0, 7));
+      }
+      if (!months.size || months.has(target)) return target;
+      const sorted = [...months].filter(Boolean).sort();
+      const latestBefore = sorted.filter(month => month <= target);
+      return latestBefore.length ? latestBefore[latestBefore.length - 1] : sorted[sorted.length - 1];
+    }
+
+    function treeRows(sourceRows = state.filtered, anchorDate = '') {
+      const useCreationMonth = !state.materialFrom && !state.materialTo;
+      const month = String(anchorDate || harvestAnchorMonth(sourceRows)).slice(0, 7);
+      return sourceRows.filter(row => {
+        if (!isHarvestRow(row)) return false;
+        if (!useCreationMonth) return true;
+        const created = materialCreatedDay(row);
+        return created && created.slice(0, 7) === month;
+      });
+    }
+
+    function successThreshold(rowOrCountry, tag1Value) {
+      const country = String((rowOrCountry?.country || rowOrCountry || '')).toUpperCase();
+      const tag1 = String(tag1Value || rowOrCountry?.tag1 || '').toLowerCase();
+      const isMy = country.includes('MY') || country.includes('马来');
+      const thresholds = isMy
+        ? {
+            conv: { roi: 5.2, ctr: 0.009 },
+            consi: { roi: 5.0, ctr: 0.010 },
+            awa: { roi: 4.8, ctr: 0.015 }
+          }
+        : {
+            conv: { roi: 5.6, ctr: 0.0064 },
+            consi: { roi: 5.0, ctr: 0.010 },
+            awa: { roi: 4.8, ctr: 0.015 }
+          };
+      return thresholds[tag1] || thresholds.conv;
+    }
+
+    function meetsHarvestStandard(row, tag1Value) {
+      const threshold = successThreshold(row, tag1Value);
+      return Number(row.roi || 0) >= threshold.roi && Number(row.ctr || 0) >= threshold.ctr;
+    }
+
+    function buildHarvestHierarchy(sourceRows) {
+      const roots = new Map();
+      const makeNode = (name, level, tag1, path) => ({
+        name,
+        level,
+        tag1,
+        path,
+        rows: [],
+        children: new Map()
+      });
+      const ensure = (parentMap, name, level, tag1, path) => {
+        const key = path.join(' / ');
+        if (!parentMap.has(key)) parentMap.set(key, makeNode(name, level, tag1, path));
+        return parentMap.get(key);
+      };
+      for (const row of sourceRows) {
+        const tag1 = canonicalTag1(row.tag1);
+        const root = ensure(roots, tag1, 1, String(tag1).toLowerCase(), [tag1]);
+        root.rows.push(row);
+        const tag2 = String(row.tag2 || '未标注');
+        const node2 = ensure(root.children, tag2, 2, String(tag1).toLowerCase(), [tag1, tag2]);
+        node2.rows.push(row);
+        const tag3 = String(row.tag3 || '未标注');
+        const node3 = ensure(node2.children, tag3, 3, String(tag1).toLowerCase(), [tag1, tag2, tag3]);
+        node3.rows.push(row);
+      }
+
+      const finalize = (node) => {
+        node.children = [...node.children.values()]
+          .sort((a, b) => (sumRows(b.rows).spend - sumRows(a.rows).spend) || (sumRows(b.rows).conversions - sumRows(a.rows).conversions))
+          .map(child => finalize(child));
+        const metrics = sumRows(node.rows);
+        node.posts = metrics.posts;
+        node.spend = metrics.spend;
+        node.impressions = metrics.impressions;
+        node.linkClick = metrics.linkClick;
+        node.conversions = metrics.conversions;
+        node.purchaseValue = metrics.purchaseValue;
+        node.roi = metrics.roi;
+        node.ctr = metrics.ctr;
+        node.cvr = metrics.cvr;
+        node.cpa = metrics.cpa;
+        node.orderMaterials = metrics.orderMaterials;
+        node.successCount = node.rows.filter(row => meetsHarvestStandard(row, node.tag1)).length;
+        node.successRate = node.posts ? node.successCount / node.posts : 0;
+        return node;
+      };
+
+      return [...roots.values()]
+        .sort((a, b) => (sumRows(b.rows).spend - sumRows(a.rows).spend) || (sumRows(b.rows).conversions - sumRows(a.rows).conversions))
+        .map(node => finalize(node));
+    }
+
+    function flattenHarvestHierarchy(nodes, out = []) {
+      for (const node of nodes) {
+        out.push(node);
+        flattenHarvestHierarchy(node.children || [], out);
+      }
+      return out;
+    }
+
+    function thresholdText(tag1) {
+      const idBase = 'ROI≥5.6 / CTR≥0.64%';
+      const myBase = 'ROI≥5.2 / CTR≥0.90%';
+      return `${canonicalTag1(tag1)} · 达标线 ID ${idBase} · MY ${myBase}`;
+    }
+
+    function treeColorClass(node) {
+      const country = node.rows?.[0]?.country || 'ID';
+      return Number(node.roi || 0) >= successThreshold({ country, tag1: node.tag1 }).roi ? 'roi-high' : 'roi-low';
+    }
+
+    function renderTreeNode(node) {
+      const children = (node.children || []).slice(0, 6);
+      return `<div class="tree-child ${treeColorClass(node)}" style="flex:${Math.max(1, Number(node.spend || 0))}">
+        <div class="tree-child-title">${safe(node.name)}</div>
+        <div class="tree-child-meta">
+          <span>素材 ${fmt(node.posts)}</span>
+          <span>订单 ${fmt(node.conversions)}</span>
+          <span>ROI ${roi(node.roi)}</span>
+          <span>成功率 ${pct(node.successRate)}</span>
+        </div>
+        <div class="tree-child-leaves">${
+          children.length
+            ? children.map(child => `<span class="tree-leaf" title="${safe(child.name)}">${safe(short(child.name, 18))} · ${fmt(child.posts)} / ${roi(child.roi)}</span>`).join('')
+            : '<span class="tree-leaf">未找到下级标签</span>'
+        }</div>
+      </div>`;
+    }
+
+    function renderHarvestHierarchy() {
+      const rows = treeRows();
+      const compareRows = state.compareAppliedRange ? treeRows(state.compareFiltered || [], state.compareAppliedRange.to || state.compareTo) : [];
+      const tree = buildHarvestHierarchy(rows);
+      const compareTree = buildHarvestHierarchy(compareRows);
+      const flat = flattenHarvestHierarchy(tree);
+      const compareFlat = flattenHarvestHierarchy(compareTree);
+      const compareMap = new Map(compareFlat.map(node => [node.path.join(' / '), node]));
+
+      $('tagTreeLegend').innerHTML = tree.length
+        ? tree.map(node => `<span class="badge">${safe(canonicalTag1(node.tag1))} · ${fmt(node.posts)} 素材 · ${money(node.spend)} 花费 · ${roi(node.roi)} ROI</span>`).join('')
+        : `<span class="small">当前筛选下没有带一级标签（收割大方向）的素材</span>`;
+
+      const anchorMonth = harvestAnchorMonth();
+      $('tagTreeNote').textContent = state.materialFrom || state.materialTo
+        ? `${state.materialFrom || (anchorMonth + '-01')} ~ ${state.materialTo || state.to || state.raw?.filters?.performanceTo || '当前'} · 成功率=达标素材/素材数`
+        : `素材创建月 ${anchorMonth} · 成功率=达标素材/素材数`;
+
+      $('tagTreemap').innerHTML = tree.length
+        ? tree.map(node => `<div class="tree-root" style="flex:${Math.max(1, Number(node.spend || 0))}">
+            <div class="tree-root-head">
+              <div class="tree-root-title">${safe(canonicalTag1(node.tag1))}</div>
+              <div class="tree-root-meta">
+                <span>素材 ${fmt(node.posts)}</span>
+                <span>花费 ${money(node.spend)}</span>
+                <span>GMV ${money(node.purchaseValue)}</span>
+                <span>ROI ${roi(node.roi)}</span>
+                <span>成功率 ${pct(node.successRate)}</span>
+              </div>
+              <div class="small">${safe(thresholdText(node.tag1))}</div>
+            </div>
+            <div class="tree-root-body">${
+              (node.children || []).slice(0, 8).map(renderTreeNode).join('')
+            }</div>
+          </div>`).join('')
+        : `<div class="empty">当前筛选下暂无树状图数据</div>`;
+
+      const headers = ['标签', '素材数', '花费', 'GMV', '订单', 'ROI', '达标素材', '成功率'];
+      $('tagHierarchyTable').innerHTML = `<thead><tr>${headers.map(label => `<th>${safe(label)}</th>`).join('')}</tr></thead><tbody>${
+        flat.length ? flat.map(node => {
+          const compare = compareMap.get(node.path.join(' / ')) || {};
+          const indent = (node.level - 1) * 18;
+          const marker = node.level === 1 ? '▾' : node.level === 2 ? '└' : '•';
+          return `<tr>
+            <td><div class="tree-indent" style="padding-left:${indent}px"><span class="depth">${safe(marker)}</span><span title="${safe(node.name)}">${safe(short(node.name, 42))}</span></div></td>
+            <td class="num">${metricCell(node.posts, compare.posts, v => fmt(v))}</td>
+            <td class="num">${metricCell(node.spend, compare.spend, money)}</td>
+            <td class="num">${metricCell(node.purchaseValue, compare.purchaseValue, money)}</td>
+            <td class="num">${metricCell(node.conversions, compare.conversions, v => fmt(v))}</td>
+            <td class="num">${metricCell(node.roi, compare.roi, roi)}</td>
+            <td class="num">${metricCell(node.successCount, compare.successCount, v => fmt(v))}</td>
+            <td class="num">${metricCell(node.successRate, compare.successRate, pct)}</td>
+          </tr>`;
+        }).join('') : `<tr><td colspan="${headers.length}" class="empty">当前筛选下暂无层级汇总数据</td></tr>`
+      }</tbody>`;
+    }
+
+    function deltaChip(current, base) {
+      if (!state.compareAppliedRange) return '';
+      const now = Number(current || 0);
+      const old = Number(base || 0);
+      if (!old && !now) return '<span class="delta">环比 0.0%</span>';
+      if (!old) {
+        return `<span class="delta bad">环比 ↑ 新增</span>`;
+      }
+      const change = (now - old) / old;
+      if (Math.abs(change) < 0.0001) return '<span class="delta">环比 0.0%</span>';
+      const up = change > 0;
+      const cls = up ? 'bad' : 'good';
+      return `<span class="delta ${cls}">环比 ${up ? '↑' : '↓'} ${Math.abs(change * 100).toFixed(1)}%</span>`;
+    }
+
+    function deltaLine(current, base, lowerIsBetter = false) {
+      if (!state.compareAppliedRange) return '';
+      const range = `${state.compareAppliedRange.from.slice(5)}~${state.compareAppliedRange.to.slice(5)}`;
+      return `<div class="delta-line">${deltaChip(current, base, lowerIsBetter)}<span class="delta-range">${safe(range)}</span></div>`;
+    }
+
+    function metricCell(current, base, formatter) {
+      const value = formatter(current);
+      if (!state.compareAppliedRange) return `<span class="metric-value">${safe(value)}</span>`;
+      return `<div class="metric-cell"><span class="metric-value">${safe(value)}</span>${deltaChip(current, base)}</div>`;
+    }
+
+    function renderKpis() {
+      const s = sumRows(state.filtered);
+      const c = sumRows(state.compareFiltered || []);
+      const items = [
+        { label: '花费(USD)', value: money(s.spend), note: `${fmt(s.posts)} 个在跑素材`, metric: s.spend, base: c.spend, lower: true, primary: true },
+        { label: '曝光', value: fmt(s.impressions), note: `CPM ${fmt(s.cpm, 2)}`, metric: s.impressions, base: c.impressions },
+        { label: '链接点击', value: fmt(s.linkClick), note: `CTR ${pct(s.ctr)}`, metric: s.linkClick, base: c.linkClick },
+        { label: '订单', value: fmt(s.conversions), note: `CPA ${fmt(s.cpa, 2)}`, metric: s.conversions, base: c.conversions },
+        { label: 'GMV(USD)', value: money(s.purchaseValue), note: `ROI ${roi(s.roi)}`, metric: s.purchaseValue, base: c.purchaseValue, primary: true },
+        { label: '加购金额', value: money(s.addToCart), note: `CVR ${pct(s.cvr)}`, metric: s.addToCart, base: c.addToCart },
+        { label: '全部点击', value: fmt(s.allClick), note: `CPC ${fmt(s.cpc, 2)}`, metric: s.allClick, base: c.allClick },
+        { label: '在跑素材量', value: typeSplitText(), note: '图文 / 视频', metric: s.posts, base: c.posts }
+      ];
+      $('kpis').innerHTML = items.map(item => `<div class="kpi ${item.primary ? 'primary-kpi' : ''}">
+        <div class="label">${safe(item.label)}</div>
+        <div class="value">${safe(item.value)}</div>
+        <div class="note">${safe(item.note)}</div>
+        ${deltaLine(item.metric, item.base, item.lower)}
+      </div>`).join('');
+    }
+
+    function typeSplitText() {
+      const rows = groupRows(state.filtered, 'materialType');
+      const found = new Map(rows.map(row => [row.name, row.posts]));
+      return `${fmt(found.get('图文') || 0)} / ${fmt(found.get('视频') || 0)}`;
+    }
+
+    function renderBars(id, rows, maxRows = 12, showSpendShare = false) {
+      const top = rows.slice(0, maxRows);
+      const max = Math.max(1, ...top.map(row => row.spend || 0));
+      const totalSpend = rows.reduce((sum, row) => sum + Number(row.spend || 0), 0);
+      const avgRoi = totalSpend ? rows.reduce((sum, row) => sum + Number(row.purchaseValue || 0), 0) / totalSpend : 0;
+      if (!top.length) {
+        $(id).innerHTML = `<div class="empty">当前筛选下暂无数据</div>`;
+        return;
+      }
+      $(id).innerHTML = `<div class="barrow header ${showSpendShare ? 'with-share' : ''}">
+          <div>维度</div><div>花费占比</div><div class="num">花费</div><div class="num hide-mobile">订单</div><div class="num hide-mobile">ROI</div>${showSpendShare ? '<div class="num hide-mobile">花费占比</div>' : ''}
+        </div>` + top.map(row => {
+          const cls = row.name === '视频' ? 'video' : row.name === '图文' ? 'image' : '';
+          const roiClass = row.roi > avgRoi ? 'roi-high' : row.roi < avgRoi ? 'roi-low' : 'roi-mid';
+          const spendShare = totalSpend ? row.spend / totalSpend : 0;
+          return `<div class="barrow ${showSpendShare ? 'with-share' : ''}">
+            <div class="name" title="${safe(row.name)}">${safe(short(row.name, 34))}</div>
+            <div class="track"><div class="fill ${cls}" style="width:${Math.max(2, row.spend / max * 100)}%"></div></div>
+            <div class="num">${money(row.spend)}</div>
+            <div class="num hide-mobile">${fmt(row.conversions)}</div>
+            <div class="num hide-mobile ${roiClass}">${roi(row.roi)}</div>${showSpendShare ? `<div class="num hide-mobile">${pct(spendShare)}</div>` : ''}
+          </div>`;
+        }).join('');
+    }
+
+    function groupRowsWithMeta(rows, field) {
+      const groups = new Map();
+      rows.forEach(row => {
+        const name = row[field] || '未标注';
+        if (!groups.has(name)) groups.set(name, { name, items: [], countries: new Set() });
+        const bucket = groups.get(name);
+        bucket.items.push(row);
+        if (row.country) bucket.countries.add(row.country);
+      });
+      return [...groups.values()].map(bucket => ({
+        name: bucket.name,
+        countries: bucket.countries.size,
+        ...sumRows(bucket.items)
+      })).sort((a, b) => (b.spend - a.spend) || (b.conversions - a.conversions));
+    }
+
+    // 收割层级不再限定 awa / consi / conv，见 isHarvestRow()
+
+    function harvestTagRows(rows = state.filtered) {
+      return rows
+        .filter(isHarvestRow)
+        .map(row => ({ ...row, tag1: canonicalTag1(row.tag1) }));
+    }
+
+    function productSortValue(row, key) {
+      if (key === 'product') return String(row.name || '');
+      if (key === 'spend') return Number(row.spend || 0);
+      if (key === 'roi') return Number(row.roi || 0);
+      if (key === 'conversions') return Number(row.conversions || 0);
+      if (key === 'posts') return Number(row.posts || 0);
+      if (key === 'ctr') return Number(row.ctr || 0);
+      if (key === 'purchaseValue') return Number(row.purchaseValue || 0);
+      if (key === 'cvr') return Number(row.cvr || 0);
+      return Number(row.spend || 0);
+    }
+
+    function productSortArrow(key) {
+      if (state.productSortKey !== key) return '<span class="sort-indicator">↕</span>';
+      return `<span class="sort-indicator active">${state.productSortDir > 0 ? '↑' : '↓'}</span>`;
+    }
+
+    function renderProductSortTable() {
+      const rows = groupRowsWithMeta(state.filtered, 'product').sort((a, b) => {
+        const av = productSortValue(a, state.productSortKey);
+        const bv = productSortValue(b, state.productSortKey);
+        if (typeof av === 'string' || typeof bv === 'string') return av.localeCompare(bv, 'zh-Hans-CN') * state.productSortDir;
+        return (av - bv) * state.productSortDir;
+      });
+      const compareRows = state.compareAppliedRange ? groupRowsWithMeta(state.compareFiltered || [], 'product') : [];
+      const compareMap = new Map(compareRows.map(row => [row.name, row]));
+      const shown = rows.slice(0, 12);
+      const headers = [
+        ['产品', 'product', ''],
+        ['花费', 'spend', 'num'],
+        ['ROI', 'roi', 'num'],
+        ['单量', 'conversions', 'num'],
+        ['出单的素材量', 'orderMaterials', 'num'],
+        ['CTR', 'ctr', 'num'],
+        ['GMV', 'purchaseValue', 'num'],
+        ['CVR', 'cvr', 'num']
+      ];
+      $('productBars').innerHTML = `<table class="compact-table"><thead><tr>${headers.map(([label, key, cls]) => `<th class="${cls} sortable" data-product-sort="${safe(key)}">${safe(label)}${productSortArrow(key)}</th>`).join('')}</tr></thead><tbody>${
+        shown.length ? shown.map(row => {
+          const compare = compareMap.get(row.name) || {};
+          return `<tr>
+            <td><b title="${safe(row.name)}">${safe(short(row.name, 42))}</b></td>
+            <td class="num">${metricCell(row.spend, compare.spend, money)}</td>
+            <td class="num">${metricCell(row.roi, compare.roi, roi)}</td>
+            <td class="num">${metricCell(row.conversions, compare.conversions, v => fmt(v))}</td>
+            <td class="num">${metricCell(row.orderMaterials, compare.orderMaterials, v => fmt(v))}</td>
+            <td class="num">${metricCell(row.ctr, compare.ctr, pct)}</td>
+            <td class="num">${metricCell(row.purchaseValue, compare.purchaseValue, money)}</td>
+            <td class="num">${metricCell(row.cvr, compare.cvr, pct)}</td>
+          </tr>`;
+        }).join('') : `<tr><td colspan="${headers.length}" class="empty">当前筛选下暂无产品数据</td></tr>`
+      }</tbody></table>`;
+      $('productCount').textContent = `${fmt(rows.length)} 个产品 · 按花费排序`;
+    }
+
+    function renderHarvestTags() {
+      const scopedRows = harvestTagRows();
+      renderBars('tag1Bars', groupRows(scopedRows, 'tag1'));
+      renderSplitTagPanel('tag2Bars', scopedRows, 'tag2', '主题');
+      renderSplitTagPanel('tag3Bars', scopedRows, 'tag3', '测试点');
+    }
+
+    function canonicalTag1(value) {
+      const key = String(value || '').toLowerCase();
+      if (key === 'awa') return 'AWA';
+      if (key === 'consi') return 'consi';
+      if (key === 'conv') return 'conv';
+      return value || '未标注';
+    }
+
+    // DMS 一级标签是三级的完整分类学（功效 / 对比 / 场景 / 趋势 ...），
+    // 不再把收割层级限制在 awa / consi / conv，只要有一级标签就纳入收割分析。
+    function isHarvestRow(row) {
+      const tag1 = String(row.tag1 || '').trim();
+      return Boolean(tag1) && tag1 !== '未标注' && tag1 !== '-';
+    }
+
+    function harvestTag1Values(rows = state.filtered) {
+      const map = new Map();
+      rows.filter(isHarvestRow).forEach(row => {
+        const key = String(row.tag1).trim().toLowerCase();
+        if (!map.has(key)) map.set(key, { key, label: canonicalTag1(row.tag1), rows: [] });
+        map.get(key).rows.push(row);
+      });
+      return [...map.values()].sort((a, b) => (sumRows(b.rows).spend - sumRows(a.rows).spend));
+    }
+
+    function renderSplitTagPanel(id, rows, field, labelName) {
+      const parents = harvestTag1Values(rows);
+      const blocks = parents.map(parent => {
+        const parentKey = parent.key;
+        const parentRows = rows.filter(row => String(row.tag1 || '').toLowerCase() === parentKey);
+        if (!parentRows.length) return '';
+        const parentMetrics = sumRows(parentRows);
+        const items = groupRows(parentRows, field).slice(0, 12);
+        const max = Math.max(1, ...items.map(item => item.spend || 0));
+        return `<div class="tag-group">
+          <div class="tag-group-head">
+        <div class="tag-group-title">
+          <span>${safe(parent.label)}</span>
+          <span class="small">${safe(labelName)} ${fmt(items.length)} 项 · 总花费(USD) ${money(parentMetrics.spend)}</span>
+        </div>
+        <span class="tag-column-head">订单</span>
+        <span class="tag-column-head">ROI</span>
+          </div>
+          <div class="tag-group-body">${
+            items.map(item => {
+              const roiClass = item.roi > 0 ? (item.roi >= parentMetrics.roi ? 'roi-high' : 'roi-low') : 'roi-mid';
+              return `<div class="tag-row">
+                <div class="label" title="${safe(item.name)}">${safe(short(item.name, 32))}</div>
+                <div class="track"><div class="fill" style="width:${Math.max(2, item.spend / max * 100)}%"></div></div>
+                <div class="num">${fmt(item.conversions)}</div>
+                <div class="num ${roiClass}">${roi(item.roi)}</div>
+              </div>`;
+            }).join('')
+          }</div>
+        </div>`;
+      }).filter(Boolean);
+      $(id).innerHTML = blocks.length ? `<div class="tag-groups">${blocks.join('')}</div>` : `<div class="empty">当前筛选下暂无数据</div>`;
+    }
+
+    function dmsMatchesFilters(row) {
+      if (!matchesMulti('brand', row.brand)) return false;
+      if (!matchesMulti('country', row.country)) return false;
+      if (!matchesMulti('product', row.product)) return false;
+      if (!state.materialTypes.includes(row.materialType)) return false;
+      if (state.materialFrom || state.materialTo) {
+        const day = row.createdAt || '';
+        if (!day) return false;
+        if (state.materialFrom && day < state.materialFrom) return false;
+        if (state.materialTo && day > state.materialTo) return false;
+      }
+      if (state.query) {
+        const haystack = [
+          row.materialId, row.materialName, row.adName, row.product, row.country,
+          row.materialType, row.graphicType, row.tag1, row.tag2, row.tag3
+        ].join(' ').toLowerCase();
+        if (!haystack.includes(state.query)) return false;
+      }
+      return true;
+    }
+
+    function dmsRows() {
+      const rows = (state.dms?.rows || []).filter(dmsMatchesFilters);
+      const key = state.dmsSortKey;
+      rows.sort((a, b) => {
+        if (key === 'createdAt') return String(b.createdAt || '').localeCompare(String(a.createdAt || ''));
+        return (Number(b[key] || 0) - Number(a[key] || 0)) || (Number(b.spend || 0) - Number(a.spend || 0));
+      });
+      return rows;
+    }
+
+    function renderDmsMaterials() {
+      const rows = dmsRows();
+      const matched = rows.filter(row => row.matchedDms).length;
+      const avgRoi = rows.length ? rows.reduce((sum, row) => sum + Number(row.roi || 0), 0) / rows.length : 0;
+      $('dmsSubtitle').textContent = `${state.dms?.paidFrom || '2026-06-01'} ~ ${state.dms?.paidTo || '2026-07-31'} 有花费的图文 / 视频素材 · DMS匹配 ${fmt(matched)}/${fmt(rows.length)}`;
+      $('dmsCount').innerHTML = `命中素材 <b>${fmt(rows.length)}</b> 个`;
+      const shown = rows.slice(0, 120);
+      $('dmsCards').innerHTML = shown.map((row, i) => {
+        const coverUrl = row.mediaUrl || row.preview || '';
+        const downloadUrl = row.downloadUrl || row.mediaUrl || '';
+        const cover = coverUrl && /^https?:\/\//.test(coverUrl)
+          ? `<img src="${safe(coverUrl)}" alt="" loading="lazy" referrerpolicy="no-referrer">`
+          : `<span>${row.matchedDms ? 'No Preview' : '待导出'}</span>`;
+        const typeClass = row.materialType === '视频' ? 'video' : 'image';
+        const roiClass = Number(row.roi || 0) > avgRoi ? 'roi-high' : Number(row.roi || 0) < avgRoi ? 'roi-low' : 'roi-mid';
+        return `<article class="dms-card">
+          <div class="dms-cover">${cover}<span class="chip ${typeClass}">#${i + 1} ${safe(row.materialType || '-')}</span></div>
+          <div class="dms-body">
+            <div class="dms-title" title="${safe(row.materialName || row.adName || row.materialId)}">${safe(short(row.materialName || row.adName || row.materialId, 58))}</div>
+            <div class="small">${safe(row.materialId || row.materialCode || '-')} · ${safe(row.country || '-')} · ${safe(row.product || '-')}</div>
+            <div class="dms-meta">
+              <span>花费<b>${money(row.spend)}</b></span>
+              <span>订单<b>${fmt(row.orders)}</b></span>
+              <span>GMV<b>${money(row.gmv)}</b></span>
+              <span class="${roiClass}">ROI<b>${roi(row.roi)}</b></span>
+            </div>
+            <div class="dms-actions">
+              ${downloadUrl && /^https?:\/\//.test(downloadUrl) ? `<a href="${safe(downloadUrl)}" target="_blank" rel="noopener" download>下载素材</a>` : ''}
+              ${row.matchedDms ? `<span class="chip neutral">DMS已匹配</span>` : `<span class="chip neutral">待DMS导出</span>`}
+            </div>
+          </div>
+        </article>`;
+      }).join('') || `<div class="empty">当前筛选下暂无 DMS 素材</div>`;
+    }
+
+    function dmsPreviewUrl(row) {
+      return row.previewUrl || row.mediaUrl || row.preview || '';
+    }
+
+    function dmsDownloadUrl(row) {
+      return row.downloadUrl || row.videoUrl || row.mediaUrl || '';
+    }
+
+    function dmsProxyUrl(url, download = false) {
+      if (!url || !/^https?:\/\//.test(String(url))) return '';
+      if (download) {
+        const joiner = String(url).includes('?') ? '&' : '?';
+        return `${url}${joiner}response-content-disposition=attachment`;
+      }
+      return String(url);
+    }
+
+    function dmsHasMedia(row) {
+      const url = dmsDownloadUrl(row) || dmsPreviewUrl(row);
+      return Boolean(url && /^https?:\/\//.test(url));
+    }
+
+    function dmsIsVideoUrl(url) {
+      return /\.(mp4|mov|m3u8)(\?|$)/i.test(String(url || ''));
+    }
+
+    function dmsVideoPosterUrl(url, at = 1500) {
+      if (!dmsIsVideoUrl(url) || !/oss-[^/]+\.aliyuncs\.com/i.test(String(url || ''))) return '';
+      const joiner = String(url).includes('?') ? '&' : '?';
+      return `${url}${joiner}x-oss-process=video/snapshot,t_${at},f_jpg,w_800,m_fast`;
+    }
+
+    function renderDmsFallbackCover(row = {}, fallbackText = '') {
+      const typeText = String(row.materialType || row.materialKind || fallbackText || '');
+      const isVideo = /video|视频|頻|频/i.test(typeText);
+      const title = short(row.materialName || row.adName || row.product || fallbackText || '素材封面', 42);
+      const sub = [row.product, row.country].filter(Boolean).join(' · ') || (isVideo ? '视频素材' : '图文素材');
+      const code = row.materialId || row.materialCode || row.key || 'DMS';
+      return `<div class="dms-fallback-cover ${isVideo ? 'video' : 'image'}">
+        <div class="dms-fallback-brand">${safe(row.brand || 'NP / LXP')}</div>
+        <div class="dms-fallback-kind">${isVideo ? 'VIDEO' : 'IMAGE'}</div>
+        <div class="dms-fallback-title">${safe(title)}</div>
+        <div class="dms-fallback-sub">${safe(short(sub, 30))}</div>
+        <div class="dms-fallback-code">${safe(short(code, 22))}</div>
+      </div>`;
+    }
+
+    function renderDmsMedia(url, fallbackText, row = {}) {
+      const fallback = renderDmsFallbackCover(row, fallbackText);
+      if (!url || !/^https?:\/\//.test(url)) return fallback;
+      if (dmsIsVideoUrl(url)) {
+        const poster = dmsVideoPosterUrl(url);
+        const playUrl = dmsProxyUrl(url);
+        if (poster) {
+          const fallbackPoster = dmsVideoPosterUrl(url, 3500);
+          return `<a class="dms-video-wrap" href="${safe(playUrl)}" target="_blank" rel="noopener">${fallback}<img src="${safe(dmsProxyUrl(poster))}" data-fallback="${safe(dmsProxyUrl(fallbackPoster))}" alt="" loading="lazy" onerror="if(this.dataset.fallback){this.src=this.dataset.fallback;this.dataset.fallback=''}else{this.remove()}"><span class="dms-play-badge">播放</span></a>`;
+        }
+        return `<a class="dms-video-wrap" href="${safe(playUrl)}" target="_blank" rel="noopener">${fallback}<video src="${safe(playUrl)}" muted playsinline preload="metadata" controls></video><span class="dms-play-badge">播放</span></a>`;
+      }
+      return `<span class="dms-media-shell">${fallback}<img src="${safe(dmsProxyUrl(url))}" alt="" loading="lazy" onerror="this.remove()"></span>`;
+    }
+
+    function dmsCardRows(rows) {
+      return [...rows].sort((a, b) => {
+        const mediaDelta = Number(dmsHasMedia(b)) - Number(dmsHasMedia(a));
+        if (mediaDelta) return mediaDelta;
+        return (Number(b.spend || 0) - Number(a.spend || 0)) || (Number(b.orders || 0) - Number(a.orders || 0));
+      });
+    }
+
+    function dmsDownloadState(row) {
+      return dmsDownloadUrl(row) && /^https?:\/\//.test(dmsDownloadUrl(row)) ? '可下载' : '待DMS导出';
+    }
+
+    function renderDmsTable(rows, avgRoi = 0) {
+      const headers = ['预览','素材编号','素材名称','国家','产品','类型','花费','订单','GMV','ROI','创建时间','尺寸','投放状态','下载'];
+      const thead = `<thead><tr>${headers.map(h => `<th>${safe(h)}</th>`).join('')}</tr></thead>`;
+      const body = rows.slice(0, TABLE_LIMIT).map(row => {
+        const previewUrl = dmsPreviewUrl(row);
+        const downloadUrl = dmsDownloadUrl(row);
+        const mediaUrl = previewUrl || downloadUrl;
+        const preview = `<div class="dms-thumb">${renderDmsMedia(mediaUrl, row.materialType || '-', row)}</div>`;
+        const download = downloadUrl && /^https?:\/\//.test(downloadUrl)
+          ? `<a href="${safe(dmsProxyUrl(downloadUrl, true))}" target="_blank" rel="noopener" download>下载</a>`
+          : `<span class="dms-download-state pending">待导出</span>`;
+        const stateClass = downloadUrl && /^https?:\/\//.test(downloadUrl) ? 'ready' : 'pending';
+        const roiClass = Number(row.roi || 0) > avgRoi ? 'roi-high' : Number(row.roi || 0) < avgRoi ? 'roi-low' : 'roi-mid';
+        return `<tr>
+          <td class="thumb-cell">${preview}</td>
+          <td><b>${safe(row.materialId || row.materialCode || '-')}</b><div class="small">${safe(row.sourceFile || '')}</div></td>
+          <td><div class="creative-cell"><b title="${safe(row.materialName || row.adName || '')}">${safe(short(row.materialName || row.adName || '-', 58))}</b><span>${safe(short(row.adName || '', 72))}</span></div></td>
+          <td>${safe(row.country || '-')}</td>
+          <td>${safe(row.product || '-')}</td>
+          <td><span class="chip ${row.materialType === '视频' || row.materialType === '��Ƶ' ? 'video' : 'image'}">${safe(row.materialType || '-')}</span><div class="small">${safe(row.materialKind || row.graphicType || '')}</div></td>
+          <td class="num">${money(row.spend)}</td>
+          <td class="num">${fmt(row.orders)}</td>
+          <td class="num">${money(row.gmv)}</td>
+          <td class="num ${roiClass}">${roi(row.roi)}</td>
+          <td>${safe(row.createdAt || '-')}</td>
+          <td>${safe(row.size || '-')}</td>
+          <td><span class="dms-download-state ${stateClass}">${safe(dmsDownloadState(row))}</span><div class="small">${safe(row.status || '')}</div></td>
+          <td>${download}</td>
+        </tr>`;
+      }).join('');
+      $('dmsTable').innerHTML = thead + `<tbody>${body || `<tr><td colspan="${headers.length}" class="empty">当前筛选下暂无 DMS 素材</td></tr>`}</tbody>`;
+    }
+
+    function renderDmsMaterials() {
+      const rows = dmsRows();
+      const matched = rows.filter(row => row.matchedDms).length;
+      const ready = rows.filter(row => row.downloadReady || /^https?:\/\//.test(dmsDownloadUrl(row))).length;
+      const avgRoi = rows.length ? rows.reduce((sum, row) => sum + Number(row.roi || 0), 0) / rows.length : 0;
+      $('dmsSubtitle').textContent = `${state.dms?.paidFrom || '2026-07-01'} ~ ${state.dms?.paidTo || '2026-07-31'} 有花费的图文 / 视频素材 · DMS匹配 ${fmt(matched)}/${fmt(rows.length)} · 可下载 ${fmt(ready)}`;
+      $('dmsCount').innerHTML = `命中素材 <b>${fmt(rows.length)}</b> 个`;
+      if ($('dmsSourceNote')) {
+        $('dmsSourceNote').textContent = `优先解析/展示7月有花费图文视频 · 待解析 ${fmt(state.dms?.missingMediaCount || 0)} 个 · 导出文件 ${fmt((state.dms?.dmsFiles || []).length)} 个 · 生成 ${state.dms?.generatedAt || '-'}`;
+      }
+      const shown = rows.slice(0, 120);
+      $('dmsCards').innerHTML = shown.map((row, i) => {
+        const coverUrl = dmsPreviewUrl(row) || dmsDownloadUrl(row);
+        const downloadUrl = dmsDownloadUrl(row);
+        const cover = renderDmsMedia(coverUrl, row.matchedDms ? 'No Preview' : '待DMS导出', row);
+        const typeClass = row.materialType === '视频' || row.materialType === '��Ƶ' ? 'video' : 'image';
+        const roiClass = Number(row.roi || 0) > avgRoi ? 'roi-high' : Number(row.roi || 0) < avgRoi ? 'roi-low' : 'roi-mid';
+        return `<article class="dms-card">
+          <div class="dms-cover">${cover}<span class="chip ${typeClass}">#${i + 1} ${safe(row.materialType || '-')}</span></div>
+          <div class="dms-body">
+            <div class="dms-title" title="${safe(row.materialName || row.adName || row.materialId)}">${safe(short(row.materialName || row.adName || row.materialId, 58))}</div>
+            <div class="small">${safe(row.materialId || row.materialCode || '-')} · ${safe(row.country || '-')} · ${safe(row.product || '-')}</div>
+            <div class="dms-meta">
+              <span>花费<b>${money(row.spend)}</b></span>
+              <span>订单<b>${fmt(row.orders)}</b></span>
+              <span>GMV<b>${money(row.gmv)}</b></span>
+              <span class="${roiClass}">ROI<b>${roi(row.roi)}</b></span>
+            </div>
+            <div class="dms-actions">
+              ${downloadUrl && /^https?:\/\//.test(downloadUrl) ? `<a href="${safe(dmsProxyUrl(downloadUrl, true))}" target="_blank" rel="noopener" download>下载素材</a>` : ''}
+              ${row.matchedDms ? `<span class="chip neutral">DMS已匹配</span>` : `<span class="chip neutral">待DMS导出</span>`}
+              <span class="chip neutral">${safe(dmsDownloadState(row))}</span>
+            </div>
+          </div>
+        </article>`;
+      }).join('') || `<div class="empty">当前筛选下暂无 DMS 素材</div>`;
+      renderDmsTable(rows, avgRoi);
+    }
+
+    function trendRowsFor(rows, from, to) {
+      const map = new Map();
+      for (const row of rows) {
+        for (const [day, values] of Object.entries(row.days || {})) {
+          if (from && day < from) continue;
+          if (to && day > to) continue;
+          if (!map.has(day)) map.set(day, emptyMetrics());
+          addMetrics(map.get(day), values);
+        }
+      }
+      return [...map.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([day, values]) => ({ day, ...finalize(values) }));
+    }
+
+    function drawTrend() {
+      const canvas = $('trendChart');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      const rect = canvas.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = rect.width * dpr;
+      canvas.height = rect.height * dpr;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, rect.width, rect.height);
+      const data = trendRowsFor(state.filtered, state.from, state.to);
+      const compareData = state.compareAppliedRange
+        ? trendRowsFor(state.compareFiltered || [], state.compareAppliedRange.from, state.compareAppliedRange.to)
+        : [];
+      const hasCompare = !!compareData.length;
+      const pad = { l: 48, r: 28, t: hasCompare ? 46 : 34, b: 32 };
+      const w = rect.width - pad.l - pad.r;
+      const h = rect.height - pad.t - pad.b;
+      const visible = state.trendVisible;
+      state.trendLegendHits = [];
+      ctx.font = '11px Arial';
+      const legendItems = [
+        { key: 'spend', label: 'Spend', color: '#2f6f9f', marker: 'bar' },
+        { key: 'orders', label: 'Orders', color: '#b42318', marker: 'line' },
+        { key: 'roi', label: 'ROI', color: '#0f766e', marker: 'line' },
+        ...(hasCompare ? [
+          { key: 'compareSpend', label: 'Spend环比', color: '#7a8da0', marker: 'line', dashed: true },
+          { key: 'compareOrders', label: 'Orders环比', color: '#d97062', marker: 'line', dashed: true },
+          { key: 'compareRoi', label: 'ROI环比', color: '#48a195', marker: 'line', dashed: true }
+        ] : [])
+      ];
+      let lx = pad.l;
+      let ly = 12;
+      for (const item of legendItems) {
+        const textWidth = ctx.measureText(item.label).width;
+        const itemWidth = textWidth + 28;
+        if (lx + itemWidth > rect.width - pad.r) {
+          lx = pad.l;
+          ly += 18;
+        }
+        const active = visible[item.key] !== false;
+        ctx.globalAlpha = active ? 1 : .35;
+        ctx.fillStyle = item.color;
+        ctx.strokeStyle = item.color;
+        ctx.lineWidth = 2;
+        ctx.setLineDash(item.dashed ? [5, 4] : []);
+        if (item.marker === 'bar') {
+          ctx.fillRect(lx, ly - 8, 12, 8);
+        } else {
+          ctx.beginPath();
+          ctx.moveTo(lx, ly - 4);
+          ctx.lineTo(lx + 12, ly - 4);
+          ctx.stroke();
+        }
+        ctx.setLineDash([]);
+        ctx.fillStyle = item.color;
+        ctx.fillText(item.label, lx + 17, ly);
+        state.trendLegendHits.push({ key: item.key, x: lx - 4, y: ly - 14, w: itemWidth, h: 18 });
+        lx += itemWidth + 12;
+      }
+      ctx.globalAlpha = 1;
+      ctx.strokeStyle = '#e5ebf0';
+      ctx.lineWidth = 1;
+      for (let i = 0; i <= 4; i++) {
+        const y = pad.t + h * i / 4;
+        ctx.beginPath();
+        ctx.moveTo(pad.l, y);
+        ctx.lineTo(pad.l + w, y);
+        ctx.stroke();
+      }
+      if (!data.length) {
+        ctx.fillStyle = '#667085';
+        ctx.fillText('当前筛选下暂无趋势数据', pad.l, pad.t + 22);
+        return;
+      }
+      const spendSeries = [...data, ...compareData];
+      const maxSpend = Math.max(1, ...spendSeries.map(d => d.spend));
+      const maxOrders = Math.max(1, ...spendSeries.map(d => d.conversions));
+      const maxRoi = Math.max(1, ...spendSeries.map(d => d.roi));
+      const pointCount = Math.max(data.length, compareData.length, 1);
+      const x = (i) => pad.l + (pointCount === 1 ? w / 2 : i * w / Math.max(1, pointCount - 1));
+      const ySpend = (v) => pad.t + h - v / maxSpend * h;
+      const yOrders = (v) => pad.t + h - v / maxOrders * h;
+      const yRoi = (v) => pad.t + h - v / maxRoi * h;
+      if (visible.spend) {
+        data.forEach((d, i) => {
+          const bw = Math.max(5, w / Math.max(22, pointCount) * .55);
+          ctx.fillStyle = 'rgba(47,111,159,.28)';
+          ctx.fillRect(x(i) - bw / 2, ySpend(d.spend), bw, pad.t + h - ySpend(d.spend));
+        });
+      }
+      const drawLine = (rows, getter, yScale, color, dashed = false) => {
+        if (!rows.length) return;
+        ctx.beginPath();
+        ctx.strokeStyle = color;
+        ctx.lineWidth = dashed ? 1.8 : 2.2;
+        ctx.setLineDash(dashed ? [6, 5] : []);
+        rows.forEach((d, i) => {
+          const xx = x(i), yy = yScale(getter(d));
+          if (i) ctx.lineTo(xx, yy); else ctx.moveTo(xx, yy);
+        });
+        ctx.stroke();
+        ctx.setLineDash([]);
+      };
+      if (visible.orders) drawLine(data, d => d.conversions, yOrders, '#b42318');
+      if (visible.roi) drawLine(data, d => d.roi, yRoi, '#0f766e');
+      if (hasCompare && visible.compareSpend) drawLine(compareData, d => d.spend, ySpend, '#7a8da0', true);
+      if (hasCompare && visible.compareOrders) drawLine(compareData, d => d.conversions, yOrders, '#d97062', true);
+      if (hasCompare && visible.compareRoi) drawLine(compareData, d => d.roi, yRoi, '#48a195', true);
+      data.forEach((d, i) => {
+        if (i % Math.ceil(data.length / 6) === 0 || i === data.length - 1) {
+          ctx.fillStyle = '#667085';
+          ctx.fillText(d.day.slice(5), x(i) - 14, rect.height - 10);
+        }
+      });
+    }
+
+    function toggleTrendLegend(event) {
+      const canvas = $('trendChart');
+      const rect = canvas.getBoundingClientRect();
+      const x = event.clientX - rect.left;
+      const y = event.clientY - rect.top;
+      const hit = state.trendLegendHits.find(item =>
+        x >= item.x && x <= item.x + item.w && y >= item.y && y <= item.y + item.h
+      );
+      if (!hit) return;
+      state.trendVisible[hit.key] = state.trendVisible[hit.key] === false;
+      drawTrend();
+    }
+
+    function renderTable() {
+      const headers = [
+        ['素材', 'materialLabel'],
+        ['类型', 'materialType'],
+        ['国家', 'country'],
+        ['产品', 'product'],
+        ['日期', 'lastDate'],
+        ['收割标签', 'tag1'],
+        ['花费', 'spend', true],
+        ['曝光', 'impressions', true],
+        ['点击', 'linkClick', true],
+        ['订单', 'conversions', true],
+        ['GMV', 'purchaseValue', true],
+        ['ROI', 'roi', true],
+        ['CPM', 'cpm', true],
+        ['CTR', 'ctr', true],
+        ['CVR', 'cvr', true],
+        ['CPA', 'cpa', true],
+        ['广告细分', 'adDetail']
+      ];
+      const rows = [...state.filtered].sort((a, b) => {
+        const av = state.sortKey === 'materialLabel' ? materialLabel(a) : a[state.sortKey];
+        const bv = state.sortKey === 'materialLabel' ? materialLabel(b) : b[state.sortKey];
+        if (typeof av === 'number' || typeof bv === 'number') return (Number(av || 0) - Number(bv || 0)) * state.sortDir;
+        return String(av || '').localeCompare(String(bv || ''), 'zh-Hans-CN') * state.sortDir;
+      });
+      const shown = rows.slice(0, TABLE_LIMIT);
+      $('tableNote').textContent = `筛选后 ${fmt(rows.length)} 个素材，当前展示前 ${fmt(shown.length)} 条`;
+      const thead = `<thead><tr>${headers.map(h => `<th class="${h[2] ? 'num' : ''}" data-sort="${safe(h[1])}">${safe(h[0])}${state.sortKey === h[1] ? (state.sortDir > 0 ? ' ↑' : ' ↓') : ''}</th>`).join('')}</tr></thead>`;
+      const tbody = shown.map(row => {
+        const tagLine = [row.tag1, row.tag2, row.tag3].filter(Boolean).join(' / ');
+        const typeClass = row.materialType === '视频' ? 'video' : 'image';
+        const url = row.url && String(row.url).startsWith('http') ? `<a href="${safe(row.url)}" target="_blank" rel="noopener">打开</a>` : '';
+        return `<tr>
+          <td><div class="creative-cell"><b title="${safe(materialLabel(row))}">${safe(short(materialLabel(row), 58))}</b><span title="${safe(row.adName)}">${safe(short(row.adName, 82))}</span>${url}</div></td>
+          <td><span class="chip ${typeClass}">${safe(row.materialType)}</span><div class="small">${safe(row.graphicType || '-')}</div></td>
+          <td>${safe(row.country || '-')}</td>
+          <td>${safe(row.product || '-')}</td>
+          <td>${safe(row.firstDate || '-')}<br><span class="small">${safe(row.lastDate || '-')}</span></td>
+          <td>${safe(short(tagLine || '未标注', 60))}</td>
+          <td class="num">${money(row.spend)}</td>
+          <td class="num">${fmt(row.impressions)}</td>
+          <td class="num">${fmt(row.linkClick)}</td>
+          <td class="num">${fmt(row.conversions)}</td>
+          <td class="num">${money(row.purchaseValue)}</td>
+          <td class="num">${roi(row.roi)}</td>
+          <td class="num">${fmt(row.cpm, 2)}</td>
+          <td class="num">${pct(row.ctr)}</td>
+          <td class="num">${pct(row.cvr)}</td>
+          <td class="num">${fmt(row.cpa, 2)}</td>
+          <td>${safe(short(row.adDetail || '-', 42))}</td>
+        </tr>`;
+      }).join('');
+      $('postTable').innerHTML = thead + `<tbody>${tbody || `<tr><td colspan="${headers.length}" class="empty">当前筛选下暂无明细</td></tr>`}</tbody>`;
+    }
+
+    function boardCombos() {
+      const combos = state.board?.combos || [];
+      return combos.filter(combo => {
+        const brand = combo.brand || '';
+        const country = combo.country || '';
+        if (state.brand.length && !state.brand.includes(brand)) return false;
+        if (state.country.length && !state.country.includes(country)) return false;
+        return true;
+      });
+    }
+
+    function boardMetrics(combo) {
+      const daily = combo.daily || [];
+      if (!state.from && !state.to) return { ...(combo.summary || {}) };
+      const agg = { spend: 0, gmv: 0, impressions: 0, clicks: 0, linkClicks: 0, orderCount: 0, cartGmv: 0, reach: 0 };
+      daily.forEach(item => {
+        const day = String(item.date || '');
+        if (!day) return;
+        if (state.from && day < state.from) return;
+        if (state.to && day > state.to) return;
+        agg.spend += Number(item.spend || 0);
+        agg.gmv += Number(item.gmv || 0);
+        agg.impressions += Number(item.impressions || 0);
+        agg.clicks += Number(item.clicks || 0);
+        agg.linkClicks += Number(item.linkClicks || 0);
+        agg.orderCount += Number(item.orderCount || 0);
+        agg.cartGmv += Number(item.cartGmv || 0);
+        agg.reach += Number(item.reach || 0);
+      });
+      agg.roi = agg.spend ? agg.gmv / agg.spend : 0;
+      agg.cpm = agg.impressions ? agg.spend / agg.impressions * 1000 : 0;
+      agg.ctr = agg.impressions ? agg.linkClicks / agg.impressions : 0;
+      agg.cpa = agg.orderCount ? agg.spend / agg.orderCount : 0;
+      agg.aov = agg.orderCount ? agg.gmv / agg.orderCount : 0;
+      return agg;
+    }
+
+    function renderBoardTable() {
+      const table = $('boardTable');
+      if (!table) return;
+      const combos = boardCombos();
+      const headers = ['品牌', '市场', '花费', 'GMV', 'ROI', '曝光', '链接点击', 'CTR', '订单', '客单价', 'CPA', 'CPM'];
+      const thead = `<thead><tr>${headers.map(h => `<th>${safe(h)}</th>`).join('')}</tr></thead>`;
+      const totals = { spend: 0, gmv: 0, impressions: 0, linkClicks: 0, orderCount: 0 };
+      const body = combos.map(combo => {
+        const m = boardMetrics(combo);
+        totals.spend += Number(m.spend || 0);
+        totals.gmv += Number(m.gmv || 0);
+        totals.impressions += Number(m.impressions || 0);
+        totals.linkClicks += Number(m.linkClicks || 0);
+        totals.orderCount += Number(m.orderCount || 0);
+        const roiClass = Number(m.roi || 0) >= 1 ? 'roi-high' : 'roi-low';
+        return `<tr>
+          <td><span class="chip image">${safe(combo.brand || '-')}</span></td>
+          <td>${safe(combo.countryLabel || combo.country || '-')}</td>
+          <td class="num">${money(m.spend)}</td>
+          <td class="num">${money(m.gmv)}</td>
+          <td class="num ${roiClass}">${roi(m.roi)}</td>
+          <td class="num">${fmt(m.impressions)}</td>
+          <td class="num">${fmt(m.linkClicks)}</td>
+          <td class="num">${pct(m.ctr)}</td>
+          <td class="num">${fmt(m.orderCount)}</td>
+          <td class="num">${money(m.aov)}</td>
+          <td class="num">${money(m.cpa)}</td>
+          <td class="num">${money(m.cpm)}</td>
+        </tr>`;
+      }).join('');
+      const totalRow = combos.length > 1 ? `<tr class="board-total">
+          <td><b>合计</b></td>
+          <td>${fmt(combos.length)} 个品牌×市场</td>
+          <td class="num">${money(totals.spend)}</td>
+          <td class="num">${money(totals.gmv)}</td>
+          <td class="num">${roi(totals.spend ? totals.gmv / totals.spend : 0)}</td>
+          <td class="num">${fmt(totals.impressions)}</td>
+          <td class="num">${fmt(totals.linkClicks)}</td>
+          <td class="num">${pct(totals.impressions ? totals.linkClicks / totals.impressions : 0)}</td>
+          <td class="num">${fmt(totals.orderCount)}</td>
+          <td class="num">-</td>
+          <td class="num">-</td>
+          <td class="num">-</td>
+        </tr>` : '';
+      table.innerHTML = thead + `<tbody>${body || `<tr><td colspan="${headers.length}" class="empty">当前筛选下暂无大盘数据</td></tr>`}${totalRow}</tbody>`;
+      const note = $('boardNote');
+      if (note) {
+        const range = state.board?.range || {};
+        note.textContent = `品牌 × 市场口径（DMS 原始数据，不受产品 / 标签筛选影响）· 全量区间 ${range.start || '-'} ~ ${range.end || '-'}${state.from || state.to ? ` · 当前展示 ${state.from || '-'} ~ ${state.to || '-'}` : ''}`;
+      }
+    }
+
+    function countryText() {
+      const scope = state.country.length ? (state.country.length === 1 ? state.country[0] : `${state.country.length} 个国家`) : '';
+      const brand = state.brand.length ? (state.brand.length === 1 ? state.brand[0] : `${state.brand.length} 个品牌`) : '';
+      const parts = [brand, scope].filter(Boolean);
+      return parts.length ? parts.join(' · ') : '数据概览';
+    }
+
+    function updateView() {
+      $('overviewView').hidden = state.currentView !== 'overview';
+      $('dmsView').hidden = state.currentView !== 'dms';
+      document.querySelectorAll('#countryTabs .tab').forEach(tab => {
+        tab.classList.toggle('active', tab.dataset.view === state.currentView);
+      });
+      if (state.currentView === 'overview') drawTrend();
+    }
+
+    function renderAll() {
+      renderKpis();
+      renderBoardTable();
+      renderProductSortTable();
+      renderBars('typeBars', groupRows(state.filtered, 'materialType'), 4, true);
+      renderHarvestTags();
+      renderHarvestHierarchy();
+      renderTable();
+      renderDmsMaterials();
+      drawTrend();
+      const s = sumRows(state.filtered);
+      const compareText = state.compareAppliedRange ? ` · 环比 ${state.compareAppliedRange.from} ~ ${state.compareAppliedRange.to}` : '';
+      $('productCount').textContent = `${fmt(groupRows(state.filtered, 'product').length)} 个产品`;
+      $('status').textContent = `${countryText()} · ${state.from || '-'} ~ ${state.to || '-'} · ${fmt(state.filtered.length)} 个素材 · 花费 USD ${money(s.spend)} · ROI ${roi(s.roi)}${compareText}`;
+    }
+
+    function optionText(key, fallback) {
+      if (state.multiMode[key] === 'cleared') return '未选择';
+      const selected = state[key];
+      if (!selected.length) return fallback;
+      if (selected.length === 1) return selected[0];
+      return `${selected.length} 项已选`;
+    }
+
+    function fallbackText(key) {
+      if (key === 'brand') return '全部品牌';
+      if (key === 'country') return '全部国家';
+      if (key === 'product') return '全部产品';
+      if (key === 'tag1') return '全部大方向';
+      return '全部主题';
+    }
+
+    function multiSearchLabel(key) {
+      if (key === 'brand') return '搜索品牌';
+      if (key === 'country') return '搜索国家';
+      if (key === 'product') return '搜索产品';
+      if (key === 'tag1') return '搜索大方向';
+      return '搜索主题';
+    }
+
+    function applyMultiSearchFilter(key) {
+      const box = document.querySelector(`.multi-select[data-key="${key}"]`);
+      if (!box) return;
+      const query = String(state.multiSearch[key] || '').trim().toLowerCase();
+      let matches = 0;
+      box.querySelectorAll('.multi-option').forEach(option => {
+        const value = String(option.dataset.value || '');
+        const visible = !query || value.toLowerCase().includes(query);
+        option.classList.toggle('search-hidden', !visible);
+        if (visible) matches += 1;
+      });
+      const empty = box.querySelector('.multi-empty');
+      if (empty) empty.classList.toggle('search-hidden', matches > 0);
+    }
+
+    function renderMulti(key, fallback) {
+      const options = state.options[key];
+      const selected = state.multiMode[key] === 'custom' ? new Set(state[key]) : state.multiMode[key] === 'cleared' ? new Set() : new Set(options);
+      $(`${key}Label`).textContent = optionText(key, fallback);
+      $(`${key}Panel`).innerHTML = `<div class="multi-actions">
+          <button type="button" data-action="all" data-key="${safe(key)}">全部</button>
+          <button type="button" data-action="none" data-key="${safe(key)}">清空</button>
+        </div>
+        <input class="multi-search" type="search" data-multi-search="${safe(key)}" placeholder="${safe(multiSearchLabel(key))}" value="${safe(state.multiSearch[key] || '')}" />
+        <div class="multi-list">` + options.map(value => `<label class="multi-option${String(state.multiSearch[key] || '').trim() && !String(value || '').toLowerCase().includes(String(state.multiSearch[key] || '').trim().toLowerCase()) ? ' search-hidden' : ''}" data-value="${safe(value)}">
+          <input type="checkbox" data-key="${safe(key)}" value="${safe(value)}" ${selected.has(value) ? 'checked' : ''}>
+          <span title="${safe(value)}">${safe(value)}</span>
+        </label>`).join('') + `<div class="multi-empty">暂无匹配项</div></div>`;
+      applyMultiSearchFilter(key);
+    }
+
+    function setOptions() {
+      const collect = (field) => [...new Set(state.rows.map(row => row[field] || '未标注'))]
+        .sort((a, b) => a.localeCompare(b, 'zh-Hans-CN'));
+      state.options.brand = collect('brand');
+      state.options.country = collect('country');
+      state.options.product = collect('product');
+      state.options.tag1 = collect('tag1');
+      state.options.tag2 = collect('tag2');
+      renderMulti('brand', '全部品牌');
+      renderMulti('country', '全部国家');
+      renderMulti('product', '全部产品');
+      renderMulti('tag1', '全部大方向');
+      renderMulti('tag2', '全部主题');
+    }
+
+    function toggleMulti(key, value) {
+      const options = state.options[key];
+      let selected;
+      if (state.multiMode[key] === 'cleared') selected = [];
+      else if (state.multiMode[key] === 'custom') selected = [...state[key]];
+      else selected = [...options];
+      selected = selected.includes(value) ? selected.filter(item => item !== value) : [...selected, value];
+      if (!selected.length) {
+        state[key] = [];
+        state.multiMode[key] = 'cleared';
+      } else if (selected.length === options.length) {
+        state[key] = [];
+        state.multiMode[key] = 'default';
+      } else {
+        state[key] = selected;
+        state.multiMode[key] = 'custom';
+      }
+      renderMulti(key, fallbackText(key));
+      applyFilters();
+    }
+
+    function resetFilters() {
+      state.brand = [];
+      state.country = [];
+      state.product = [];
+      state.tag1 = [];
+      state.tag2 = [];
+      state.multiSearch = { brand: '', country: '', product: '', tag1: '', tag2: '' };
+      state.multiMode = { brand: 'default', country: 'default', product: 'default', tag1: 'default', tag2: 'default' };
+      state.materialTypes = [...DEFAULT_TYPES];
+      $('from').value = state.raw?.filters?.performanceFrom || '';
+      $('to').value = state.raw?.filters?.performanceTo || '';
+      $('materialFrom').value = '';
+      $('materialTo').value = '';
+      state.compareEnabled = false;
+      state.compareMode = 'previous';
+      state.compareFrom = '';
+      state.compareTo = '';
+      state.compareFiltered = [];
+      state.compareAppliedRange = null;
+      $('compareEnabled').checked = false;
+      $('compareFrom').value = '';
+      $('compareTo').value = '';
+      $('search').value = '';
+      document.querySelectorAll('#materialTypes input').forEach(input => input.checked = true);
+      updateView();
+      setOptions();
+      updateCompareControls();
+      applyFilters();
+    }
+
+    function updateUrlParams() {
+      const params = new URLSearchParams();
+      if (state.brand.length) params.set('brand', state.brand.join('|'));
+      if (state.country.length) params.set('country', state.country.join('|'));
+      if (state.from) params.set('from', state.from);
+      if (state.to) params.set('to', state.to);
+      if (state.materialFrom) params.set('materialFrom', state.materialFrom);
+      if (state.materialTo) params.set('materialTo', state.materialTo);
+      if (state.query) params.set('q', state.query);
+      if (state.product.length) params.set('product', state.product.join('|'));
+      if (state.tag1.length) params.set('tag1', state.tag1.join('|'));
+      if (state.tag2.length) params.set('tag2', state.tag2.join('|'));
+      if (state.materialTypes.length !== DEFAULT_TYPES.length) params.set('type', state.materialTypes.join('|'));
+      if (state.compareEnabled) {
+        params.set('compare', '1');
+        params.set('compareMode', state.compareMode);
+        if (state.compareFrom) params.set('compareFrom', state.compareFrom);
+        if (state.compareTo) params.set('compareTo', state.compareTo);
+      }
+      if (state.currentView !== 'overview') params.set('view', state.currentView);
+      const next = `${location.pathname}?${params.toString()}`;
+      history.replaceState(null, '', next);
+    }
+
+    function applyUrlParams() {
+      const params = new URLSearchParams(location.search);
+      state.currentView = params.get('view') === 'dms' ? 'dms' : 'overview';
+      const brandParam = params.get('brand');
+      state.brand = brandParam && brandParam !== 'ALL' ? brandParam.split('|') : [];
+      const countryParam = params.get('country');
+      state.country = countryParam && countryParam !== 'ALL' ? countryParam.split('|') : [];
+      $('from').value = params.get('from') || $('from').value;
+      $('to').value = params.get('to') || $('to').value;
+      $('materialFrom').value = params.get('materialFrom') || '';
+      $('materialTo').value = params.get('materialTo') || '';
+      $('search').value = params.get('q') || '';
+      state.product = params.get('product') ? params.get('product').split('|') : [];
+      state.tag1 = params.get('tag1') ? params.get('tag1').split('|') : [];
+      state.tag2 = params.get('tag2') ? params.get('tag2').split('|') : [];
+      state.multiSearch = { brand: '', country: '', product: '', tag1: '', tag2: '' };
+      state.multiMode = {
+        brand: state.brand.length ? 'custom' : 'default',
+        country: state.country.length ? 'custom' : 'default',
+        product: state.product.length ? 'custom' : 'default',
+        tag1: state.tag1.length ? 'custom' : 'default',
+        tag2: state.tag2.length ? 'custom' : 'default'
+      };
+      const typeParam = params.get('type');
+      if (typeParam) state.materialTypes = typeParam.split('|').filter(value => DEFAULT_TYPES.includes(value));
+      if (!state.materialTypes.length) state.materialTypes = [...DEFAULT_TYPES];
+      state.compareEnabled = params.get('compare') === '1';
+      state.compareMode = ['previous', 'month', 'custom'].includes(params.get('compareMode')) ? params.get('compareMode') : 'previous';
+      state.compareFrom = params.get('compareFrom') || '';
+      state.compareTo = params.get('compareTo') || '';
+      $('compareEnabled').checked = state.compareEnabled;
+      $('compareFrom').value = state.compareFrom;
+      $('compareTo').value = state.compareTo;
+      document.querySelectorAll('#materialTypes input').forEach(input => input.checked = state.materialTypes.includes(input.value));
+      setOptions();
+      updateCompareControls();
+      updateView();
+    }
+
+    function loadVersion() {
+      const el = document.getElementById('appVersion');
+      if (el) el.textContent = 'static';
+    }
+
+    function copyShareLink() {
+      updateUrlParams();
+      navigator.clipboard?.writeText(location.href);
+      $('status').textContent = '当前筛选链接已复制';
+    }
+
+    function xmlEscape(value) {
+      return String(value ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;' }[ch]));
+    }
+
+    function exportVisibleTablesToExcel() {
+      const root = document.querySelector('.view:not([hidden])') || document;
+      const tables = [...root.querySelectorAll('table')].filter(table => table.rows.length);
+      if (!tables.length) {
+        $('status').textContent = '当前没有可导出的表格';
+        return;
+      }
+      const usedNames = new Set();
+      const worksheets = tables.map((table, index) => {
+        const heading = table.closest('.panel, .section, .card')?.querySelector('h2, h3')?.textContent
+          || table.id || `Sheet ${index + 1}`;
+        let name = String(heading).trim().replace(/[\\/:?*\[\]]/g, '').slice(0, 31) || `Sheet ${index + 1}`;
+        const base = name;
+        let suffix = 2;
+        while (usedNames.has(name)) name = `${base.slice(0, 31 - String(suffix).length - 1)}_${suffix++}`;
+        usedNames.add(name);
+        const rows = [...table.rows].map(row => `<Row>${[...row.cells].map(cell => `<Cell><Data ss:Type="String">${xmlEscape(cell.innerText.trim())}</Data></Cell>`).join('')}</Row>`).join('');
+        return `<Worksheet ss:Name="${xmlEscape(name)}"><Table>${rows}</Table></Worksheet>`;
+      }).join('');
+      const xml = `<?xml version="1.0"?><Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"><Styles><Style ss:ID="Default" ss:Name="Normal"><Alignment ss:Vertical="Center"/><Font ss:FontName="Arial"/></Style></Styles>${worksheets}</Workbook>`;
+      const blob = new Blob([xml], { type: 'application/vnd.ms-excel;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `np-lxp-harvest-${state.currentView || 'dashboard'}-${state.from || 'all'}-${state.to || 'latest'}.xls`;
+      link.click();
+      URL.revokeObjectURL(url);
+      $('status').textContent = `已导出 ${tables.length} 个表格`;
+    }
+
+    function exportDmsCsv() {
+      const rows = dmsRows();
+      const headers = ['素材编号','素材名称','Ad_name','国家','产品','素材类型','素材形态','创建时间','花费','订单','GMV','ROI','尺寸','投放状态','DMS匹配','可下载','下载链接','预览链接','来源文件'];
+      const body = rows.map(row => [
+        row.materialId || row.materialCode || '', row.materialName || '', row.adName || '', row.country || '', row.product || '',
+        row.materialType || '', row.materialKind || row.graphicType || '', row.createdAt || '', row.spend || 0, row.orders || 0,
+        row.gmv || 0, row.roi || 0, row.size || '', row.status || '', row.matchedDms ? '是' : '否',
+        dmsDownloadUrl(row) ? '是' : '否', dmsDownloadUrl(row), dmsPreviewUrl(row), row.sourceFile || ''
+      ]);
+      const csv = [headers, ...body].map(row => row.map(value => `"${String(value ?? '').replace(/"/g, '""')}"`).join(',')).join('\n');
+      const blob = new Blob([`\ufeff${csv}`], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `np-lxp-harvest-dms-${state.dms?.paidFrom || '2026-07-01'}-${state.dms?.paidTo || 'latest'}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function exportCsv() {
+      const rows = [...state.filtered].sort((a, b) => b.spend - a.spend);
+      const headers = ['素材编号','Ad_name','国家','产品','素材类型','图文类型','素材创建时间','开始日期','结束日期','收割一级标签--大方向','收割二级标签--主题','收割三级标签--测试点','花费','曝光','链接点击','订单','GMV','ROI','CPM','CTR','CVR','CPA','广告细分','Campaign'];
+      const body = rows.map(row => [
+        materialLabel(row), row.adName, row.country, row.product, row.materialType, row.graphicType, materialCreatedDay(row), row.firstDate, row.lastDate,
+        row.tag1, row.tag2, row.tag3, row.spend, row.impressions, row.linkClick, row.conversions, row.purchaseValue,
+        row.roi, row.cpm, row.ctr, row.cvr, row.cpa, row.adDetail, row.campaignName
+      ]);
+      const csv = [headers, ...body].map(row => row.map(value => `"${String(value ?? '').replace(/"/g, '""')}"`).join(',')).join('\n');
+      const blob = new Blob([`\ufeff${csv}`], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `np-lxp-harvest-${state.from || 'all'}-${state.to || 'latest'}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    async function init(resetFilters = true) {
+      loadVersion();
+      const res = await fetch('./data/materials.json', { cache: 'no-store' });
+      if (!res.ok) throw new Error(`Data load failed: ${res.status}`);
+      state.raw = await res.json();
+      state.rows = state.raw.posts || [];
+      try {
+        const dmsRes = await fetch('./data/dms_materials.json', { cache: 'no-store' });
+        state.dms = dmsRes.ok ? await dmsRes.json() : { rows: [] };
+      } catch {
+        state.dms = { rows: [] };
+      }
+      try {
+        const boardRes = await fetch('./data/board.json', { cache: 'no-store' });
+        state.board = boardRes.ok ? await boardRes.json() : null;
+      } catch {
+        state.board = null;
+      }
+      enrichRowsWithDmsCreatedAt();
+      $('sourceLine').textContent = `${state.raw.source} · raw ${fmt(state.raw.rawRows)} rows · included ${fmt(state.raw.includedRows)} 图文/视频 · generated ${state.raw.generatedAt}`;
+      if (resetFilters) {
+        state.brand = [];
+        state.country = [];
+        state.product = [];
+        state.tag1 = [];
+        state.tag2 = [];
+        $('from').value = state.raw.filters?.performanceFrom || '';
+        $('to').value = state.raw.filters?.performanceTo || '';
+        $('materialFrom').value = '';
+        $('materialTo').value = '';
+        state.compareEnabled = false;
+        state.compareMode = 'previous';
+        state.compareFrom = '';
+        state.compareTo = '';
+        $('compareEnabled').checked = false;
+        $('compareFrom').value = '';
+        $('compareTo').value = '';
+        $('search').value = '';
+      }
+      renderBoardTable();
+      setOptions();
+      applyUrlParams();
+      state.initialized = true;
+      applyFilters(false);
+    }
+
+    $('shareLink').addEventListener('click', copyShareLink);
+    $('exportExcel').addEventListener('click', exportVisibleTablesToExcel);
+    $('resetFilters').addEventListener('click', resetFilters);
+    $('downloadCsv').addEventListener('click', exportCsv);
+    $('downloadDmsCsv').addEventListener('click', exportDmsCsv);
+    $('trendChart').addEventListener('click', toggleTrendLegend);
+    $('openDmsExport').addEventListener('click', () => window.open(state.dms?.dmsUrl || 'https://web.bersamadms.com/dms/id/ad/#/place/material', '_blank', 'noopener'));
+    $('dmsSort').addEventListener('click', e => {
+      const button = e.target.closest('[data-dms-sort]');
+      if (!button) return;
+      state.dmsSortKey = button.dataset.dmsSort;
+      document.querySelectorAll('[data-dms-sort]').forEach(item => item.classList.toggle('active', item === button));
+      renderDmsMaterials();
+    });
+    $('search').addEventListener('input', () => applyFilters());
+    ['from', 'to', 'materialFrom', 'materialTo'].forEach(id => $(id).addEventListener('change', () => applyFilters()));
+    $('compareEnabled').addEventListener('change', () => {
+      state.compareEnabled = $('compareEnabled').checked;
+      applyFilters();
+    });
+    document.querySelectorAll('.compare-mode').forEach(button => button.addEventListener('click', () => {
+      state.compareMode = button.dataset.mode;
+      document.querySelectorAll('.compare-mode').forEach(item => item.classList.toggle('active', item === button));
+      applyFilters();
+    }));
+    ['compareFrom', 'compareTo'].forEach(id => $(id).addEventListener('change', () => applyFilters()));
+    document.querySelectorAll('#materialTypes input').forEach(input => input.addEventListener('change', () => {
+      state.materialTypes = [...document.querySelectorAll('#materialTypes input:checked')].map(item => item.value);
+      if (!state.materialTypes.length) {
+        state.materialTypes = [...DEFAULT_TYPES];
+        document.querySelectorAll('#materialTypes input').forEach(item => item.checked = true);
+      }
+      applyFilters();
+    }));
+    document.addEventListener('input', e => {
+      const input = e.target.closest('[data-multi-search]');
+      if (!input) return;
+      const key = input.dataset.multiSearch;
+      state.multiSearch[key] = input.value;
+      applyMultiSearchFilter(key);
+    });
+    $('countryTabs').addEventListener('click', e => {
+      const tab = e.target.closest('[data-view]');
+      if (!tab) return;
+      state.currentView = tab.dataset.view;
+      if (state.currentView === 'overview') {
+        state.country = [];
+        renderMulti('country', '全部国家');
+        applyFilters();
+      } else {
+        updateView();
+        updateUrlParams();
+      }
+    });
+    document.addEventListener('click', e => {
+      const multi = e.target.closest('.multi-select');
+      document.querySelectorAll('.multi-select.open').forEach(open => {
+        if (open !== multi) open.classList.remove('open');
+      });
+      if (!multi) return;
+      const key = multi.dataset.key;
+      if (e.target.closest('.multi-button')) {
+        multi.classList.toggle('open');
+        return;
+      }
+      const allBtn = e.target.closest('[data-action="all"]');
+      if (allBtn) {
+        state[key] = [];
+        state.multiMode[key] = 'default';
+        renderMulti(key, fallbackText(key));
+        multi.classList.add('open');
+        applyFilters();
+        return;
+      }
+      const noneBtn = e.target.closest('[data-action="none"]');
+      if (noneBtn) {
+        state[key] = [];
+        state.multiMode[key] = 'cleared';
+        renderMulti(key, fallbackText(key));
+        multi.classList.add('open');
+        applyFilters();
+        return;
+      }
+      const input = e.target.closest('.multi-option input');
+      if (input) {
+        toggleMulti(input.dataset.key, input.value);
+        multi.classList.add('open');
+      }
+    });
+    $('postTable').addEventListener('click', e => {
+      const th = e.target.closest('[data-sort]');
+      if (!th) return;
+      const key = th.dataset.sort;
+      if (state.sortKey === key) state.sortDir *= -1;
+      else {
+        state.sortKey = key;
+        state.sortDir = -1;
+      }
+      renderTable();
+    });
+    $('productBars').addEventListener('click', e => {
+      const th = e.target.closest('[data-product-sort]');
+      if (!th) return;
+      const key = th.dataset.productSort;
+      if (state.productSortKey === key) state.productSortDir *= -1;
+      else {
+        state.productSortKey = key;
+        state.productSortDir = -1;
+      }
+      renderProductSortTable();
+    });
+    window.addEventListener('resize', drawTrend);
+    init().catch(err => {
+      $('status').textContent = err.message;
+      $('kpis').innerHTML = `<div class="empty">${safe(err.message)}</div>`;
+    });
+    setInterval(() => init(false).catch(() => {}), 300000);
+  </script>
+</body>
+</html>
