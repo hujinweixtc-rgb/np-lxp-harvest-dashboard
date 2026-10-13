@@ -1888,8 +1888,6 @@
       })).sort((a, b) => (b.spend - a.spend) || (b.conversions - a.conversions));
     }
 
-    // 收割层级不再限定 awa / consi / conv，见 isHarvestRow()
-
     function harvestTagRows(rows = state.filtered) {
       return rows
         .filter(isHarvestRow)
@@ -1966,21 +1964,25 @@
       return value || '未标注';
     }
 
-    // DMS 一级标签是三级的完整分类学（功效 / 对比 / 场景 / 趋势 ...），
-    // 不再把收割层级限制在 awa / consi / conv，只要有一级标签就纳入收割分析。
+    // 与 FR 模板一致：收割层级严格限定 awa / consi / conv 三大类
+    // （tag1 已在构建阶段从 DMS 一级标签归一到三类，见 scripts/build_data.py）
+    const HARVEST_TAG1_SET = new Set(['awa', 'consi', 'conv']);
+    const HARVEST_TAG1_ORDER = ['awa', 'consi', 'conv'];
+
     function isHarvestRow(row) {
-      const tag1 = String(row.tag1 || '').trim();
-      return Boolean(tag1) && tag1 !== '未标注' && tag1 !== '-';
+      return HARVEST_TAG1_SET.has(String(row.tag1 || '').trim().toLowerCase());
     }
 
     function harvestTag1Values(rows = state.filtered) {
       const map = new Map();
       rows.filter(isHarvestRow).forEach(row => {
         const key = String(row.tag1).trim().toLowerCase();
-        if (!map.has(key)) map.set(key, { key, label: canonicalTag1(row.tag1), rows: [] });
+        if (!map.has(key)) map.set(key, { key, label: canonicalTag1(key), rows: [] });
         map.get(key).rows.push(row);
       });
-      return [...map.values()].sort((a, b) => (sumRows(b.rows).spend - sumRows(a.rows).spend));
+      return HARVEST_TAG1_ORDER
+        .map(key => map.get(key))
+        .filter(Boolean);
     }
 
     function renderSplitTagPanel(id, rows, field, labelName) {

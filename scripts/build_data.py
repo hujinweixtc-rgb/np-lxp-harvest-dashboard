@@ -46,6 +46,25 @@ def pick_tag(names, fallback="未标注"):
     return clean[0] if clean else fallback
 
 
+# ---- 收割三大类（与 FR 模板一致：awa / consi / conv）-----------------------
+# DMS 一级标签是完整内容分类学（功效 / 对比 / 场景 / KOL种草 / AWA / ...），
+# 这里按关键词归一到三大类；未命中的素材不进收割分布（tag1 = 未标注）。
+HARVEST_TAG_RULES = (
+    ("awa", ("awa",)),
+    ("consi", ("consi", "种草")),
+    ("conv", ("conv", "转化")),
+)
+
+
+def canonical_harvest_tag(names):
+    for key, needles in HARVEST_TAG_RULES:
+        for name in names:
+            low = str(name or "").lower()
+            if any(needle in low for needle in needles):
+                return key
+    return ""
+
+
 def media_urls(row):
     """Return (previewUrl, downloadUrl, posterUrl, isVideo)."""
     files = row.get("ossFiles") or []
@@ -283,7 +302,7 @@ def collect(combo):
             "productRaw": product_raw or product,
             "materialType": type_label,
             "graphicType": SOURCE_TYPE.get(meta.get("dataFromType"), "未标注"),
-            "tag1": pick_tag(tag1_names),
+            "tag1": canonical_harvest_tag(tag1_names) or "未标注",
             "tag2": pick_tag(tag2_names),
             "tag3": pick_tag(tag3_names),
             "tagsAll": " / ".join(all_tags),
