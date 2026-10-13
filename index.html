@@ -2485,7 +2485,7 @@
       const note = $('boardNote');
       if (note) {
         const range = state.board?.range || {};
-        note.textContent = `品牌 × 市场口径（DMS 原始数据，不受产品 / 标签筛选影响）· 全量区间 ${range.start || '-'} ~ ${range.end || '-'}${state.from || state.to ? ` · 当前展示 ${state.from || '-'} ~ ${state.to || '-'}` : ''}`;
+        note.textContent = `品牌 × 市场口径（DMS 官方大盘，含全部投放内容，不受素材口径 / 产品 / 标签筛选影响）· 全量区间 ${range.start || '-'} ~ ${range.end || '-'}${state.from || state.to ? ` · 当前展示 ${state.from || '-'} ~ ${state.to || '-'}` : ''}`;
       }
     }
 
@@ -2806,7 +2806,7 @@
         state.board = null;
       }
       enrichRowsWithDmsCreatedAt();
-      $('sourceLine').textContent = `${state.raw.source} · raw ${fmt(state.raw.rawRows)} rows · included ${fmt(state.raw.includedRows)} 图文/视频 · generated ${state.raw.generatedAt}`;
+      $('sourceLine').textContent = `${state.raw.source} · 口径：${state.raw.scope || '全部素材'} · included ${fmt(state.raw.includedRows)} 素材 · generated ${state.raw.generatedAt}`;
       if (resetFilters) {
         state.brand = [];
         state.country = [];

@@ -71,6 +71,21 @@ CODE_PREFIX_RE = re.compile(r"^([A-Za-z]{2})-")
 PRODUCT_SUFFIX_RE = re.compile(r"-[A-Za-z]{2}$")
 CJK_RE = re.compile(r"[\u4e00-\u9fff]")
 
+# ---- 看板收录口径 ----------------------------------------------------------
+# 1) 只统计正式素材编号：SC* / JJ*（KOL 帖子类 ID-* / MY-* 编码不计入）
+# 2) 广告名含「帖子」的投放行不计入
+MATERIAL_CODE_PREFIXES = ("SC", "JJ")
+EXCLUDED_AD_NAME_KEYWORDS = ("帖子",)
+
+
+def keep_material_code(code):
+    return str(code or "").strip().startswith(MATERIAL_CODE_PREFIXES)
+
+
+def excluded_by_ad_name(*names):
+    text = "".join(str(n or "") for n in names)
+    return any(k in text for k in EXCLUDED_AD_NAME_KEYWORDS)
+
 
 def product_from_ad(ad):
     """广告行 / 广告名兜底解析产品名（DMS 广告命名约定：产品_类型_品牌_...）。"""
@@ -176,14 +191,17 @@ def collect(combo):
             code_spend[code] = (s, g)
 
     def owns_market(code):
+        """SC / JJ 素材按素材库归属；带国家前缀的编码按前缀归属。"""
+        if code in material_by_code:
+            return True
         m = CODE_PREFIX_RE.match(code)
         if m:
             return m.group(1).lower() == country.lower()
-        return code in material_by_code
+        return False
 
-    all_codes = {c for c in code_spend if owns_market(c)}
+    all_codes = {c for c in code_spend if keep_material_code(c) and owns_market(c)}
     for code in material_by_code:
-        if code in code_spend:
+        if not keep_material_code(code) or code in code_spend:
             continue
         detail = load(os.path.join(detail_dir, code.replace("/", "_") + ".json"), None) or {}
         if float(detail.get("spend") or 0) > 0 or float(detail.get("roi") or 0) > 0:
@@ -242,6 +260,13 @@ def collect(combo):
 
         det_rows = detail.get("stats") or []
         det_first = det_rows[0] if det_rows else {}
+
+        # 口径 2：广告名含「帖子」的投放行不计入
+        ad_name = (meta.get("adName") or det_first.get("adName")
+                   or primary_ad.get("adName") or "")
+        if excluded_by_ad_name(ad_name):
+            continue
+
         impressions = int(sum(float(r.get("impressions") or 0) for r in det_rows))
         clicks = int(sum(float(r.get("clicks") or 0) for r in det_rows))
         conversions = int(sum(float(r.get("orderCount") or 0) for r in det_rows))
@@ -513,7 +538,11 @@ def main():
             "dataFrom": include_from,
             "dataTo": include_to,
             "materialTypes": ["图文", "视频"],
+            "codePrefixes": list(MATERIAL_CODE_PREFIXES),
+            "excludedAdNameKeywords": list(EXCLUDED_AD_NAME_KEYWORDS),
         },
+        "scope": "素材编号 " + " / ".join(f"{p}*" for p in MATERIAL_CODE_PREFIXES)
+                 + " · 排除广告名含「" + "」「".join(EXCLUDED_AD_NAME_KEYWORDS) + "」",
         "brands": ["NP", "LXP"],
         "countries": ["ID", "MY"],
         "posts": posts,
