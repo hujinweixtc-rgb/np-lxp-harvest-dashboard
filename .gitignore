@@ -1,5 +1,11 @@
+# 本地凭据（切勿提交！DMS token）
+config/
+
 # 原始抓取缓存（体积大，可随时用 scripts/fetch_dms.py 重新生成）
 raw/
+
+# 镜像内置缓存包（由 scripts/pack_raw.py 生成，约 42MB）
+raw.tar.gz
 
 # 数据临时文件
 *.log

@@ -24,7 +24,7 @@ from dms_api import COMBOS, Dms  # noqa: E402
 from fetch_dms import fetch_paged, load, dump  # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-RAW = os.path.join(ROOT, "raw")
+RAW = os.environ.get("DASH_RAW_DIR") or os.path.join(ROOT, "raw")
 PAGE_ADS = 2000
 WORKERS = 12
 RANGE = {"start": "2025-06-01", "end": date.today().isoformat()}

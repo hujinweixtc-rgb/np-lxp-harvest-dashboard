@@ -27,7 +27,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from dms_api import COMBOS, Dms  # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-RAW = os.path.join(ROOT, "raw")
+RAW = os.environ.get("DASH_RAW_DIR") or os.path.join(ROOT, "raw")
 PAGE = 500
 MONTHS_BACK = 2  # current month + 2 previous months
 

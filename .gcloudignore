@@ -1,0 +1,17 @@
+.git
+.gitignore
+README.md
+
+# 本地凭据（切勿上传构建上下文）
+config/
+
+# 原始缓存（544MB）不入构建上下文；镜像内置的是压缩后的 raw.tar.gz
+raw/
+
+_user_imgs/
+**/__pycache__/
+**/*.pyc
+scripts/_*.py
+scripts/_*.js
+*.log
+*.tmp

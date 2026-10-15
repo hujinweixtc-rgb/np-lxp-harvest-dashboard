@@ -67,6 +67,28 @@
       color: var(--deep);
       font-family: var(--mono);
     }
+    .version-badge.live {
+      background: var(--soft-green);
+      border-color: #a3d3b8;
+      color: var(--green);
+    }
+    .refresh-wrap { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    #refreshData {
+      background: var(--deep);
+      border-color: var(--deep);
+      color: #fff;
+      font-weight: 600;
+    }
+    #refreshData:hover:not(:disabled) { background: #2b3947; border-color: #2b3947; }
+    #refreshData:disabled { opacity: .55; cursor: progress; }
+    .refresh-progress {
+      font-size: 12px;
+      line-height: 1.35;
+      color: var(--muted);
+      max-width: 340px;
+    }
+    .refresh-progress[data-tone="ok"] { color: var(--green); }
+    .refresh-progress[data-tone="error"] { color: var(--red); }
     button {
       height: 32px;
       border-radius: 7px;
@@ -1070,6 +1092,10 @@
         </div>
         <div class="top-actions">
           <span class="badge version-badge" id="appVersion">local</span>
+          <div class="refresh-wrap" id="refreshWrap" hidden>
+            <button id="refreshData" type="button" title="单击：快速刷新（约 2-3 分钟，重拉最新投放窗口与大盘）&#10;Shift + 单击：完整刷新（约 6-8 分钟，含广告表与全量趋势重拉）">刷新数据</button>
+            <span class="refresh-progress" id="refreshProgress" hidden></span>
+          </div>
           <button id="shareLink" type="button">分享链接</button>
           <button id="exportExcel" type="button">导出Excel</button>
         </div>
@@ -2763,9 +2789,97 @@
       updateView();
     }
 
-    function loadVersion() {
+    // ---- 实时刷新（仅在 Cloud Run 后端可用时启用）--------------------------
+    const REFRESH = { available: false, busy: false, timer: 0 };
+
+    function setRefreshProgress(text, tone) {
+      const el = document.getElementById('refreshProgress');
+      if (!el) return;
+      if (!text) {
+        el.hidden = true;
+        el.textContent = '';
+        delete el.dataset.tone;
+        return;
+      }
+      el.hidden = false;
+      el.textContent = text;
+      if (tone) el.dataset.tone = tone; else delete el.dataset.tone;
+    }
+
+    // 探测后端：静态托管（GitHub Pages）下 /api/status 返回 404，此时保持 static 且不显示按钮。
+    async function loadVersion() {
       const el = document.getElementById('appVersion');
-      if (el) el.textContent = 'static';
+      try {
+        const res = await fetch('./api/status', { cache: 'no-store' });
+        if (!res.ok) throw new Error(`api ${res.status}`);
+        const info = await res.json();
+        if (!info || info.ok !== true) throw new Error('bad payload');
+        REFRESH.available = true;
+        if (el) { el.textContent = 'live'; el.classList.add('live'); }
+        const wrap = document.getElementById('refreshWrap');
+        if (wrap) wrap.hidden = false;
+      } catch {
+        REFRESH.available = false;
+        if (el) { el.textContent = 'static'; el.classList.remove('live'); }
+      }
+    }
+
+    async function pollRefresh() {
+      const btn = document.getElementById('refreshData');
+      let job = {};
+      try {
+        const res = await fetch('./api/refresh/status', { cache: 'no-store' });
+        job = (await res.json()).refresh || {};
+      } catch (err) {
+        setRefreshProgress('无法获取刷新进度：' + err.message, 'error');
+        if (btn) btn.disabled = false;
+        REFRESH.busy = false;
+        return;
+      }
+      if (job.running) {
+        setRefreshProgress(`[${job.index}/${job.total}] ${job.stage || '处理中'}…`);
+        REFRESH.timer = setTimeout(pollRefresh, 3000);
+        return;
+      }
+      if (job.ok) {
+        setRefreshProgress('刷新完成，正在重新加载看板…');
+        try { await init(false); } catch (err) { setRefreshProgress('数据重载失败：' + err.message, 'error'); }
+        setRefreshProgress(`数据已更新 · ${job.finishedAt || ''}`, 'ok');
+        setTimeout(() => setRefreshProgress(''), 8000);
+      } else {
+        setRefreshProgress(`刷新失败：${job.error || '未知错误'}`, 'error');
+      }
+      if (btn) btn.disabled = false;
+      REFRESH.busy = false;
+    }
+
+    async function refreshFromDms(quick) {
+      const btn = document.getElementById('refreshData');
+      if (REFRESH.busy || !REFRESH.available) return;
+      REFRESH.busy = true;
+      if (btn) btn.disabled = true;
+      setRefreshProgress(quick ? '已提交快速刷新，等待 DMS 返回…' : '已提交完整刷新，等待 DMS 返回…');
+      try {
+        // 必须带 body/Content-Length：Cloud Run 前置的 Google 前端会以 411 拒绝
+        // 没有 Content-Length 的 POST，请求根本到不了容器。
+        const res = await fetch('./api/refresh' + (quick ? '?quick=1' : ''), {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ quick: !!quick }),
+        });
+        const info = await res.json();
+        if (!info.ok) {
+          setRefreshProgress(info.message || '刷新未能启动', 'error');
+          if (btn) btn.disabled = false;
+          REFRESH.busy = false;
+          return;
+        }
+        REFRESH.timer = setTimeout(pollRefresh, 1500);
+      } catch (err) {
+        setRefreshProgress('刷新请求失败：' + err.message, 'error');
+        if (btn) btn.disabled = false;
+        REFRESH.busy = false;
+      }
     }
 
     function copyShareLink() {
@@ -2919,6 +3033,9 @@
 
     $('shareLink').addEventListener('click', copyShareLink);
     $('exportExcel').addEventListener('click', exportVisibleTablesToExcel);
+    // 单击 = 快速刷新；Shift+单击 = 完整刷新
+    const refreshBtn = document.getElementById('refreshData');
+    if (refreshBtn) refreshBtn.addEventListener('click', event => refreshFromDms(!event.shiftKey));
     $('resetFilters').addEventListener('click', resetFilters);
     $('downloadCsv').addEventListener('click', exportCsv);
     $('downloadDmsCsv').addEventListener('click', exportDmsCsv);

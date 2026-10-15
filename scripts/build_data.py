@@ -12,8 +12,10 @@ import re
 from collections import defaultdict
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-RAW = os.path.join(ROOT, "raw")
-DATA = os.path.join(ROOT, "data")
+# 云端（Cloud Run）文件系统只读，除 /tmp 外；用环境变量把输入缓存与输出目录
+# 重定向到可写路径。本地不设置这两个变量时行为完全不变。
+RAW = os.environ.get("DASH_RAW_DIR") or os.path.join(ROOT, "raw")
+DATA = os.environ.get("DASH_DATA_DIR") or os.path.join(ROOT, "data")
 
 COMBO_KEYS = ["NP-ID", "NP-MY", "LXP-ID", "LXP-MY"]
 MATERIAL_TYPE = {1: "图文", 2: "视频", 3: "视频"}
