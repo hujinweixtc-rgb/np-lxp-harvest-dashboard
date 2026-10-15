@@ -1160,14 +1160,14 @@
           </div>
         </div>
         <div class="field span2">
-          <label>收割一级标签--大方向</label>
+          <label>一级标签</label>
           <div class="multi-select" data-key="tag1">
-            <button class="multi-button" type="button"><span id="tag1Label">全部大方向</span></button>
+            <button class="multi-button" type="button"><span id="tag1Label">全部一级标签</span></button>
             <div class="multi-panel" id="tag1Panel"></div>
           </div>
         </div>
         <div class="field span2">
-          <label>收割二级标签--主题</label>
+          <label>二级标签--主题</label>
           <div class="multi-select" data-key="tag2">
             <button class="multi-button" type="button"><span id="tag2Label">全部主题</span></button>
             <div class="multi-panel" id="tag2Panel"></div>
@@ -1250,21 +1250,21 @@
     <section class="grid3">
       <div class="panel">
         <div class="head">
-          <h2>收割一级标签--大方向分布</h2>
-          <div class="small">仅统计 awa / consi / conv · Top 12</div>
+          <h2>一级标签分布</h2>
+          <div class="small">按一级标签展开 · Top 12</div>
         </div>
         <div class="pad" id="tag1Bars"></div>
       </div>
       <div class="panel">
         <div class="head">
-          <h2>收割二级标签--主题分布</h2>
+          <h2>二级标签--主题分布</h2>
           <div class="small">按上述一级标签展开 · Top 12</div>
         </div>
         <div class="pad" id="tag2Bars"></div>
       </div>
       <div class="panel">
         <div class="head">
-          <h2>收割三级标签--测试点分布</h2>
+          <h2>三级标签--测试点分布</h2>
           <div class="small">按上述一级标签展开 · Top 12</div>
         </div>
         <div class="pad" id="tag3Bars"></div>
@@ -1275,9 +1275,9 @@
       <div class="head">
         <div>
           <h2>标签树状图与层级汇总</h2>
-          <div class="small">仅统计 conv / consi / awa · MTD · 本月创建的新素材</div>
+          <div class="small">DMS 原始标签 一级→二级→三级 · MTD · 本月创建的新素材</div>
         </div>
-        <div class="small" id="tagTreeNote">成功率按一级标签阈值统计</div>
+        <div class="small" id="tagTreeNote">成功率按国家达标线统计</div>
       </div>
       <div class="tree-shell">
         <div class="tree-legend" id="tagTreeLegend"></div>
@@ -1668,20 +1668,11 @@
 
     function successThreshold(rowOrCountry, tag1Value) {
       const country = String((rowOrCountry?.country || rowOrCountry || '')).toUpperCase();
-      const tag1 = String(tag1Value || rowOrCountry?.tag1 || '').toLowerCase();
       const isMy = country.includes('MY') || country.includes('马来');
-      const thresholds = isMy
-        ? {
-            conv: { roi: 5.2, ctr: 0.009 },
-            consi: { roi: 5.0, ctr: 0.010 },
-            awa: { roi: 4.8, ctr: 0.015 }
-          }
-        : {
-            conv: { roi: 5.6, ctr: 0.0064 },
-            consi: { roi: 5.0, ctr: 0.010 },
-            awa: { roi: 4.8, ctr: 0.015 }
-          };
-      return thresholds[tag1] || thresholds.conv;
+      // 2026-10-15：标签改为 DMS 原始体系后，达标线统一按国家取（原 conv 线）
+      return isMy
+        ? { roi: 5.2, ctr: 0.009 }
+        : { roi: 5.6, ctr: 0.0064 };
     }
 
     function meetsHarvestStandard(row, tag1Value) {
@@ -1790,7 +1781,7 @@
 
       $('tagTreeLegend').innerHTML = tree.length
         ? tree.map(node => `<span class="badge">${safe(canonicalTag1(node.tag1))} · ${fmt(node.posts)} 素材 · ${money(node.spend)} 花费 · ${roi(node.roi)} ROI</span>`).join('')
-        : `<span class="small">当前筛选下没有带一级标签（收割大方向）的素材</span>`;
+        : `<span class="small">当前筛选下暂无素材</span>`;
 
       const anchorMonth = harvestAnchorMonth();
       $('tagTreeNote').textContent = state.materialFrom || state.materialTo
@@ -2000,39 +1991,35 @@
     }
 
     function canonicalTag1(value) {
-      const key = String(value || '').toLowerCase();
-      if (key === 'awa') return 'AWA';
-      if (key === 'consi') return 'consi';
-      if (key === 'conv') return 'conv';
+      // 2026-10-15：tag1 已是 DMS 原始一级标签，不再做 awa/consi/conv 映射
       return value || '未标注';
     }
 
-    // 与 FR 模板一致：收割层级严格限定 awa / consi / conv 三大类
-    // （tag1 已在构建阶段从 DMS 一级标签归一到三类，见 scripts/build_data.py）
-    const HARVEST_TAG1_SET = new Set(['awa', 'consi', 'conv']);
-    const HARVEST_TAG1_ORDER = ['awa', 'consi', 'conv'];
+    // 2026-10-15：收割层级不再限定 awa / consi / conv 三大类，
+    // 全量素材（含「未标注」）都进树状图，保留 isHarvestRow 作为兼容入口
 
     function isHarvestRow(row) {
-      return HARVEST_TAG1_SET.has(String(row.tag1 || '').trim().toLowerCase());
+      return true;
     }
 
     function harvestTag1Values(rows = state.filtered) {
+      // 2026-10-15：按实际出现的一级标签分组（按花费降序），不再限定三类顺序
       const map = new Map();
-      rows.filter(isHarvestRow).forEach(row => {
-        const key = String(row.tag1).trim().toLowerCase();
-        if (!map.has(key)) map.set(key, { key, label: canonicalTag1(key), rows: [] });
+      rows.forEach(row => {
+        const key = String(row.tag1 || '未标注').trim() || '未标注';
+        if (!map.has(key)) map.set(key, { key, label: key, rows: [] });
         map.get(key).rows.push(row);
       });
-      return HARVEST_TAG1_ORDER
-        .map(key => map.get(key))
-        .filter(Boolean);
+      return [...map.values()]
+        .map(item => ({ ...item, metrics: sumRows(item.rows) }))
+        .sort((a, b) => (b.metrics.spend - a.metrics.spend) || (b.metrics.conversions - a.metrics.conversions));
     }
 
     function renderSplitTagPanel(id, rows, field, labelName) {
       const parents = harvestTag1Values(rows);
       const blocks = parents.map(parent => {
         const parentKey = parent.key;
-        const parentRows = rows.filter(row => String(row.tag1 || '').toLowerCase() === parentKey);
+        const parentRows = rows.filter(row => (String(row.tag1 || '未标注').trim() || '未标注') === parentKey);
         if (!parentRows.length) return '';
         const parentMetrics = sumRows(parentRows);
         const items = groupRows(parentRows, field).slice(0, 12);
@@ -2608,7 +2595,7 @@
       if (key === 'country') return '全部国家';
       if (key === 'source') return '全部来源';
       if (key === 'product') return '全部产品';
-      if (key === 'tag1') return '全部大方向';
+      if (key === 'tag1') return '全部一级标签';
       return '全部主题';
     }
 
@@ -2617,7 +2604,7 @@
       if (key === 'country') return '搜索国家';
       if (key === 'source') return '搜索来源';
       if (key === 'product') return '搜索产品';
-      if (key === 'tag1') return '搜索大方向';
+      if (key === 'tag1') return '搜索一级标签';
       return '搜索主题';
     }
 
@@ -2666,7 +2653,7 @@
       renderMulti('country', '全部国家');
       renderMulti('source', '全部来源');
       renderMulti('product', '全部产品');
-      renderMulti('tag1', '全部大方向');
+      renderMulti('tag1', '全部一级标签');
       renderMulti('tag2', '全部主题');
     }
 
