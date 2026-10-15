@@ -127,6 +127,27 @@ def ad_matches_country(ad, country):
     return bool(hit) and hit.group(1).upper() == country.upper()
 
 
+def apportion_int(total, weights):
+    """把整数总量按权重摊到若干天；用最大余数法保证取整后总和精确等于 round(total)。"""
+    n = len(weights)
+    if n == 0:
+        return []
+    target = int(round(float(total)))
+    raw = [float(total) * w for w in weights]
+    out = [int(v) for v in raw]
+    diff = target - sum(out)
+    if diff > 0:
+        order = sorted(range(n), key=lambda i: -(raw[i] - out[i]))
+        for i in order[:diff]:
+            out[i] += 1
+    elif diff < 0:
+        order = sorted(range(n), key=lambda i: (raw[i] - out[i]))
+        for i in order[:(-diff)]:
+            if out[i] > 0:
+                out[i] -= 1
+    return out
+
+
 def collect(combo):
     brand, country = combo.split("-")
     base = os.path.join(RAW, combo)
@@ -150,6 +171,25 @@ def collect(combo):
         if code and code not in material_by_code:
             material_by_code[code] = m
 
+    # DMS 素材分析素材页（igad/advertisement/advertisedPage）——素材窗口指标的权威来源。
+    # 按月分桶抓取：每个素材在当月窗口内的精确 spend / impressions / clicks /
+    # linkClicks / orders，用于校准 trend+detail 管线"按花费摊比例"造成的窗口误差
+    # （订单不随花费等比）。凡与月界对齐的查询区间（如 10-01~10-13）可精确对上 DMS。
+    adv_buckets = []  # [(start, end, {code: row}), ...] 按时间升序
+    adv_payload = load(os.path.join(base, "advertised.json"), None) or {}
+    if isinstance(adv_payload, dict) and adv_payload.get("buckets"):
+        for b in adv_payload["buckets"]:
+            ws = str((b.get("window") or {}).get("start") or "")
+            we = str((b.get("window") or {}).get("end") or "")
+            by_code = {}
+            for r in b.get("rows") or []:
+                c = (r.get("materialCode") or "").strip()
+                if c:
+                    by_code[c] = r
+            if ws and we:
+                adv_buckets.append((ws, we, by_code))
+        adv_buckets.sort(key=lambda x: x[0])
+
     trend_dir = os.path.join(base, "trend")
     detail_dir = os.path.join(base, "detail")
     posts = []
@@ -157,7 +197,8 @@ def collect(combo):
 
     def build_days(code):
         """趋势接口只给 spend/gmv；曝光 / 点击 / 订单来自 getAdvertisementDetials 的区间总量，
-        按当日花费占比摊到每一天（区间总量保持精确）。"""
+        按当日花费占比摊到每一天。素材在 advertisedPage 月度桶内的天数用桶精确总量校准，
+        完全落在桶外的天数用（终身总量 - 各桶总量）摊比例。"""
         raw_days = load(os.path.join(trend_dir, code.replace("/", "_") + ".json"), []) or []
         detail = load(os.path.join(detail_dir, code.replace("/", "_") + ".json"), None) or {}
         rows = detail.get("stats") or []
@@ -193,10 +234,67 @@ def collect(combo):
             values["conversions"] = int(round(totals.get("orderCount", 0) * w))
             if totals.get("cartGmv"):
                 values["addToCart"] = round(totals["cartGmv"] * w, 4)
+
+        # --- advertisedPage 月度桶校准：桶内各天的指标总和 = DMS 素材页精确值 ---
+        calibrated = set()
+        bucket_totals = {"impressions": 0.0, "allClick": 0.0, "conversions": 0.0}
+        adv_linkclick = 0.0
+        for ws, we, by_code in adv_buckets:
+            adv_row = by_code.get(code)
+            if not adv_row:
+                continue
+            in_days = [d for d in days if ws <= d <= we and d not in calibrated]
+            if not in_days:
+                continue
+            win_spend = sum(days[d]["spend"] for d in in_days)
+            weights = ([days[d]["spend"] / win_spend for d in in_days] if win_spend > 0
+                       else [1.0 / len(in_days)] * len(in_days))
+            for local_key, adv_key in (("impressions", "impressions"),
+                                       ("allClick", "clicks"),
+                                       ("conversions", "orderCount")):
+                adv_total = float(adv_row.get(adv_key) or 0)
+                alloc = apportion_int(adv_total, weights)
+                for d, value in zip(in_days, alloc):
+                    days[d][local_key] = value
+                bucket_totals[local_key] += int(round(adv_total))
+            adv_link = float(adv_row.get("linkClicks") or 0)
+            alloc_link = apportion_int(adv_link, weights)
+            for d, value in zip(in_days, alloc_link):
+                days[d]["linkClick"] = value
+            adv_linkclick += int(round(adv_link))
+            calibrated.update(in_days)
+
+        # 桶外天数：用（终身总量 - 各桶总量）重新摊比例，避免双重计数
+        if calibrated:
+            out_days = [d for d in days if d not in calibrated]
+            out_spend = sum(days[d]["spend"] for d in out_days)
+            if out_days:
+                out_weights = ([days[d]["spend"] / out_spend for d in out_days] if out_spend > 0
+                               else [1.0 / len(out_days)] * len(out_days))
+            else:
+                out_weights = []
+            for local_key, life_key in (("impressions", "impressions"),
+                                        ("allClick", "clicks"),
+                                        ("conversions", "orderCount")):
+                residual = max(float(totals.get(life_key, 0) or 0) - bucket_totals[local_key], 0.0)
+                alloc = apportion_int(residual, out_weights) if out_days else []
+                for d, value in zip(out_days, alloc):
+                    days[d][local_key] = value
+            if out_days:
+                life_clicks = float(totals.get("clicks", 0) or 0)
+                ratio = (adv_linkclick / bucket_totals["allClick"]) if bucket_totals["allClick"] else 0.0
+                residual_link = max(life_clicks - bucket_totals["allClick"], 0.0) * ratio
+                for d, value in zip(out_days, apportion_int(residual_link, out_weights)):
+                    days[d]["linkClick"] = value
         return days, totals
 
+    adv_codes = set()
+    for _, _, rc in adv_buckets:
+        adv_codes.update(rc.keys())
+
     # 素材级口径：趋势接口里有花费的全部素材（含未入库的 KOL / 剪辑系统素材）。
-    # 市场归属 = materialCode 前缀（ID-*/MY-*）；无前缀编码必须能在本国素材库中找到。
+    # 市场归属 = materialCode 前缀（ID-*/MY-*）；无前缀编码必须能在本国素材库或
+    # 本国 advertisedPage（按国家隔离）中找到。
     code_spend = {}
     for fn in os.listdir(trend_dir):
         code = fn[:-5].replace("_", "/")
@@ -210,8 +308,8 @@ def collect(combo):
             code_spend[code] = (s, g)
 
     def owns_market(code):
-        """SC / JJ 素材按素材库归属；带国家前缀的编码按前缀归属。"""
-        if code in material_by_code:
+        """SC / JJ 素材按素材库或 advertisedPage 归属；带国家前缀的编码按前缀归属。"""
+        if code in material_by_code or code in adv_codes:
             return True
         m = CODE_PREFIX_RE.match(code)
         if m:
@@ -244,6 +342,7 @@ def collect(combo):
                 "createdAt": str(d0.get("startCostDate") or "")[:10],
             }
         days, metric_totals = build_days(code)
+        adv_row = next((rc.get(code) for _, _, rc in adv_buckets if code in rc), {}) or {}
         spend = round(sum(v["spend"] for v in days.values()), 4)
         gmv = round(sum(v["purchaseValue"] for v in days.values()), 4)
         if spend <= 0 and gmv <= 0:
@@ -286,10 +385,19 @@ def collect(combo):
         if excluded_by_ad_name(ad_name):
             continue
 
-        impressions = int(sum(float(r.get("impressions") or 0) for r in det_rows))
-        clicks = int(sum(float(r.get("clicks") or 0) for r in det_rows))
-        conversions = int(sum(float(r.get("orderCount") or 0) for r in det_rows))
+        # 汇总口径与 days 一致（advertisedPage 校准后的窗口精确值 + 窗口外摊比例）
+        impressions = int(sum(float(v.get("impressions") or 0) for v in days.values()))
+        clicks = int(sum(float(v.get("allClick") or 0) for v in days.values()))
+        link_clicks = int(sum(float(v.get("linkClick") or 0) for v in days.values()))
+        conversions = int(sum(float(v.get("conversions") or 0) for v in days.values()))
         video_plays = int(sum(float(r.get("videoPlayActions") or 0) for r in det_rows))
+
+        dft = adv_row.get("dataFromType") if adv_row else None
+        dft = meta.get("dataFromType") if dft in (None, "") else dft
+        try:
+            dft_int = int(dft) if dft not in (None, "") else None
+        except (TypeError, ValueError):
+            dft_int = None
 
         post = {
             "key": f"{brand}|{country}|{code}",
@@ -301,7 +409,8 @@ def collect(combo):
             "product": product or "未标注",
             "productRaw": product_raw or product,
             "materialType": type_label,
-            "graphicType": SOURCE_TYPE.get(meta.get("dataFromType"), "未标注"),
+            "graphicType": SOURCE_TYPE.get(dft_int, SOURCE_TYPE.get(meta.get("dataFromType"), "未标注")),
+            "dataFromType": str(dft_int) if dft_int is not None else "",
             "tag1": canonical_harvest_tag(tag1_names) or "未标注",
             "tag2": pick_tag(tag2_names),
             "tag3": pick_tag(tag3_names),
@@ -331,7 +440,7 @@ def collect(combo):
             "purchaseValue": gmv,
             "impressions": impressions,
             "allClick": clicks,
-            "linkClick": clicks,
+            "linkClick": link_clicks,
             "conversions": conversions,
             "addToCart": 0,
             "videoPlays": video_plays,
@@ -351,6 +460,7 @@ def collect(combo):
                 "product": post["product"],
                 "materialType": type_label,
                 "graphicType": post["graphicType"],
+                "dataFromType": post.get("dataFromType", ""),
                 "tag1": post["tag1"],
                 "tag2": post["tag2"],
                 "tag3": post["tag3"],

@@ -1119,6 +1119,13 @@
             <div class="multi-panel" id="countryPanel"></div>
           </div>
         </div>
+        <div class="field span2">
+          <label>素材来源</label>
+          <div class="multi-select" data-key="source">
+            <button class="multi-button" type="button"><span id="sourceLabel">全部来源</span></button>
+            <div class="multi-panel" id="sourcePanel"></div>
+          </div>
+        </div>
         <div class="field span2" data-keep="1">
           <label>产品</label>
           <div class="multi-select" data-key="product">
@@ -1323,6 +1330,7 @@
       dmsSortKey: 'spend',
       brand: [],
       country: [],
+      source: [],
       product: [],
       tag1: [],
       tag2: [],
@@ -1351,9 +1359,9 @@
       sortDir: -1,
       productSortKey: 'spend',
       productSortDir: -1,
-      options: { brand: [], country: [], product: [], tag1: [], tag2: [] },
-      multiSearch: { brand: '', country: '', product: '', tag1: '', tag2: '' },
-      multiMode: { brand: 'default', country: 'default', product: 'default', tag1: 'default', tag2: 'default' },
+      options: { brand: [], country: [], source: [], product: [], tag1: [], tag2: [] },
+      multiSearch: { brand: '', country: '', source: '', product: '', tag1: '', tag2: '' },
+      multiMode: { brand: 'default', country: 'default', source: 'default', product: 'default', tag1: 'default', tag2: 'default' },
       initialized: false
     };
 
@@ -1434,11 +1442,19 @@
     }
 
     function hasPaidActivity(row) {
-      return Number(row.spend || 0) > 0;
+      // 与 DMS 素材页口径对齐：窗口内有花费，或存在滞后归因的订单 / GMV（0 花费也可能带单）
+      return Number(row.spend || 0) > 0
+        || Number(row.purchaseValue || 0) > 0
+        || Number(row.conversions || 0) > 0;
     }
 
     function matchesMulti(key, value) {
       return !state[key].length || state[key].includes(value || '未标注');
+    }
+
+    function sourceLabelOf(row) {
+      const map = { '1': '剪辑素材（JJ）', '2': '设计素材（SC）' };
+      return map[String(row.dataFromType || '')] || '未标注';
     }
 
     function materialLabel(row) {
@@ -1541,6 +1557,7 @@
         if (!matchesMulti('country', row.country)) continue;
         if (!matchesMaterialCreated(row)) continue;
         if (!state.materialTypes.includes(row.materialType)) continue;
+        if (!matchesMulti('source', sourceLabelOf(row))) continue;
         if (!matchesMulti('product', row.product)) continue;
         if (!matchesMulti('tag1', row.tag1)) continue;
         if (!matchesMulti('tag2', row.tag2)) continue;
@@ -2022,6 +2039,7 @@
     function dmsMatchesFilters(row) {
       if (!matchesMulti('brand', row.brand)) return false;
       if (!matchesMulti('country', row.country)) return false;
+      if (!matchesMulti('source', sourceLabelOf(row))) return false;
       if (!matchesMulti('product', row.product)) return false;
       if (!state.materialTypes.includes(row.materialType)) return false;
       if (state.materialFrom || state.materialTo) {
@@ -2562,6 +2580,7 @@
     function fallbackText(key) {
       if (key === 'brand') return '全部品牌';
       if (key === 'country') return '全部国家';
+      if (key === 'source') return '全部来源';
       if (key === 'product') return '全部产品';
       if (key === 'tag1') return '全部大方向';
       return '全部主题';
@@ -2570,6 +2589,7 @@
     function multiSearchLabel(key) {
       if (key === 'brand') return '搜索品牌';
       if (key === 'country') return '搜索国家';
+      if (key === 'source') return '搜索来源';
       if (key === 'product') return '搜索产品';
       if (key === 'tag1') return '搜索大方向';
       return '搜索主题';
@@ -2611,11 +2631,14 @@
         .sort((a, b) => a.localeCompare(b, 'zh-Hans-CN'));
       state.options.brand = collect('brand');
       state.options.country = collect('country');
+      state.options.source = [...new Set(state.rows.map(row => sourceLabelOf(row)))]
+        .sort((a, b) => a.localeCompare(b, 'zh-Hans-CN'));
       state.options.product = collect('product');
       state.options.tag1 = collect('tag1');
       state.options.tag2 = collect('tag2');
       renderMulti('brand', '全部品牌');
       renderMulti('country', '全部国家');
+      renderMulti('source', '全部来源');
       renderMulti('product', '全部产品');
       renderMulti('tag1', '全部大方向');
       renderMulti('tag2', '全部主题');
@@ -2645,11 +2668,12 @@
     function resetFilters() {
       state.brand = [];
       state.country = [];
+      state.source = [];
       state.product = [];
       state.tag1 = [];
       state.tag2 = [];
-      state.multiSearch = { brand: '', country: '', product: '', tag1: '', tag2: '' };
-      state.multiMode = { brand: 'default', country: 'default', product: 'default', tag1: 'default', tag2: 'default' };
+      state.multiSearch = { brand: '', country: '', source: '', product: '', tag1: '', tag2: '' };
+      state.multiMode = { brand: 'default', country: 'default', source: 'default', product: 'default', tag1: 'default', tag2: 'default' };
       state.materialTypes = [...DEFAULT_TYPES];
       $('from').value = state.raw?.filters?.performanceFrom || '';
       $('to').value = state.raw?.filters?.performanceTo || '';
@@ -2676,6 +2700,7 @@
       const params = new URLSearchParams();
       if (state.brand.length) params.set('brand', state.brand.join('|'));
       if (state.country.length) params.set('country', state.country.join('|'));
+      if (state.source.length) params.set('source', state.source.join('|'));
       if (state.from) params.set('from', state.from);
       if (state.to) params.set('to', state.to);
       if (state.materialFrom) params.set('materialFrom', state.materialFrom);
@@ -2709,12 +2734,15 @@
       $('materialTo').value = params.get('materialTo') || '';
       $('search').value = params.get('q') || '';
       state.product = params.get('product') ? params.get('product').split('|') : [];
+      const sourceParam = params.get('source');
+      state.source = sourceParam && sourceParam !== 'ALL' ? sourceParam.split('|') : [];
       state.tag1 = params.get('tag1') ? params.get('tag1').split('|') : [];
       state.tag2 = params.get('tag2') ? params.get('tag2').split('|') : [];
-      state.multiSearch = { brand: '', country: '', product: '', tag1: '', tag2: '' };
+      state.multiSearch = { brand: '', country: '', source: '', product: '', tag1: '', tag2: '' };
       state.multiMode = {
         brand: state.brand.length ? 'custom' : 'default',
         country: state.country.length ? 'custom' : 'default',
+        source: state.source.length ? 'custom' : 'default',
         product: state.product.length ? 'custom' : 'default',
         tag1: state.tag1.length ? 'custom' : 'default',
         tag2: state.tag2.length ? 'custom' : 'default'
@@ -2840,6 +2868,7 @@
       if (resetFilters) {
         state.brand = [];
         state.country = [];
+        state.source = [];
         state.product = [];
         state.tag1 = [];
         state.tag2 = [];
