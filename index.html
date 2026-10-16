@@ -170,6 +170,18 @@
     .span3 { grid-column: span 3; }
     .span4 { grid-column: span 4; }
     .span12 { grid-column: 1 / -1; }
+    /* 指标区间筛选（参考 DMS「介于 最小值 / 最大值」样式） */
+    .metric-ranges { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; min-height: 32px; }
+    .metric-range { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+    .metric-range .mr-name { font-size: 12px; font-weight: 700; }
+    .metric-range .mr-between { color: var(--muted); font-size: 11px; }
+    .metric-range input {
+      width: 74px; height: 32px; padding: 0 8px;
+      border: 1px solid var(--line); border-radius: 8px;
+      background: #fff; color: var(--text); font-size: 12px; font-weight: 600;
+    }
+    .metric-range input:focus { outline: none; border-color: var(--blue); }
+    .metric-range input::placeholder { color: var(--muted); font-weight: 500; }
     .type-toggle {
       min-height: 32px;
       display: flex;
@@ -1219,6 +1231,26 @@
           <label>操作</label>
           <button id="resetFilters" class="ghost" type="button">重置筛选</button>
         </div>
+        <div class="field span12">
+          <label>指标区间</label>
+          <div class="metric-ranges">
+            <div class="metric-range">
+              <span class="mr-name">花费</span><span class="mr-between">介于</span>
+              <input id="spendMin" type="number" min="0" step="0.01" placeholder="最小值">
+              <input id="spendMax" type="number" min="0" step="0.01" placeholder="最大值">
+            </div>
+            <div class="metric-range">
+              <span class="mr-name">订单</span><span class="mr-between">介于</span>
+              <input id="ordersMin" type="number" min="0" step="1" placeholder="最小值">
+              <input id="ordersMax" type="number" min="0" step="1" placeholder="最大值">
+            </div>
+            <div class="metric-range">
+              <span class="mr-name">ROI</span><span class="mr-between">介于</span>
+              <input id="roiMin" type="number" min="0" step="0.01" placeholder="最小值">
+              <input id="roiMax" type="number" min="0" step="0.01" placeholder="最大值">
+            </div>
+          </div>
+        </div>
         <details class="advanced-filters" id="advancedFilters">
           <summary><span>高级筛选</span><span class="advanced-count" id="advancedCount">0 项启用</span></summary>
           <div class="advanced-body">
@@ -1404,6 +1436,9 @@
       to: '',
       materialFrom: '',
       materialTo: '',
+      spendMin: null, spendMax: null,
+      ordersMin: null, ordersMax: null,
+      roiMin: null, roiMax: null,
       compareEnabled: false,
       compareMode: 'previous',
       compareFrom: '',
@@ -1512,6 +1547,19 @@
         || Number(row.conversions || 0) > 0;
     }
 
+    function numOrNull(value) {
+      const text = String(value ?? '').trim();
+      if (!text) return null;
+      const num = Number(text);
+      return Number.isFinite(num) ? num : null;
+    }
+
+    function withinRange(value, min, max) {
+      if (min !== null && Number(value) < min) return false;
+      if (max !== null && Number(value) > max) return false;
+      return true;
+    }
+
     function matchesMulti(key, value) {
       return !state[key].length || state[key].includes(value || '未标注');
     }
@@ -1563,6 +1611,12 @@
       state.to = $('to').value;
       state.materialFrom = $('materialFrom').value;
       state.materialTo = $('materialTo').value;
+      state.spendMin = numOrNull($('spendMin').value);
+      state.spendMax = numOrNull($('spendMax').value);
+      state.ordersMin = numOrNull($('ordersMin').value);
+      state.ordersMax = numOrNull($('ordersMax').value);
+      state.roiMin = numOrNull($('roiMin').value);
+      state.roiMax = numOrNull($('roiMax').value);
       state.query = $('search').value.trim().toLowerCase();
       state.compareEnabled = $('compareEnabled').checked;
       state.compareMode = document.querySelector('.compare-mode.active')?.dataset.mode || state.compareMode;
@@ -1634,6 +1688,9 @@
         }
         const metrics = sumDays(row.days, from, to);
         if (!hasPaidActivity(metrics)) continue;
+        if (!withinRange(metrics.spend, state.spendMin, state.spendMax)) continue;
+        if (!withinRange(metrics.conversions, state.ordersMin, state.ordersMax)) continue;
+        if (!withinRange(metrics.roi, state.roiMin, state.roiMax)) continue;
         rows.push({ ...row, ...metrics });
       }
       return rows;
@@ -2120,6 +2177,9 @@
     }
 
     function dmsMatchesFilters(row) {
+      if (!withinRange(Number(row.spend || 0), state.spendMin, state.spendMax)) return false;
+      if (!withinRange(Number(row.orders || 0), state.ordersMin, state.ordersMax)) return false;
+      if (!withinRange(Number(row.roi || 0), state.roiMin, state.roiMax)) return false;
       if (!matchesMulti('brand', row.brand)) return false;
       if (!matchesMulti('country', row.country)) return false;
       if (!matchesMulti('source', sourceLabelOf(row))) return false;
@@ -2805,6 +2865,10 @@
       $('to').value = state.raw?.filters?.performanceTo || '';
       $('materialFrom').value = '';
       $('materialTo').value = '';
+      ['spendMin', 'spendMax', 'ordersMin', 'ordersMax', 'roiMin', 'roiMax'].forEach(id => { $(id).value = ''; });
+      state.spendMin = state.spendMax = null;
+      state.ordersMin = state.ordersMax = null;
+      state.roiMin = state.roiMax = null;
       state.compareEnabled = false;
       state.compareMode = 'previous';
       state.compareFrom = '';
@@ -2836,6 +2900,13 @@
       if (state.tag1.length) params.set('tag1', state.tag1.join('|'));
       if (state.tag2.length) params.set('tag2', state.tag2.join('|'));
       if (state.materialTypes.length !== DEFAULT_TYPES.length) params.set('type', state.materialTypes.join('|'));
+      const rangeParam = (min, max) => (min === null && max === null) ? null : `${min ?? ''}|${max ?? ''}`;
+      const spendRange = rangeParam(state.spendMin, state.spendMax);
+      const ordersRange = rangeParam(state.ordersMin, state.ordersMax);
+      const roiRange = rangeParam(state.roiMin, state.roiMax);
+      if (spendRange) params.set('spend', spendRange);
+      if (ordersRange) params.set('orders', ordersRange);
+      if (roiRange) params.set('roi', roiRange);
       if (state.compareEnabled) {
         params.set('compare', '1');
         params.set('compareMode', state.compareMode);
@@ -2864,6 +2935,19 @@
       state.source = sourceParam && sourceParam !== 'ALL' ? sourceParam.split('|') : [];
       state.tag1 = params.get('tag1') ? params.get('tag1').split('|') : [];
       state.tag2 = params.get('tag2') ? params.get('tag2').split('|') : [];
+      const parseRange = key => {
+        const [lo, hi] = String(params.get(key) || '').split('|');
+        return [numOrNull(lo), numOrNull(hi)];
+      };
+      [state.spendMin, state.spendMax] = parseRange('spend');
+      [state.ordersMin, state.ordersMax] = parseRange('orders');
+      [state.roiMin, state.roiMax] = parseRange('roi');
+      $('spendMin').value = state.spendMin ?? '';
+      $('spendMax').value = state.spendMax ?? '';
+      $('ordersMin').value = state.ordersMin ?? '';
+      $('ordersMax').value = state.ordersMax ?? '';
+      $('roiMin').value = state.roiMin ?? '';
+      $('roiMax').value = state.roiMax ?? '';
       state.multiSearch = { brand: '', country: '', source: '', product: '', tag1: '', tag2: '' };
       state.multiMode = {
         brand: state.brand.length ? 'custom' : 'default',
@@ -3152,6 +3236,7 @@
     });
     $('search').addEventListener('input', () => applyFilters());
     ['from', 'to', 'materialFrom', 'materialTo'].forEach(id => $(id).addEventListener('change', () => applyFilters()));
+    ['spendMin', 'spendMax', 'ordersMin', 'ordersMax', 'roiMin', 'roiMax'].forEach(id => $(id).addEventListener('input', () => applyFilters()));
     $('compareEnabled').addEventListener('change', () => {
       state.compareEnabled = $('compareEnabled').checked;
       applyFilters();
