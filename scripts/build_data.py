@@ -164,6 +164,157 @@ def pick_tag(names, fallback="未标注"):
     return clean[0] if clean else fallback
 
 
+# ---- LXP 素材名关键词补标 ------------------------------------------------
+# LXP 的素材命名是结构化的：Murphy-NBS-P11-092801-IGF-<关键词1>-<关键词2>-IN，
+# 关键词段（对比 / 数据 / 促销 / 质地…）就是运营想打的标签。7 月以前的素材
+# DMS 里没打标，这里从「已打标素材」自动学「关键词段 -> 官方标签」映射，
+# 给缺失层级补标（2026-10-16，仅对 LXP 生效，只补空缺级、不动已有标签）。
+LXP_COMBOS = tuple(c for c in COMBO_KEYS if c.startswith("LXP"))
+LXP_KEYWORD_STOP = {"murphy", "helen", "jasmine", "lx", "lxp", "hjw"}
+_CJK_RE = re.compile(r"[\u4e00-\u9fff]")
+
+
+def _norm_kw(value):
+    return re.sub(r"\s+", "", str(value or "")).lower()
+
+
+def _label_core(name):
+    """标签名的中文主干（'早晚搭配 Day/Night' -> '早晚搭配daynight' 已由 _norm_kw 处理），
+    用于「标签名包含关键词」的加权判断。"""
+    return _norm_kw(name)
+
+
+def _is_code_seg(seg):
+    # 结构段：P11 / IGF / IGS / IN / 2PCS / B5M / 092801 / 1&1 之类
+    return bool(re.fullmatch(r"[A-Za-z0-9&.'|]{1,7}", seg)) or seg.isdigit()
+
+
+def lxp_keywords(name):
+    out = []
+    for seg in str(name or "").split("-"):
+        seg = seg.strip()
+        if len(seg) < 2 or _is_code_seg(seg):
+            continue
+        if _norm_kw(seg) in LXP_KEYWORD_STOP:
+            continue
+        out.append(seg)
+    return out
+
+
+class KeywordTagInfer:
+    """从已打标素材学「关键词段 -> 标签」投票映射，给缺级素材补标。
+
+    学习阶段：已打标素材里，若某关键词段无法精确命中该级字典，
+    就把它投给该素材在这一级实际被打的标签（同段多次出现累计票数）。
+    标签名包含关键词（数据→数据支撑、早晚→早晚搭配）票数 x3 加权。
+    应用阶段：素材某级为空时，取该级票数>=2 的前 2 个标签补上。
+    """
+
+    MIN_VOTES = 2
+    MAX_PER_LEVEL = 2
+
+    def __init__(self, materials_by_combo, dict_rows_by_combo):
+        # 每级精确索引：norm(全名 / 中文部 / 英文部) -> 标准名
+        self.exact = {1: {}, 2: {}, 3: {}}
+        for rows in dict_rows_by_combo.values():
+            for row in rows:
+                if not isinstance(row, dict):
+                    continue
+                level = row.get("level")
+                if level not in self.exact:
+                    continue
+                name = clean_label_name(row.get("name"))
+                if not name:
+                    continue
+                key = _norm_kw(name)
+                self.exact[level].setdefault(key, name)
+                m = re.match(r"^([\u4e00-\u9fff＆&][\u4e00-\u9fff＆&\w]*?)[\s\t]+([A-Za-z].*)$",
+                             str(row.get("name") or "").strip())
+                if m:
+                    self.exact[level].setdefault(_norm_kw(m.group(1)), name)
+                    self.exact[level].setdefault(_norm_kw(m.group(2)), name)
+        # 学习：alias[(level, norm(seg))][标准名] = 票数
+        self.alias = defaultdict(lambda: defaultdict(int))
+        for combo, mats in materials_by_combo.items():
+            rows = dict_rows_by_combo.get(combo) or []
+            by_id = {}
+            for row in rows:
+                try:
+                    by_id[int(row.get("id"))] = row
+                except (TypeError, ValueError):
+                    continue
+            for mat in mats:
+                segs = [_norm_kw(s) for s in lxp_keywords(mat.get("materialName") or "")]
+                for level, field in LABEL_FIELDS.items():
+                    labels = []
+                    for item in mat.get(field) or []:
+                        node = by_id.get(item.get("id")) if isinstance(item, dict) else None
+                        name = clean_label_name((node or {}).get("name") or item.get("name"))
+                        if name:
+                            labels.append(name)
+                    for label in labels:
+                        core = _label_core(label)
+                        for seg in set(segs):
+                            if seg in self.exact[level]:
+                                continue
+                            votes = 3 if (seg in core or core in seg) else 1
+                            self.alias[(level, seg)][label] += votes
+
+    def infer(self, meta, own_by_level, label_dict=None):
+        """返回 (补充节点 {level: [node]}, 补标层级列表)。只补 own 里为空的级。"""
+        segs = { _norm_kw(s) for s in lxp_keywords((meta or {}).get("materialName") or "") }
+        segs = {s for s in segs if s}
+        extra, levels = {}, []
+        for level in (1, 2, 3):
+            if own_by_level.get(level):
+                continue
+            picked = {}
+            for seg in segs:
+                exact = self.exact[level].get(seg)
+                if exact:
+                    picked[exact] = float("inf")
+                    continue
+                for label, votes in self.alias.get((level, seg), {}).items():
+                    if votes >= self.MIN_VOTES:
+                        picked[label] = max(picked.get(label, 0), votes)
+            if not picked:
+                continue
+            finite = {k: v for k, v in picked.items() if v != float("inf")}
+            names = [k for k, v in sorted(picked.items(), key=lambda kv: -kv[1])
+                     if v == float("inf")]
+            names += [k for k, _ in sorted(finite.items(), key=lambda kv: -kv[1])]
+            names = list(dict.fromkeys(names))[: self.MAX_PER_LEVEL]
+            nodes = []
+            for name in names:
+                node = None
+                if label_dict is not None:
+                    node = label_dict.by_name.get((level, name.lower()))
+                if node is None:
+                    node = {"id": None, "name": name, "level": level,
+                            "parentId": None, "category": ""}
+                nodes.append(node)
+            if nodes:
+                extra[level] = nodes
+                levels.append(f"L{level}")
+        return extra, levels
+
+
+_KW_INFER = None
+
+
+def get_keyword_infer():
+    """懒加载并缓存 LXP 的关键词补标器（四个 combo 共用一份映射）。"""
+    global _KW_INFER
+    if _KW_INFER is None:
+        mats, dicts = {}, {}
+        for combo in LXP_COMBOS:
+            data = load(os.path.join(RAW, combo, "materials.json"), []) or []
+            mats[combo] = data if isinstance(data, list) else (data.get("rows") or [])
+            dicts[combo] = (load(os.path.join(RAW, combo, "label_dict.json"), {}) or {}).get("rows") or []
+        _KW_INFER = KeywordTagInfer(mats, dicts)
+    return _KW_INFER
+
+
 # 2026-10-16：恢复 FR 式三大类归一（awa / consi / conv），未命中 → 「未标注」。
 # 展示层会把「未标注」单独成组放在最后，而不是像 FR 那样直接排除；
 # 原始一级标签保留在 tag1Raw，供筛选与排查。
@@ -478,6 +629,13 @@ def collect(combo):
         type_label = "视频" if is_video else MATERIAL_TYPE.get(mtype) or "图文"
 
         tag_nodes, tag_backfilled = label_dict.resolve_material(meta)
+        # LXP 专属：素材名关键词补标（只补空缺层级，标记 L?K 与父级回溯的 L? 区分）
+        if brand == "LXP":
+            kw_nodes, kw_levels = get_keyword_infer().infer(meta, tag_nodes, label_dict)
+            for lvl, nodes in kw_nodes.items():
+                tag_nodes[lvl] = list(tag_nodes[lvl]) + nodes
+            # 带 K 后缀（L2K）与父级回溯的 L2 区分；tagInferred 字段据此生成
+            tag_backfilled.extend(lvl + "K" for lvl in kw_levels)
         tag1_names = [n["name"] for n in tag_nodes[1]]
         tag2_names = [n["name"] for n in tag_nodes[2]]
         tag3_names = [n["name"] for n in tag_nodes[3]]
@@ -549,6 +707,8 @@ def collect(combo):
             # 三大类（awa / consi / conv），仅此字段参与达标线判定
             "harvestTag": canonical_harvest_tag(tag1_names) or "未标注",
             "tagBackfilled": "".join(tag_backfilled),
+            # 关键词补标的层级（如 "L2L3"）；tagBackfilled 里对应带 K 后缀（L2K）
+            "tagInferred": "".join(lvl for lvl in tag_backfilled if lvl.endswith("K")).replace("K", ""),
             "materialCreatedAt": created_at,
             "firstDate": dates[0] if dates else "",
             "lastDate": dates[-1] if dates else "",

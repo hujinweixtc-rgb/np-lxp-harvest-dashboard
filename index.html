@@ -2609,6 +2609,8 @@
         const tagLine = [row.tag1, row.tag2, row.tag3].filter(Boolean).join(' / ');
         const harvestLine = row.harvestTag && row.harvestTag !== '未标注'
           ? `<div class="small">收割三大类：${safe(harvestTagLabel(row.harvestTag))}</div>` : '';
+        const inferredLine = row.tagInferred
+          ? `<div class="small">关键词补标 L${safe(String(row.tagInferred).split('L').filter(Boolean).join('/L'))}</div>` : '';
         const typeClass = row.materialType === '视频' ? 'video' : 'image';
         const url = row.url && String(row.url).startsWith('http') ? `<a href="${safe(row.url)}" target="_blank" rel="noopener">打开</a>` : '';
         return `<tr>
@@ -2617,7 +2619,7 @@
           <td>${safe(row.country || '-')}</td>
           <td>${safe(row.product || '-')}</td>
           <td>${safe(row.firstDate || '-')}<br><span class="small">${safe(row.lastDate || '-')}</span></td>
-          <td>${safe(short(tagLine || '未标注', 60))}${harvestLine}</td>
+          <td>${safe(short(tagLine || '未标注', 60))}${harvestLine}${inferredLine}</td>
           <td class="num">${money(row.spend)}</td>
           <td class="num">${fmt(row.impressions)}</td>
           <td class="num">${fmt(row.linkClick)}</td>
