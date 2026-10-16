@@ -1129,7 +1129,175 @@
       .tag-group-head,
       .tag-row { grid-template-columns: minmax(100px, 1fr) 46px 42px 42px; gap: 6px; }
       .tag-group-title { gap: 6px; }
+      .lb-bar { gap: 6px; }
+      .lb-title { max-width: 42vw; }
+      .lb-hint { display: none; }
     }
+
+    /* ===== 素材高清预览（lightbox） ===== */
+    .lightbox {
+      position: fixed;
+      inset: 0;
+      z-index: 200;
+      display: flex;
+      flex-direction: column;
+      background: rgba(10, 16, 26, .93);
+      backdrop-filter: blur(3px);
+      animation: lb-in .16s ease-out;
+    }
+    .lightbox[hidden] { display: none; }
+    @keyframes lb-in { from { opacity: 0; } to { opacity: 1; } }
+
+    .lb-stage {
+      flex: 1 1 auto;
+      position: relative;
+      overflow: hidden;
+      display: grid;
+      place-items: center;
+      cursor: grab;
+      touch-action: none;
+      min-height: 0;
+    }
+    .lb-stage.zoomed { cursor: grab; }
+    .lb-stage.dragging { cursor: grabbing; }
+    .lb-stage > img,
+    .lb-stage > video {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      max-width: none;
+      max-height: none;
+      transform: translate(-50%, -50%);
+      transform-origin: center center;
+      will-change: transform;
+      user-select: none;
+      -webkit-user-drag: none;
+      border-radius: 6px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, .55);
+      background: #0f1620;
+      pointer-events: auto;
+    }
+    .lb-stage > video {
+      width: min(92vw, 1400px);
+      height: min(82vh, 920px);
+      object-fit: contain;
+      background: #0f1620;
+    }
+    .lb-stage > img[hidden],
+    .lb-stage > video[hidden] { display: none; }
+    .lb-stage.loading::after {
+      content: '加载中…';
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      color: #cbd5e1;
+      font-size: 13px;
+      letter-spacing: .08em;
+    }
+
+    .lb-bar {
+      flex: 0 0 auto;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 16px;
+      background: rgba(18, 26, 38, .92);
+      border-top: 1px solid rgba(255, 255, 255, .09);
+      color: #e6edf5;
+      font-size: 13px;
+    }
+    .lb-title {
+      font-weight: 700;
+      max-width: 46vw;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      color: #f1f5f9;
+    }
+    .lb-grow { flex: 1 1 auto; }
+    .lb-btn {
+      height: 30px;
+      min-width: 30px;
+      padding: 0 10px;
+      border-radius: 8px;
+      border: 1px solid rgba(255, 255, 255, .18);
+      background: rgba(255, 255, 255, .07);
+      color: #e6edf5;
+      font-size: 13px;
+      font-weight: 700;
+      font-family: inherit;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      transition: background .12s ease, border-color .12s ease;
+    }
+    .lb-btn:hover { background: rgba(255, 255, 255, .16); border-color: rgba(255, 255, 255, .3); }
+    .lb-btn:disabled { opacity: .4; cursor: not-allowed; }
+    .lb-link { text-decoration: none; }
+    .lb-close { background: rgba(180, 35, 24, .8); border-color: rgba(180, 35, 24, .9); }
+    .lb-close:hover { background: #b42318; border-color: #d4584c; }
+    .lb-zoom {
+      min-width: 52px;
+      text-align: center;
+      font-variant-numeric: tabular-nums;
+      font-weight: 700;
+      color: #9fd4f5;
+    }
+    .lb-hint {
+      position: absolute;
+      left: 50%;
+      bottom: 62px;
+      transform: translateX(-50%);
+      padding: 5px 12px;
+      border-radius: 999px;
+      background: rgba(18, 26, 38, .82);
+      border: 1px solid rgba(255, 255, 255, .12);
+      color: #cbd5e1;
+      font-size: 11px;
+      letter-spacing: .04em;
+      pointer-events: none;
+      animation: lb-hint-out .3s ease 3.4s forwards;
+    }
+    @keyframes lb-hint-out { to { opacity: 0; } }
+
+    /* 快照可点击的视觉提示 */
+    .post-thumb, .dms-media-shell, .dms-video-wrap { cursor: zoom-in; }
+    .post-thumb::after,
+    .dms-media-shell::after,
+    .dms-video-wrap::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: rgba(10, 20, 32, 0);
+      transition: background .12s ease;
+      pointer-events: none;
+      z-index: 3;
+    }
+    .post-thumb:hover::after,
+    .dms-media-shell:hover::after,
+    .dms-video-wrap:hover::after { background: rgba(10, 20, 32, .16); }
+    .post-thumb-zoom {
+      position: absolute;
+      right: 3px;
+      top: 3px;
+      width: 15px;
+      height: 15px;
+      border-radius: 4px;
+      background: rgba(16, 24, 40, .72);
+      color: #fff;
+      font-size: 9px;
+      line-height: 15px;
+      text-align: center;
+      opacity: 0;
+      transition: opacity .12s ease;
+      pointer-events: none;
+      z-index: 4;
+    }
+    .post-thumb:hover .post-thumb-zoom { opacity: 1; }
+    .dms-cover { cursor: zoom-in; }
   </style>
 </head>
 <body>
@@ -1411,6 +1579,26 @@
       </div>
     </section>
   </main>
+
+  <!-- 素材高清预览：点击快照弹出大图，滚轮/按钮缩放，点击空白关闭 -->
+  <div class="lightbox" id="lightbox" hidden role="dialog" aria-modal="true" aria-label="素材高清预览">
+    <div class="lb-stage" id="lbStage">
+      <img id="lbImage" alt="" hidden>
+      <video id="lbVideo" playsinline controls hidden></video>
+    </div>
+    <div class="lb-bar">
+      <span class="lb-title" id="lbTitle"></span>
+      <span class="lb-grow"></span>
+      <button type="button" class="lb-btn" id="lbZoomOut" title="缩小（-）">−</button>
+      <span class="lb-zoom" id="lbZoom">100%</span>
+      <button type="button" class="lb-btn" id="lbZoomIn" title="放大（+）">＋</button>
+      <button type="button" class="lb-btn" id="lbFit" title="适应窗口（0）">适应</button>
+      <button type="button" class="lb-btn" id="lbActual" title="实际大小（1）">1:1</button>
+      <a class="lb-btn lb-link" id="lbDownload" href="#" target="_blank" rel="noopener" download>下载原图</a>
+      <button type="button" class="lb-btn lb-close" id="lbClose" title="关闭（Esc）">✕</button>
+    </div>
+    <div class="lb-hint" id="lbHint">滚轮缩放 · 拖拽平移 · 点击空白处关闭</div>
+  </div>
 
   <script>
     const $ = (id) => document.getElementById(id);
@@ -2304,19 +2492,37 @@
       return `${raw}${joiner}x-oss-process=video/snapshot,t_${at},f_jpg,w_800,m_fast`;
     }
 
+    // 高清预览触发属性：把原始 URL 写进 data-*，由 lightbox 统一走代理 / 处理跨域
+    function lightboxAttrs(hiSrc, thumbSrc, row = {}, isVideo = false) {
+      const raw = row.materialName || row.adName || row.materialCode || row.materialId || '';
+      const title = short(String(raw).trim() || '素材快照', 90);
+      const attrs = [` data-lb-title="${safe(title)}"`];
+      const hi = /^https?:\/\//.test(String(hiSrc || '')) ? String(hiSrc) : '';
+      const thumb = /^https?:\/\//.test(String(thumbSrc || '')) ? String(thumbSrc) : '';
+      if (isVideo) {
+        attrs.push(` data-lb-video="${safe(hi || thumb)}"`);
+      } else {
+        attrs.push(` data-lb-src="${safe(hi || thumb)}"`);
+        if (thumb && thumb !== (hi || thumb)) attrs.push(` data-lb-fallback="${safe(thumb)}"`);
+      }
+      const dl = hi || thumb;
+      if (dl) attrs.push(` data-lb-download="${safe(dl)}"`);
+      return attrs.join('');
+    }
+
     // 素材明细表用的小缩略图（视频显示 OSS 抽帧快照 + 播放角标）
     function renderPostThumb(row = {}) {
       const photo = dmsPreviewUrl(row);
       if (!photo || !/^https?:\/\//.test(String(photo))) return '';
       const big = dmsDownloadUrl(row) || photo;
-      const isVideo = row.isVideo === true || row.materialType === '视频';
-      const title = row.materialName || row.materialCode || '';
+      const isVideo = row.isVideo === true || row.materialType === '视频' || dmsIsVideoUrl(big);
+      const title = short(String(row.materialName || row.materialCode || row.adName || '素材快照').trim(), 90);
       return `<a class="post-thumb${isVideo ? ' video' : ''}" href="${safe(dmsProxyUrl(big))}"
-        target="_blank" rel="noopener" title="${safe(title)}"
+        target="_blank" rel="noopener" title="${safe(title)}"${lightboxAttrs(big, photo, row, isVideo)}
         ><img src="${safe(dmsProxyUrl(photo))}" alt="" loading="lazy"
         onerror="this.parentNode.classList.add('failed')">${
           isVideo ? '<span class="post-thumb-play">▶</span>' : ''
-        }</a>`;
+        }<span class="post-thumb-zoom">⤢</span></a>`;
     }
 
     function renderDmsFallbackCover(row = {}, fallbackText = '') {
@@ -2337,16 +2543,20 @@
     function renderDmsMedia(url, fallbackText, row = {}) {
       const fallback = renderDmsFallbackCover(row, fallbackText);
       if (!url || !/^https?:\/\//.test(url)) return fallback;
+      const hiRes = dmsDownloadUrl(row) || url;
+      const isVideo = dmsIsVideoUrl(url) || dmsIsVideoUrl(hiRes) || row.materialType === '视频';
+      // 点击封面 → 高清大图预览；视频则弹出播放器
+      const lb = lightboxAttrs(isVideo ? hiRes : hiRes, url, row, isVideo);
       if (dmsIsVideoUrl(url)) {
         const poster = dmsVideoPosterUrl(url);
         const playUrl = dmsProxyUrl(url);
         if (poster) {
           const fallbackPoster = dmsVideoPosterUrl(url, 3500);
-          return `<a class="dms-video-wrap" href="${safe(playUrl)}" target="_blank" rel="noopener">${fallback}<img src="${safe(dmsProxyUrl(poster))}" data-fallback="${safe(dmsProxyUrl(fallbackPoster))}" alt="" loading="lazy" onerror="if(this.dataset.fallback){this.src=this.dataset.fallback;this.dataset.fallback=''}else{this.remove()}"><span class="dms-play-badge">播放</span></a>`;
+          return `<a class="dms-video-wrap" href="${safe(playUrl)}" target="_blank" rel="noopener"${lb}>${fallback}<img src="${safe(dmsProxyUrl(poster))}" data-fallback="${safe(dmsProxyUrl(fallbackPoster))}" alt="" loading="lazy" onerror="if(this.dataset.fallback){this.src=this.dataset.fallback;this.dataset.fallback=''}else{this.remove()}"><span class="dms-play-badge">播放</span></a>`;
         }
-        return `<a class="dms-video-wrap" href="${safe(playUrl)}" target="_blank" rel="noopener">${fallback}<video src="${safe(playUrl)}" muted playsinline preload="metadata" controls></video><span class="dms-play-badge">播放</span></a>`;
+        return `<a class="dms-video-wrap" href="${safe(playUrl)}" target="_blank" rel="noopener"${lb}>${fallback}<video src="${safe(playUrl)}" muted playsinline preload="metadata" controls></video><span class="dms-play-badge">播放</span></a>`;
       }
-      return `<span class="dms-media-shell">${fallback}<img src="${safe(dmsProxyUrl(url))}" alt="" loading="lazy" onerror="this.remove()"></span>`;
+      return `<span class="dms-media-shell"${lb}>${fallback}<img src="${safe(dmsProxyUrl(url))}" alt="" loading="lazy" onerror="this.remove()"></span>`;
     }
 
     function dmsCardRows(rows) {
@@ -3335,6 +3545,365 @@
       renderProductSortTable();
     });
     window.addEventListener('resize', drawTrend);
+
+    // ===== 素材高清预览（lightbox）=====
+    const LB = {
+      open: false,
+      video: false,
+      natW: 0,
+      natH: 0,
+      fit: 1,        // 「适应窗口」对应的缩放（相对原始像素）
+      scale: 1,      // 用户缩放倍数，1 = 适应窗口
+      x: 0,
+      y: 0,
+      dragging: false,
+      moved: false,
+      startX: 0,
+      startY: 0,
+      baseX: 0,
+      baseY: 0,
+      lastFocus: null
+    };
+    const LB_MIN = 0.25;
+    const LB_MAX = 8;
+
+    function lbBox() { return $('lightbox'); }
+    function lbStage() { return $('lbStage'); }
+    function lbImg() { return $('lbImage'); }
+    function lbVideo() { return $('lbVideo'); }
+
+    // 适配窗口所需缩放：图片完整放进 stage（留边距），且不超过原始像素的 100%
+    function lbFitScale() {
+      const stage = lbStage();
+      if (!stage || !LB.natW || !LB.natH) return 1;
+      const w = stage.clientWidth - 72;
+      const h = stage.clientHeight - 56;
+      if (w <= 0 || h <= 0) return 1;
+      return Math.min(w / LB.natW, h / LB.natH, 1);
+    }
+
+    function lbRender() {
+      const zoom = $('lbZoom');
+      const total = LB.fit * LB.scale;
+      if (!LB.video) {
+        lbImg().style.transform = `translate(calc(-50% + ${LB.x.toFixed(1)}px), calc(-50% + ${LB.y.toFixed(1)}px)) scale(${total.toFixed(4)})`;
+      }
+      if (zoom) zoom.textContent = `${Math.round(total * 100)}%`;
+      const stage = lbStage();
+      if (stage) stage.classList.toggle('zoomed', LB.scale > 1.001);
+      const out = $('lbZoomOut');
+      const inc = $('lbZoomIn');
+      if (out) out.disabled = LB.scale <= LB_MIN + 1e-6;
+      if (inc) inc.disabled = LB.scale >= LB_MAX - 1e-6;
+    }
+
+    // 以屏幕坐标 (clientX, clientY) 为锚点缩放；不传则围绕视图中心
+    function lbSetScale(next, clientX = null, clientY = null) {
+      if (LB.video) return;
+      const stage = lbStage();
+      if (!stage) return;
+      const clamped = Math.min(LB_MAX, Math.max(LB_MIN, next));
+      if (Math.abs(clamped - LB.scale) < 1e-4) return;
+      const rect = stage.getBoundingClientRect();
+      const ax = clientX == null ? rect.width / 2 : clientX - rect.left;
+      const ay = clientY == null ? rect.height / 2 : clientY - rect.top;
+      const px = ax - rect.width / 2 - LB.x;
+      const py = ay - rect.height / 2 - LB.y;
+      const k = clamped / LB.scale;
+      LB.x -= px * (k - 1);
+      LB.y -= py * (k - 1);
+      LB.scale = clamped;
+      lbRender();
+    }
+
+    function lbFitView() {
+      LB.scale = 1;
+      LB.x = 0;
+      LB.y = 0;
+      lbRender();
+    }
+
+    function lbActualSize() {
+      const target = Math.min(LB_MAX, 1 / (LB.fit || 1));
+      if (Math.abs(target - LB.scale) < 1e-4) {
+        LB.x = 0;
+        LB.y = 0;
+        lbRender();
+        return;
+      }
+      lbSetScale(target);
+    }
+
+    function lbOnImageReady() {
+      const stage = lbStage();
+      const img = lbImg();
+      LB.natW = img.naturalWidth || 1;
+      LB.natH = img.naturalHeight || 1;
+      img.style.width = `${LB.natW}px`;
+      img.style.height = `${LB.natH}px`;
+      LB.fit = lbFitScale();
+      LB.scale = 1;
+      LB.x = 0;
+      LB.y = 0;
+      if (stage) stage.classList.remove('loading');
+      lbRender();
+    }
+
+    function openLightbox(trigger) {
+      const box = lbBox();
+      const stage = lbStage();
+      const img = lbImg();
+      const video = lbVideo();
+      if (!box || !stage || !img || !video) return;
+      const videoUrl = trigger.dataset.lbVideo || '';
+      const imgUrl = trigger.dataset.lbSrc || '';
+      const fallbackUrl = trigger.dataset.lbFallback || '';
+      const dlUrl = trigger.dataset.lbDownload || videoUrl || imgUrl;
+      LB.video = Boolean(videoUrl);
+      LB.open = true;
+      LB.lastFocus = trigger;
+      LB.x = 0;
+      LB.y = 0;
+      LB.scale = 1;
+      LB.dragging = false;
+      LB.moved = false;
+      box.hidden = false;
+      document.body.style.overflow = 'hidden';
+      const titleEl = $('lbTitle');
+      if (titleEl) titleEl.textContent = trigger.dataset.lbTitle || '素材快照';
+      const dl = $('lbDownload');
+      if (dl) {
+        dl.href = dmsProxyUrl(dlUrl, true) || '#';
+        dl.style.display = dlUrl ? '' : 'none';
+      }
+      const hint = $('lbHint');
+      if (hint) hint.style.display = '';
+
+      const zoomCtrls = ['lbZoomOut', 'lbZoomIn', 'lbFit', 'lbActual'];
+      zoomCtrls.forEach(id => { const el = $(id); if (el) el.style.display = LB.video ? 'none' : ''; });
+
+      if (LB.video) {
+        img.hidden = true;
+        img.removeAttribute('src');
+        video.hidden = false;
+        video.src = dmsProxyUrl(videoUrl);
+        stage.classList.remove('loading');
+        video.play().catch(() => {});
+        LB.natW = 0;
+        LB.natH = 0;
+        LB.fit = 1;
+        lbRender();
+        return;
+      }
+
+      try { video.pause(); } catch { /* ignore */ }
+      video.hidden = true;
+      video.removeAttribute('src');
+      img.hidden = false;
+      img.dataset.lbStage = fallbackUrl ? 'primary' : 'final';
+      img.dataset.lbFallback = fallbackUrl ? dmsProxyUrl(fallbackUrl) : '';
+      stage.classList.add('loading');
+      img.style.transform = 'translate(-50%, -50%)';
+      img.src = dmsProxyUrl(imgUrl);
+    }
+
+    function closeLightbox() {
+      if (!LB.open) return;
+      const box = lbBox();
+      const stage = lbStage();
+      const img = lbImg();
+      const video = lbVideo();
+      LB.open = false;
+      try { video.pause(); } catch { /* ignore */ }
+      video.removeAttribute('src');
+      img.removeAttribute('src');
+      if (box) box.hidden = true;
+      if (stage) stage.classList.remove('loading', 'dragging', 'zoomed');
+      document.body.style.overflow = '';
+      LB.dragging = false;
+      LB.moved = false;
+      LB.x = 0;
+      LB.y = 0;
+      LB.scale = 1;
+      const focus = LB.lastFocus;
+      LB.lastFocus = null;
+      if (focus && focus.isConnected) { try { focus.blur(); } catch { /* ignore */ } }
+    }
+
+    function initLightbox() {
+      const box = lbBox();
+      const stage = lbStage();
+      const img = lbImg();
+      const video = lbVideo();
+      if (!box || !stage || !img || !video) return;
+
+      // 1) 委托：任何带 data-lb-src / data-lb-video 的快照都可点击放大
+      document.addEventListener('click', event => {
+        if (LB.open) return;
+        if (event.defaultPrevented) return;
+        if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+        // 内嵌 video 的播放/进度条交给播放器自己处理，不弹大图
+        if (event.target && event.target.tagName === 'VIDEO') return;
+        const trigger = event.target.closest('[data-lb-src], [data-lb-video]');
+        if (!trigger) return;
+        event.preventDefault();
+        openLightbox(trigger);
+      });
+
+      // 阻止图片/视频被原生拖拽（拖拽用于平移画布）
+      [img, video].forEach(el => el.addEventListener('dragstart', event => event.preventDefault()));
+
+      // 2) 高清图加载完成 → 计算适应比例
+      img.addEventListener('load', () => {
+        if (LB.open && !LB.video) lbOnImageReady();
+      });
+      img.addEventListener('error', () => {
+        if (!LB.open || LB.video) return;
+        const fb = img.dataset.lbFallback;
+        if (fb && img.dataset.lbStage === 'primary') {
+          img.dataset.lbStage = 'fallback';
+          img.src = fb;
+          return;
+        }
+        if (img.dataset.lbStage === 'final') return;
+        img.dataset.lbStage = 'final';
+        stage.classList.remove('loading');
+        const titleEl = $('lbTitle');
+        if (titleEl) titleEl.textContent = '图片加载失败（素材可能已从 DMS 移除）';
+      });
+
+      // 3) 滚轮缩放（以光标为锚点）
+      stage.addEventListener('wheel', event => {
+        if (!LB.open || LB.video) return;
+        event.preventDefault();
+        lbSetScale(LB.scale * Math.exp(-event.deltaY * 0.0016), event.clientX, event.clientY);
+      }, { passive: false });
+
+      // 4) 拖拽平移
+      stage.addEventListener('mousedown', event => {
+        if (!LB.open || LB.video || event.button !== 0) return;
+        if (event.target.closest('.lb-bar')) return;
+        LB.dragging = true;
+        LB.moved = false;
+        LB.startX = event.clientX;
+        LB.startY = event.clientY;
+        LB.baseX = LB.x;
+        LB.baseY = LB.y;
+        stage.classList.add('dragging');
+        event.preventDefault();
+      });
+      window.addEventListener('mousemove', event => {
+        if (!LB.dragging) return;
+        const dx = event.clientX - LB.startX;
+        const dy = event.clientY - LB.startY;
+        if (Math.abs(dx) > 3 || Math.abs(dy) > 3) LB.moved = true;
+        LB.x = LB.baseX + dx;
+        LB.y = LB.baseY + dy;
+        lbRender();
+      });
+      window.addEventListener('mouseup', () => {
+        if (!LB.dragging) return;
+        LB.dragging = false;
+        stage.classList.remove('dragging');
+      });
+
+      // 5) 点击空白关闭 / 点击图片切换缩放
+      stage.addEventListener('click', event => {
+        if (!LB.open) return;
+        if (LB.moved) return;                     // 拖拽结束的 click 不算点击
+        if (event.target === img && !LB.video) {  // 点图片：适应 ↔ 放大
+          lbSetScale(LB.scale > 1.5 ? 1 : 2.5, event.clientX, event.clientY);
+          if (LB.scale <= 1.001) lbFitView();
+          return;
+        }
+        if (event.target === stage) closeLightbox();   // 空白处 → 关闭
+      });
+
+      // 5b) 触摸：单指平移 / 双指捏合缩放
+      let pinch = null;
+      stage.addEventListener('touchstart', event => {
+        if (!LB.open || LB.video) return;
+        if (event.touches.length === 1) {
+          pinch = null;
+          LB.dragging = true;
+          LB.moved = false;
+          LB.startX = event.touches[0].clientX;
+          LB.startY = event.touches[0].clientY;
+          LB.baseX = LB.x;
+          LB.baseY = LB.y;
+        } else if (event.touches.length === 2) {
+          LB.dragging = false;
+          const [a, b] = event.touches;
+          pinch = {
+            dist: Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY) || 1,
+            scale: LB.scale,
+            cx: (a.clientX + b.clientX) / 2,
+            cy: (a.clientY + b.clientY) / 2
+          };
+        }
+      }, { passive: true });
+      stage.addEventListener('touchmove', event => {
+        if (!LB.open || LB.video) return;
+        if (pinch && event.touches.length === 2) {
+          event.preventDefault();
+          const [a, b] = event.touches;
+          const dist = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+          lbSetScale(pinch.scale * (dist / pinch.dist), pinch.cx, pinch.cy);
+        } else if (LB.dragging && event.touches.length === 1) {
+          event.preventDefault();
+          const dx = event.touches[0].clientX - LB.startX;
+          const dy = event.touches[0].clientY - LB.startY;
+          if (Math.abs(dx) > 6 || Math.abs(dy) > 6) LB.moved = true;
+          LB.x = LB.baseX + dx;
+          LB.y = LB.baseY + dy;
+          lbRender();
+        }
+      }, { passive: false });
+      stage.addEventListener('touchend', () => {
+        LB.dragging = false;
+        pinch = null;
+      }, { passive: true });
+
+      // 6) 工具条
+      const on = (id, fn) => { const el = $(id); if (el) el.addEventListener('click', fn); };
+      on('lbClose', event => { event.stopPropagation(); closeLightbox(); });
+      on('lbZoomIn', event => { event.stopPropagation(); lbSetScale(LB.scale * 1.25); });
+      on('lbZoomOut', event => { event.stopPropagation(); lbSetScale(LB.scale / 1.25); });
+      on('lbFit', event => { event.stopPropagation(); lbFitView(); });
+      on('lbActual', event => { event.stopPropagation(); lbActualSize(); });
+      on('lbDownload', event => event.stopPropagation());
+
+      // 7) 键盘
+      document.addEventListener('keydown', event => {
+        if (!LB.open) return;
+        const key = event.key;
+        if (key === 'Escape') {
+          event.preventDefault();
+          closeLightbox();
+          return;
+        }
+        if (LB.video) return;
+        if (key === '+' || key === '=') { event.preventDefault(); lbSetScale(LB.scale * 1.25); }
+        else if (key === '-' || key === '_') { event.preventDefault(); lbSetScale(LB.scale / 1.25); }
+        else if (key === '0') { event.preventDefault(); lbFitView(); }
+        else if (key === '1') { event.preventDefault(); lbActualSize(); }
+        else if (key === 'ArrowLeft') { event.preventDefault(); LB.x += 48; lbRender(); }
+        else if (key === 'ArrowRight') { event.preventDefault(); LB.x -= 48; lbRender(); }
+        else if (key === 'ArrowUp') { event.preventDefault(); LB.y += 48; lbRender(); }
+        else if (key === 'ArrowDown') { event.preventDefault(); LB.y -= 48; lbRender(); }
+        else if (key === ' ') { event.preventDefault(); lbFitView(); }
+      });
+
+      // 8) 窗口变化时重算适应比例
+      window.addEventListener('resize', () => {
+        if (!LB.open || LB.video || !LB.natW) return;
+        LB.fit = lbFitScale();
+        lbRender();
+      });
+    }
+
+    initLightbox();
+
     init().catch(err => {
       $('status').textContent = err.message;
       $('kpis').innerHTML = `<div class="empty">${safe(err.message)}</div>`;
