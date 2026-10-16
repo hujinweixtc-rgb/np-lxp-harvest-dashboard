@@ -731,9 +731,47 @@
       background: #eef4f8;
     }
     .creative-cell { display: grid; gap: 4px; }
+    .creative-row {
+      display: flex;
+      gap: 8px;
+      align-items: flex-start;
+      min-width: 0;
+    }
+    .creative-row > .creative-text { min-width: 0; }
+    .post-thumb {
+      flex: 0 0 auto;
+      position: relative;
+      width: 42px;
+      height: 54px;
+      border-radius: 6px;
+      border: 1px solid var(--line);
+      background: #eef3f8;
+      overflow: hidden;
+      display: block;
+    }
+    .post-thumb img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+    .post-thumb.failed { display: none; }
+    .post-thumb-play {
+      position: absolute;
+      right: 3px;
+      bottom: 3px;
+      width: 15px;
+      height: 15px;
+      border-radius: 50%;
+      background: rgba(16, 24, 40, 0.72);
+      color: #fff;
+      font-size: 8px;
+      display: grid;
+      place-items: center;
+    }
     .creative-cell b {
       display: block;
-      max-width: 290px;
+      max-width: 240px;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
@@ -741,7 +779,7 @@
     }
     .creative-cell span {
       display: block;
-      max-width: 290px;
+      max-width: 240px;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
@@ -2124,13 +2162,36 @@
       return row.downloadUrl || row.videoUrl || row.mediaUrl || '';
     }
 
+    // DMS/OSS 素材域名开了 Referer 防盗链：浏览器带 run.app / github.io 的 Referer
+    // 直接取图会 403，必须经服务端代理转发（代理请求不带 Referer）。
+    const MEDIA_PROXY_HOSTS = new Set([
+      'dms-upload-prod-sg.oss-ap-southeast-1.aliyuncs.com',
+      'cdn-prod.feimeidms.com'
+    ]);
+    // 静态托管（GitHub Pages）没有自带后端，回退到既有代理服务
+    const MEDIA_PROXY_FALLBACK = 'https://np-post-dashboard-a2vd6kqlpq-as.a.run.app/media-proxy';
+
+    function mediaProxyBase() {
+      return REFRESH.available ? './media-proxy' : MEDIA_PROXY_FALLBACK;
+    }
+
     function dmsProxyUrl(url, download = false) {
       if (!url || !/^https?:\/\//.test(String(url))) return '';
+      let target = String(url);
       if (download) {
-        const joiner = String(url).includes('?') ? '&' : '?';
-        return `${url}${joiner}response-content-disposition=attachment`;
+        const joiner = target.includes('?') ? '&' : '?';
+        target = `${target}${joiner}response-content-disposition=attachment`;
       }
-      return String(url);
+      let parsed;
+      try {
+        parsed = new URL(target);
+      } catch {
+        return target;
+      }
+      if (MEDIA_PROXY_HOSTS.has(parsed.hostname.toLowerCase())) {
+        return `${mediaProxyBase()}?url=${encodeURIComponent(parsed.toString())}`;
+      }
+      return target;
     }
 
     function dmsHasMedia(row) {
@@ -2143,9 +2204,27 @@
     }
 
     function dmsVideoPosterUrl(url, at = 1500) {
-      if (!dmsIsVideoUrl(url) || !/oss-[^/]+\.aliyuncs\.com/i.test(String(url || ''))) return '';
-      const joiner = String(url).includes('?') ? '&' : '?';
-      return `${url}${joiner}x-oss-process=video/snapshot,t_${at},f_jpg,w_800,m_fast`;
+      const raw = String(url || '');
+      if (!dmsIsVideoUrl(raw) || !/oss-[^/]+\.aliyuncs\.com/i.test(raw)) return '';
+      // previewUrl 本身可能已经是快照地址，避免叠加成两个 x-oss-process
+      if (/x-oss-process=[^&]*video\/snapshot/i.test(raw)) return raw;
+      const joiner = raw.includes('?') ? '&' : '?';
+      return `${raw}${joiner}x-oss-process=video/snapshot,t_${at},f_jpg,w_800,m_fast`;
+    }
+
+    // 素材明细表用的小缩略图（视频显示 OSS 抽帧快照 + 播放角标）
+    function renderPostThumb(row = {}) {
+      const photo = dmsPreviewUrl(row);
+      if (!photo || !/^https?:\/\//.test(String(photo))) return '';
+      const big = dmsDownloadUrl(row) || photo;
+      const isVideo = row.isVideo === true || row.materialType === '视频';
+      const title = row.materialName || row.materialCode || '';
+      return `<a class="post-thumb${isVideo ? ' video' : ''}" href="${safe(dmsProxyUrl(big))}"
+        target="_blank" rel="noopener" title="${safe(title)}"
+        ><img src="${safe(dmsProxyUrl(photo))}" alt="" loading="lazy"
+        onerror="this.parentNode.classList.add('failed')">${
+          isVideo ? '<span class="post-thumb-play">▶</span>' : ''
+        }</a>`;
     }
 
     function renderDmsFallbackCover(row = {}, fallbackText = '') {
@@ -2439,7 +2518,7 @@
         const typeClass = row.materialType === '视频' ? 'video' : 'image';
         const url = row.url && String(row.url).startsWith('http') ? `<a href="${safe(row.url)}" target="_blank" rel="noopener">打开</a>` : '';
         return `<tr>
-          <td><div class="creative-cell"><b title="${safe(materialLabel(row))}">${safe(short(materialLabel(row), 58))}</b><span title="${safe(row.adName)}">${safe(short(row.adName, 82))}</span>${url}</div></td>
+          <td><div class="creative-cell"><div class="creative-row">${renderPostThumb(row)}<div class="creative-text"><b title="${safe(materialLabel(row))}">${safe(short(materialLabel(row), 58))}</b><span title="${safe(row.adName)}">${safe(short(row.adName, 82))}</span>${url}</div></div></div></td>
           <td><span class="chip ${typeClass}">${safe(row.materialType)}</span><div class="small">${safe(row.graphicType || '-')}</div></td>
           <td>${safe(row.country || '-')}</td>
           <td>${safe(row.product || '-')}</td>
@@ -2947,7 +3026,9 @@
     }
 
     async function init(resetFilters = true) {
-      loadVersion();
+      // 必须等形态探测完成：静态托管时 REFRESH.available=false，
+      // 图片/视频要回退到外部媒体代理
+      await loadVersion();
       const res = await fetch('./data/materials.json', { cache: 'no-store' });
       if (!res.ok) throw new Error(`Data load failed: ${res.status}`);
       state.raw = await res.json();

@@ -13,6 +13,7 @@
 ----
   GET  /                     首页 index.html
   GET  /data/*               data 文件（优先 /tmp 下的最新结果，回退镜像内快照）
+  GET  /media-proxy?url=...  代理 DMS/OSS 素材（绕 Referer 防盗链，白名单域名）
   GET  /api/status           当前数据版本 + 刷新任务状态
   POST /api/refresh[?quick=1] 触发刷新（立即返回 202）
   GET  /api/refresh/status   刷新进度（前端轮询）
@@ -60,6 +61,12 @@ GCS_PREFIX = (os.environ.get("DASH_GCS_PREFIX") or "np-lxp-harvest/data").strip(
 DATA_FILES = ("materials.json", "dms_materials.json", "board.json")
 
 LOG_TAIL = 120
+
+# /media-proxy 只允许代理这些素材域名（防盗链 + 防 SSRF）
+MEDIA_PROXY_HOSTS = {
+    "dms-upload-prod-sg.oss-ap-southeast-1.aliyuncs.com",
+    "cdn-prod.feimeidms.com",
+}
 
 # 快速刷新：只补素材投放窗口 + 大盘，跳过整张广告表与全量趋势重拉。
 STAGES_QUICK = (
@@ -409,10 +416,54 @@ class Handler(BaseHTTPRequestHandler):
             return ""
         return target
 
+    def _proxy_media(self, params):
+        """代理 DMS / OSS 素材（图片快照、视频封面）。
+
+        这些域名开了 Referer 防盗链：浏览器带着 run.app / github.io 的 Referer
+        直接请求会 403，所以必须由服务端转发（服务端请求不带 Referer）。
+        只允许白名单域名，避免被当成任意 URL 的开放代理（SSRF）。
+        """
+        raw = (params.get("url") or [""])[0].strip()
+        if not raw:
+            return self._send(400, "missing url", "text/plain; charset=utf-8")
+        parts = urlparse(raw)
+        host = (parts.hostname or "").lower()
+        if parts.scheme not in ("http", "https") or host not in MEDIA_PROXY_HOSTS:
+            return self._send(403, "host not allowed", "text/plain; charset=utf-8")
+        req = urllib.request.Request(raw, method="GET")
+        # 刻意不转发 Referer —— 这是绕开防盗链的关键
+        req.add_header("User-Agent", "np-lxp-dashboard-media-proxy/1.0")
+        client_range = self.headers.get("range")
+        if client_range:
+            req.add_header("Range", client_range)
+        try:
+            with urllib.request.urlopen(req, timeout=120) as resp:
+                upstream = resp.status
+                self.send_response(206 if upstream == 206 else 200)
+                for key in ("content-type", "content-length", "content-range",
+                            "accept-ranges", "last-modified", "etag"):
+                    value = resp.headers.get(key)
+                    if value:
+                        self.send_header(key, value)
+                self.send_header("cache-control", "public, max-age=86400")
+                self.send_header("access-control-allow-origin", "*")
+                self.send_header("cross-origin-resource-policy", "cross-origin")
+                self.end_headers()
+                if self.command != "HEAD":
+                    shutil.copyfileobj(resp, self.wfile)
+        except urllib.error.HTTPError as exc:
+            return self._send(exc.code, f"upstream {exc.code}", "text/plain; charset=utf-8")
+        except (BrokenPipeError, ConnectionResetError):
+            return
+        except Exception as exc:  # noqa: BLE001
+            return self._send(502, f"proxy error: {exc}", "text/plain; charset=utf-8")
+
     # -- routes ------------------------------------------------------------ #
     def do_GET(self):  # noqa: N802
         parsed = urlparse(self.path)
         route = parsed.path
+        if route == "/media-proxy":
+            return self._proxy_media(parse_qs(parsed.query))
         if route == "/api/status":
             with _job_lock:
                 job = dict(_job)
