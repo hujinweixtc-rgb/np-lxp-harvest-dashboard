@@ -70,11 +70,13 @@ MEDIA_PROXY_HOSTS = {
 
 # 快速刷新：只补素材投放窗口 + 大盘，跳过整张广告表与全量趋势重拉。
 STAGES_QUICK = (
+    ("标签字典（DMS 官方一二三级）", "refresh_labels.py"),
     ("大盘聚合", "refresh_board.py"),
     ("素材投放窗口（含趋势明细回补）", "refresh_adv.py"),
     ("组装看板数据", "build_data.py"),
 )
 STAGES_FULL = (
+    ("标签字典（DMS 官方一二三级）", "refresh_labels.py"),
     ("大盘聚合", "refresh_board.py"),
     ("广告表 + 新增素材", "refresh_ads.py"),
     ("素材投放窗口（含趋势明细回补）", "refresh_adv.py"),

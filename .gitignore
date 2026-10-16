@@ -15,3 +15,6 @@ raw.tar.gz
 __pycache__/
 *.pyc
 .venv/
+
+# DMS 前端 JS 逆向分析临时目录
+tmp_js/

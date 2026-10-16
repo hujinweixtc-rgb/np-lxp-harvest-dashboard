@@ -4,6 +4,7 @@
   <combo>/materials.json      素材库
   <combo>/ads.json            广告表
   <combo>/advertised.json     素材分析投放窗口（月度桶）
+  <combo>/label_dict.json     DMS 官方一二三级标签字典
   <combo>/trend/*.json        素材每日趋势
   <combo>/detail/*.json       素材区间明细
   <combo>/board_*.json        大盘聚合
@@ -25,7 +26,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 RAW = os.environ.get("DASH_RAW_DIR") or os.path.join(ROOT, "raw")
 DEFAULT_OUT = os.path.join(ROOT, "raw.tar.gz")
 
-KEEP_TOP_NAMES = {"materials.json", "ads.json", "advertised.json"}
+KEEP_TOP_NAMES = {"materials.json", "ads.json", "advertised.json", "label_dict.json"}
 KEEP_TOP_PREFIXES = ("board_",)
 SKIP_TOP_PREFIXES = ("advertised_",)  # 按窗口的历史快照，已被 advertised.json 取代
 KEEP_DIRS = {"trend", "detail"}

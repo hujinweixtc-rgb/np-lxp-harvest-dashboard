@@ -37,6 +37,122 @@ def load(path, default=None):
         return json.load(fh)
 
 
+LABEL_FIELDS = {1: "firstLevelLabels", 2: "secondLevelLabels", 3: "thirdLevelLabels"}
+# 官方标签体系：design_igad = 素材内容标签（功效 / BA / 对比…），
+# test_direction = 测试方向标签（Awareness / GIRL MATH / 直播间切片…）。
+CATEGORY_LABELS = {"design_igad": "内容", "test_direction": "测试方向"}
+_WS_RE = re.compile(r"\s+")
+
+
+def clean_label_name(value):
+    """DMS 标签名惯用 Tab / 多空格排版（'功效搭配\\tFunction Sets'、'人群  Target User'），
+    统一成单空格，避免同一标签因排版差异被拆成多个分组。"""
+    return _WS_RE.sub(" ", str(value or "")).strip()
+
+
+class LabelDict:
+    """DMS 官方一二三级标签字典（raw/<combo>/label_dict.json，由 refresh_labels.py 拉取）。
+
+    素材自带的标签元素只含「它被打的那几级」，且名称排版不统一。用官方字典做三件事：
+      ① 按 id 取官方标准名与真实层级（不用广告名里的裸文本）；
+      ② id 缺失时按 (层级, 名称) 兜底匹配，仍不中则原样保留；
+      ③ 沿 parentId 上溯，把缺失的上级标签补出来（只补空缺层级，不新增同级标签）。
+    字典缺失时自动降级为「原样读取素材字段」，行为与接入字典前一致。
+    """
+
+    def __init__(self, rows):
+        self.by_id = {}
+        self.by_name = {}
+        for row in rows or []:
+            if not isinstance(row, dict):
+                continue
+            try:
+                node = {
+                    "id": int(row.get("id")),
+                    "name": clean_label_name(row.get("name")),
+                    "level": int(row.get("level") or 0),
+                    "parentId": (int(row["parentId"])
+                                 if str(row.get("parentId") or "").isdigit() else None),
+                    "category": str(row.get("category") or ""),
+                }
+            except (TypeError, ValueError):
+                continue
+            if not node["name"] or node["level"] not in LABEL_FIELDS:
+                continue
+            self.by_id[node["id"]] = node
+            self.by_name.setdefault((node["level"], node["name"].lower()), node)
+
+    @property
+    def ready(self):
+        return bool(self.by_id)
+
+    def resolve(self, labels, level):
+        """素材标签元素 -> 官方节点（id 优先，名称兜底）。"""
+        out = []
+        for item in labels or []:
+            if not isinstance(item, dict):
+                continue
+            node = None
+            lid = item.get("id")
+            try:
+                node = self.by_id.get(int(lid)) if lid not in (None, "") else None
+            except (TypeError, ValueError):
+                node = None
+            if node is None:
+                name = clean_label_name(item.get("name"))
+                if not name:
+                    continue
+                node = self.by_name.get((int(level), name.lower())) or {
+                    "id": None, "name": name, "level": int(level),
+                    "parentId": None, "category": "",
+                }
+            out.append(node)
+        return out
+
+    def ancestry(self, node):
+        """沿 parentId 上溯的祖先链（近 -> 远）。"""
+        chain, seen, cur = [], set(), node.get("parentId")
+        while cur and cur not in seen:
+            seen.add(cur)
+            parent = self.by_id.get(cur)
+            if not parent:
+                break
+            chain.append(parent)
+            cur = parent.get("parentId")
+        return chain
+
+    def resolve_material(self, meta):
+        """返回 ({1:[node],2:[node],3:[node]}, 补全的层级列表)。
+
+        素材自己打了一级就绝不用父级覆盖；只有该级为空时才回溯补全。
+        """
+        own = {lvl: self.resolve((meta or {}).get(field), lvl)
+               for lvl, field in LABEL_FIELDS.items()}
+        backfilled = []
+
+        def upstream(level):
+            out, seen = [], set()
+            for node in list(own.get(level + 1) or []) + list(own.get(level + 2) or []):
+                for anc in self.ancestry(node):
+                    if int(anc.get("level") or 0) != level:
+                        continue
+                    key = (anc.get("id"), anc.get("name"))
+                    if key in seen:
+                        continue
+                    seen.add(key)
+                    out.append(anc)
+            return out
+
+        for level in (2, 1):
+            if own[level]:
+                continue
+            filled = upstream(level)
+            if filled:
+                own[level] = filled
+                backfilled.append(f"L{level}")
+        return own, backfilled
+
+
 def label_names(labels):
     if not labels:
         return []
@@ -155,6 +271,8 @@ def collect(combo):
     base = os.path.join(RAW, combo)
     materials = load(os.path.join(base, "materials.json"), []) or []
     ads = load(os.path.join(base, "ads.json"), []) or []
+    # DMS 官方一二三级标签字典（refresh_labels.py 产出）；缺失时自动降级为原样读取素材字段。
+    label_dict = LabelDict((load(os.path.join(base, "label_dict.json"), None) or {}).get("rows"))
 
     # igad/ads/page/all is a cross-country pool -> keep only rows whose ad account
     # belongs to this market, falling back to everything when nothing matches.
@@ -359,10 +477,12 @@ def collect(combo):
         # 类型 3 实际也是视频文件；以 OSS 文件为准，避免误判
         type_label = "视频" if is_video else MATERIAL_TYPE.get(mtype) or "图文"
 
-        tag1_names = label_names(meta.get("firstLevelLabels"))
-        tag2_names = label_names(meta.get("secondLevelLabels"))
-        tag3_names = label_names(meta.get("thirdLevelLabels"))
+        tag_nodes, tag_backfilled = label_dict.resolve_material(meta)
+        tag1_names = [n["name"] for n in tag_nodes[1]]
+        tag2_names = [n["name"] for n in tag_nodes[2]]
+        tag3_names = [n["name"] for n in tag_nodes[3]]
         all_tags = tag1_names + tag2_names + tag3_names
+        tag_category = next((n.get("category") for n in tag_nodes[1] if n.get("category")), "")
 
         product_raw = (meta.get("productItemNames") or "").strip()
         product = (meta.get("adProductNames") or product_raw or "未标注").strip()
@@ -413,9 +533,9 @@ def collect(combo):
             "materialType": type_label,
             "graphicType": SOURCE_TYPE.get(dft_int, SOURCE_TYPE.get(meta.get("dataFromType"), "未标注")),
             "dataFromType": str(dft_int) if dft_int is not None else "",
-            # 2026-10-16：恢复 FR 式三大类归一；未命中的进「未标注」组（展示层排最后）。
-            # tag1Raw 保留 DMS 原始一级标签，供筛选与排查。
-            "tag1": canonical_harvest_tag(tag1_names) or "未标注",
+            # 2026-10-16：标签统一走 DMS 官方字典（id -> 标准名/层级 + parentId 回溯补全），
+            # 不再直接使用广告名里手写的裸文本。tag1~tag3 即 DMS 官方一/二/三级标签。
+            "tag1": pick_tag(tag1_names),
             "tag1Raw": pick_tag(tag1_names),
             "tag2": pick_tag(tag2_names),
             "tag3": pick_tag(tag3_names),
@@ -423,6 +543,12 @@ def collect(combo):
             "tag1List": tag1_names,
             "tag2List": tag2_names,
             "tag3List": tag3_names,
+            # 一级标签所属体系：design_igad=内容 / test_direction=测试方向
+            "tagCategory": tag_category,
+            "tagCategoryLabel": CATEGORY_LABELS.get(tag_category, ""),
+            # 三大类（awa / consi / conv），仅此字段参与达标线判定
+            "harvestTag": canonical_harvest_tag(tag1_names) or "未标注",
+            "tagBackfilled": "".join(tag_backfilled),
             "materialCreatedAt": created_at,
             "firstDate": dates[0] if dates else "",
             "lastDate": dates[-1] if dates else "",
@@ -633,7 +759,10 @@ def main():
     for combo in COMBO_KEYS:
         try:
             p, d = collect(combo)
-            print(f"{combo}: posts={len(p)} dms={len(d)}", flush=True)
+            tagged = sum(1 for x in p if x.get("tag1") and x["tag1"] != "未标注")
+            backfilled = sum(1 for x in p if x.get("tagBackfilled"))
+            print(f"{combo}: posts={len(p)} dms={len(d)} 有一级标签={tagged} "
+                  f"父级补全={backfilled}", flush=True)
             posts.extend(p)
             dms_rows.extend(d)
         except Exception as exc:  # noqa: BLE001

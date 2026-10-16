@@ -1198,14 +1198,14 @@
           </div>
         </div>
         <div class="field span2">
-          <label>收割一级标签--大方向</label>
+          <label>DMS 一级标签</label>
           <div class="multi-select" data-key="tag1">
-            <button class="multi-button" type="button"><span id="tag1Label">全部大方向</span></button>
+            <button class="multi-button" type="button"><span id="tag1Label">全部一级标签</span></button>
             <div class="multi-panel" id="tag1Panel"></div>
           </div>
         </div>
         <div class="field span2">
-          <label>收割二级标签--主题</label>
+          <label>DMS 二级标签</label>
           <div class="multi-select" data-key="tag2">
             <button class="multi-button" type="button"><span id="tag2Label">全部主题</span></button>
             <div class="multi-panel" id="tag2Panel"></div>
@@ -1288,21 +1288,21 @@
     <section class="grid3">
       <div class="panel">
         <div class="head">
-          <h2>收割一级标签--大方向分布</h2>
-          <div class="small">仅统计 awa / consi / conv + 未标注 · Top 12</div>
+          <h2>DMS 一级标签分布</h2>
+          <div class="small">素材内容体系（design_igad）+ 测试方向（test_direction）· Top 12</div>
         </div>
         <div class="pad" id="tag1Bars"></div>
       </div>
       <div class="panel">
         <div class="head">
-          <h2>收割二级标签--主题分布</h2>
+          <h2>DMS 二级标签分布</h2>
           <div class="small">按上述一级标签展开 · Top 12</div>
         </div>
         <div class="pad" id="tag2Bars"></div>
       </div>
       <div class="panel">
         <div class="head">
-          <h2>收割三级标签--测试点分布</h2>
+          <h2>DMS 三级标签分布</h2>
           <div class="small">按上述一级标签展开 · Top 12</div>
         </div>
         <div class="pad" id="tag3Bars"></div>
@@ -1313,7 +1313,7 @@
       <div class="head">
         <div>
           <h2>标签树状图与层级汇总</h2>
-          <div class="small">收割 conv / consi / awa（未标注单独一组） · MTD · 本月创建的新素材</div>
+          <div class="small">DMS 官方一/二/三级标签（设计素材内容体系 + 测试方向体系） · MTD · 本月创建的新素材</div>
         </div>
         <div class="small" id="tagTreeNote">成功率按国家达标线统计</div>
       </div>
@@ -1744,16 +1744,26 @@
         return parentMap.get(key);
       };
       for (const row of sourceRows) {
-        const tag1 = canonicalTag1(row.tag1);
-        const root = ensure(roots, tag1, 1, String(tag1).toLowerCase(), [tag1]);
+        const tag1 = String(row.tag1 || '未标注');
+        const root = ensure(roots, tag1, 1, tag1, [tag1]);
         root.rows.push(row);
         const tag2 = String(row.tag2 || '未标注');
-        const node2 = ensure(root.children, tag2, 2, String(tag1).toLowerCase(), [tag1, tag2]);
+        const node2 = ensure(root.children, tag2, 2, tag1, [tag1, tag2]);
         node2.rows.push(row);
         const tag3 = String(row.tag3 || '未标注');
-        const node3 = ensure(node2.children, tag3, 3, String(tag1).toLowerCase(), [tag1, tag2, tag3]);
+        const node3 = ensure(node2.children, tag3, 3, tag1, [tag1, tag2, tag3]);
         node3.rows.push(row);
       }
+
+      // 节点主色：该组素材里占比最高的收割三大类（awa / consi / conv），用于达标线
+      const dominantHarvestTag = rows => {
+        const tally = new Map();
+        rows.forEach(row => {
+          const key = String(row.harvestTag || '未标注').toLowerCase();
+          tally.set(key, (tally.get(key) || 0) + 1);
+        });
+        return [...tally.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] || '未标注';
+      };
 
       const finalize = (node) => {
         node.children = [...node.children.values()]
@@ -1771,16 +1781,15 @@
         node.cvr = metrics.cvr;
         node.cpa = metrics.cpa;
         node.orderMaterials = metrics.orderMaterials;
-        node.successCount = node.rows.filter(row => meetsHarvestStandard(row, node.tag1)).length;
+        node.harvestTag = dominantHarvestTag(node.rows);
+        // 达标线按每行自身的三大类判定（同一 DMS 一级标签下可能混有 awa/consi/conv）
+        node.successCount = node.rows.filter(row => meetsHarvestStandard(row, row.harvestTag)).length;
         node.successRate = node.posts ? node.successCount / node.posts : 0;
         return node;
       };
 
-      // 三大类按花费排序，未标注永远放最后
-      const rank = node => {
-        const key = String(node.tag1 || '').toLowerCase();
-        return key === '未标注' ? 1 : 0;
-      };
+      // DMS 一级标签按花费排序，「未标注」永远放最后
+      const rank = node => (String(node.tag1 || '') === '未标注' ? 1 : 0);
       return [...roots.values()]
         .sort((a, b) => (rank(a) - rank(b))
           || (sumRows(b.rows).spend - sumRows(a.rows).spend)
@@ -1796,20 +1805,21 @@
       return out;
     }
 
-    function thresholdText(tag1) {
-      const key = String(tag1 || '').toLowerCase();
+    // 达标线按收割三大类（awa / consi / conv）分档；节点上取组内占比最高的那一类
+    function thresholdText(harvestTag) {
+      const key = String(harvestTag || '').toLowerCase();
       const lines = {
         conv: { id: 'ROI≥5.6 / CTR≥0.64%', my: 'ROI≥5.2 / CTR≥0.90%' },
         consi: { id: 'ROI≥5.0 / CTR≥1.0%', my: 'ROI≥5.0 / CTR≥1.0%' },
         awa: { id: 'ROI≥4.8 / CTR≥1.5%', my: 'ROI≥4.8 / CTR≥1.5%' }
       };
       const line = lines[key] || lines.conv;
-      return `${canonicalTag1(tag1)} · 达标线 ID ${line.id} · MY ${line.my}`;
+      return `达标线（按 ${HARVEST_TAG1_LABELS[key] || key || 'conv'} 档） ID ${line.id} · MY ${line.my}`;
     }
 
     function treeColorClass(node) {
       const country = node.rows?.[0]?.country || 'ID';
-      return Number(node.roi || 0) >= successThreshold({ country, tag1: node.tag1 }).roi ? 'roi-high' : 'roi-low';
+      return Number(node.roi || 0) >= successThreshold({ country, tag1: node.harvestTag }).roi ? 'roi-high' : 'roi-low';
     }
 
     function renderTreeNode(node) {
@@ -1840,8 +1850,8 @@
       const compareMap = new Map(compareFlat.map(node => [node.path.join(' / '), node]));
 
       $('tagTreeLegend').innerHTML = tree.length
-        ? tree.map(node => `<span class="badge">${safe(canonicalTag1(node.tag1))} · ${fmt(node.posts)} 素材 · ${money(node.spend)} 花费 · ${roi(node.roi)} ROI</span>`).join('')
-        : `<span class="small">当前筛选下没有带收割大方向的素材</span>`;
+        ? tree.map(node => `<span class="badge">${safe(node.tag1)} · ${fmt(node.posts)} 素材 · ${money(node.spend)} 花费 · ${roi(node.roi)} ROI</span>`).join('')
+        : `<span class="small">当前筛选下没有带 DMS 一级标签的素材</span>`;
 
       const anchorMonth = harvestAnchorMonth();
       $('tagTreeNote').textContent = state.materialFrom || state.materialTo
@@ -1851,7 +1861,7 @@
       $('tagTreemap').innerHTML = tree.length
         ? tree.map(node => `<div class="tree-root" style="flex:${Math.max(1, Number(node.spend || 0))}">
             <div class="tree-root-head">
-              <div class="tree-root-title">${safe(canonicalTag1(node.tag1))}</div>
+              <div class="tree-root-title">${safe(node.tag1)}</div>
               <div class="tree-root-meta">
                 <span>素材 ${fmt(node.posts)}</span>
                 <span>花费 ${money(node.spend)}</span>
@@ -1859,7 +1869,7 @@
                 <span>ROI ${roi(node.roi)}</span>
                 <span>成功率 ${pct(node.successRate)}</span>
               </div>
-              <div class="small">${safe(thresholdText(node.tag1))}</div>
+              <div class="small">${safe(thresholdText(node.harvestTag))}</div>
             </div>
             <div class="tree-root-body">${
               (node.children || []).slice(0, 8).map(renderTreeNode).join('')
@@ -1983,9 +1993,7 @@
     }
 
     function harvestTagRows(rows = state.filtered) {
-      return rows
-        .filter(isHarvestRow)
-        .map(row => ({ ...row, tag1: canonicalTag1(row.tag1) }));
+      return rows.filter(isHarvestRow);
     }
 
     function productSortValue(row, key) {
@@ -2050,15 +2058,12 @@
       renderSplitTagPanel('tag3Bars', scopedRows, 'tag3', '测试点');
     }
 
-    // FR 式三大类：awa / consi / conv；未命中的进「未标注」组（展示排最后）
-    const HARVEST_TAG1_ORDER = ['awa', 'consi', 'conv', '未标注'];
+    // 收割三大类（awa / consi / conv），仅用于达标线分档；标签列展示的是 DMS 官方标签
+    const HARVEST_TAG1_LABELS = { awa: 'AWA 认知', consi: 'consi 种草', conv: 'conv 转化', '未标注': '未标注' };
 
-    function canonicalTag1(value) {
+    function harvestTagLabel(value) {
       const key = String(value || '').toLowerCase();
-      if (key === 'awa') return 'AWA';
-      if (key === 'consi') return 'consi';
-      if (key === 'conv') return 'conv';
-      return value || '未标注';
+      return HARVEST_TAG1_LABELS[key] || value || '未标注';
     }
 
     // 全量素材都参与（「未标注」单独成组，不排除）
@@ -2067,17 +2072,17 @@
     }
 
     function harvestTag1Values(rows = state.filtered) {
-      // 按 FR 三大类顺序分组（未标注最后），组内不再排序
+      // 按 DMS 官方一级标签分组（花费降序，「未标注」最后）
       const map = new Map();
       rows.forEach(row => {
         const key = String(row.tag1 || '未标注').trim() || '未标注';
-        if (!map.has(key)) map.set(key, { key, label: canonicalTag1(key), rows: [] });
+        if (!map.has(key)) map.set(key, { key, label: key, rows: [] });
         map.get(key).rows.push(row);
       });
-      return HARVEST_TAG1_ORDER
-        .map(key => map.get(key))
-        .filter(Boolean)
-        .map(item => ({ ...item, metrics: sumRows(item.rows) }));
+      return [...map.values()]
+        .map(item => ({ ...item, metrics: sumRows(item.rows) }))
+        .sort((a, b) => ((a.key === '未标注') - (b.key === '未标注'))
+          || (b.metrics.spend - a.metrics.spend));
     }
 
     function renderSplitTagPanel(id, rows, field, labelName) {
@@ -2518,7 +2523,7 @@
         ['国家', 'country'],
         ['产品', 'product'],
         ['日期', 'lastDate'],
-        ['收割标签', 'tag1'],
+        ['DMS 标签（一/二/三级）', 'tag1'],
         ['花费', 'spend', true],
         ['曝光', 'impressions', true],
         ['点击', 'linkClick', true],
@@ -2542,6 +2547,8 @@
       const thead = `<thead><tr>${headers.map(h => `<th class="${h[2] ? 'num' : ''}" data-sort="${safe(h[1])}">${safe(h[0])}${state.sortKey === h[1] ? (state.sortDir > 0 ? ' ↑' : ' ↓') : ''}</th>`).join('')}</tr></thead>`;
       const tbody = shown.map(row => {
         const tagLine = [row.tag1, row.tag2, row.tag3].filter(Boolean).join(' / ');
+        const harvestLine = row.harvestTag && row.harvestTag !== '未标注'
+          ? `<div class="small">收割三大类：${safe(harvestTagLabel(row.harvestTag))}</div>` : '';
         const typeClass = row.materialType === '视频' ? 'video' : 'image';
         const url = row.url && String(row.url).startsWith('http') ? `<a href="${safe(row.url)}" target="_blank" rel="noopener">打开</a>` : '';
         return `<tr>
@@ -2550,7 +2557,7 @@
           <td>${safe(row.country || '-')}</td>
           <td>${safe(row.product || '-')}</td>
           <td>${safe(row.firstDate || '-')}<br><span class="small">${safe(row.lastDate || '-')}</span></td>
-          <td>${safe(short(tagLine || '未标注', 60))}</td>
+          <td>${safe(short(tagLine || '未标注', 60))}${harvestLine}</td>
           <td class="num">${money(row.spend)}</td>
           <td class="num">${fmt(row.impressions)}</td>
           <td class="num">${fmt(row.linkClick)}</td>
@@ -2701,7 +2708,7 @@
       if (key === 'country') return '全部国家';
       if (key === 'source') return '全部来源';
       if (key === 'product') return '全部产品';
-      if (key === 'tag1') return '全部大方向';
+      if (key === 'tag1') return '全部一级标签';
       return '全部主题';
     }
 
@@ -2710,7 +2717,7 @@
       if (key === 'country') return '搜索国家';
       if (key === 'source') return '搜索来源';
       if (key === 'product') return '搜索产品';
-      if (key === 'tag1') return '搜索大方向';
+      if (key === 'tag1') return '搜索一级标签';
       return '搜索主题';
     }
 
@@ -2759,7 +2766,7 @@
       renderMulti('country', '全部国家');
       renderMulti('source', '全部来源');
       renderMulti('product', '全部产品');
-      renderMulti('tag1', '全部大方向');
+      renderMulti('tag1', '全部一级标签');
       renderMulti('tag2', '全部主题');
     }
 
@@ -3036,10 +3043,10 @@
 
     function exportCsv() {
       const rows = [...state.filtered].sort((a, b) => b.spend - a.spend);
-      const headers = ['素材编号','Ad_name','国家','产品','素材类型','图文类型','素材创建时间','开始日期','结束日期','收割一级标签--大方向','收割二级标签--主题','收割三级标签--测试点','花费','曝光','链接点击','订单','GMV','ROI','CPM','CTR','CVR','CPA','广告细分','Campaign'];
+      const headers = ['素材编号','Ad_name','国家','产品','素材类型','图文类型','素材创建时间','开始日期','结束日期','DMS一级标签','DMS二级标签','DMS三级标签','收割三大类','花费','曝光','链接点击','订单','GMV','ROI','CPM','CTR','CVR','CPA','广告细分','Campaign'];
       const body = rows.map(row => [
         materialLabel(row), row.adName, row.country, row.product, row.materialType, row.graphicType, materialCreatedDay(row), row.firstDate, row.lastDate,
-        row.tag1, row.tag2, row.tag3, row.spend, row.impressions, row.linkClick, row.conversions, row.purchaseValue,
+        row.tag1, row.tag2, row.tag3, harvestTagLabel(row.harvestTag), row.spend, row.impressions, row.linkClick, row.conversions, row.purchaseValue,
         row.roi, row.cpm, row.ctr, row.cvr, row.cpa, row.adDetail, row.campaignName
       ]);
       const csv = [headers, ...body].map(row => row.map(value => `"${String(value ?? '').replace(/"/g, '""')}"`).join(',')).join('\n');
