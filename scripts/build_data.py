@@ -48,8 +48,23 @@ def pick_tag(names, fallback="未标注"):
     return clean[0] if clean else fallback
 
 
-# 2026-10-15：废弃 awa/consi/conv 三大类归一（原 canonical_harvest_tag），
-# tag1 直接采用 DMS 原始一级标签，保证树状图/层级汇总呈现完整标签体系。
+# 2026-10-16：恢复 FR 式三大类归一（awa / consi / conv），未命中 → 「未标注」。
+# 展示层会把「未标注」单独成组放在最后，而不是像 FR 那样直接排除；
+# 原始一级标签保留在 tag1Raw，供筛选与排查。
+HARVEST_TAG_RULES = (
+    ("awa", ("awa",)),
+    ("consi", ("consi", "种草")),
+    ("conv", ("conv", "转化")),
+)
+
+
+def canonical_harvest_tag(names):
+    for key, needles in HARVEST_TAG_RULES:
+        for name in names:
+            low = str(name or "").lower()
+            if any(needle in low for needle in needles):
+                return key
+    return ""
 
 
 def media_urls(row):
@@ -398,9 +413,10 @@ def collect(combo):
             "materialType": type_label,
             "graphicType": SOURCE_TYPE.get(dft_int, SOURCE_TYPE.get(meta.get("dataFromType"), "未标注")),
             "dataFromType": str(dft_int) if dft_int is not None else "",
-            # 2026-10-15：tag1 直接用 DMS 原始一级标签（功效/对比/场景/趋势...），
-            # 不再归一到 awa/consi/conv 三大类——树状图需要完整标签体系
-            "tag1": pick_tag(tag1_names),
+            # 2026-10-16：恢复 FR 式三大类归一；未命中的进「未标注」组（展示层排最后）。
+            # tag1Raw 保留 DMS 原始一级标签，供筛选与排查。
+            "tag1": canonical_harvest_tag(tag1_names) or "未标注",
+            "tag1Raw": pick_tag(tag1_names),
             "tag2": pick_tag(tag2_names),
             "tag3": pick_tag(tag3_names),
             "tagsAll": " / ".join(all_tags),

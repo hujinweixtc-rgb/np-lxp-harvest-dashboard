@@ -18,6 +18,13 @@ const os = require('os');
   await page.goto(base, { waitUntil: 'networkidle', timeout: 120000 });
   await page.waitForTimeout(1500);
 
+  // 滚动到树状图与分布面板区域再截图
+  await page.evaluate(() => {
+    const el = document.getElementById('tagTreemap');
+    if (el) el.scrollIntoView({ block: 'start' });
+  });
+  await page.waitForTimeout(1200);
+
   const roots = await page.$$eval('#tagTreemap .tree-root', els => els.slice(0, 12).map(el => ({
     title: el.querySelector('.tree-root-title')?.textContent.trim(),
     meta: el.querySelector('.tree-root-meta')?.textContent.replace(/\s+/g, ' ').trim().slice(0, 120)
