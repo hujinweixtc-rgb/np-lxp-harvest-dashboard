@@ -16,14 +16,14 @@
 - **品牌 × 市场大盘**：NP / LXP × 印尼 / 马来 的花费、GMV、ROI、CTR、客单价、CPA 汇总
 - **图文 vs 视频**：素材类型分布
 - **产品排序**：按花费 / ROI / 单量 / CTR / GMV / CVR 排序
-- **收割标签分析**：一级（大方向）/ 二级（主题）/ 三级（测试点）三层的花费、订单、ROI 分布，以及树状图与层级汇总表（含达标素材数与成功率）
+- **标签分析**：直接采用 DMS 原始标签体系，一级 → 二级（主题）→ 三级（测试点）三层的花费、订单、ROI 分布，以及树状图与层级汇总表（含达标素材数与成功率）
 - **素材明细**：逐素材的 Ad name、国家、产品、类型、标签、花费、曝光、链接点击、订单、GMV、ROI、CPM、CTR、CVR、CPA
 - **DMS 素材库**：包含封面预览、视频快照、下载链接（直连 OSS）
 - **导出**：一键导出当前视图的所有表格为 Excel / CSV，支持「分享链接」（筛选条件写入 URL）
 
 ## 筛选维度
 
-品牌、国家、素材来源（设计素材 SC / 剪辑素材 JJ）、产品、收割一级标签、收割二级标签、素材类型、素材创建时间、关键词搜索、日期区间 + 环比。
+品牌、国家、素材来源（设计素材 SC / 剪辑素材 JJ）、产品、一级标签、二级标签、素材类型、素材创建时间、关键词搜索、日期区间 + 环比。
 
 ## 实时刷新（Cloud Run 版）
 
@@ -39,6 +39,16 @@
 - DMS 当天花费**次日结算**，所以当天数字偏小属正常；刷新能拿到当天未结算的实时投放。
 - 刷新结果会备份到 GCS，实例回收后冷启动仍能取到最新数据（而不是退回镜像快照）。
 - 同一时刻只允许一个刷新任务，重复点击会提示「已有刷新任务在进行中」。
+
+### 每天自动刷新
+
+`.github/workflows/daily-refresh.yml` 每天早上 **8:30（北京时间）** 通过 GitHub Actions 调用
+`POST /api/refresh?quick=1`，并每 30 秒轮询状态直到完成（兼作实例保活，避免刷新途中被回收）。
+所以早上打开看板即是当天最新数据，无需手动点。
+
+- 手动跑一次：仓库 Actions 页 → `daily-refresh` → Run workflow（可选 `quick` / `full`）
+- 之所以用 Actions 而非 Cloud Scheduler：当前 GCP 账号虽有 `run.admin` / `secretmanager.admin`，
+  但没有 `cloudscheduler.jobs.create` 权限。
 
 ## 数据来源与口径
 
@@ -80,6 +90,7 @@ scripts/refresh_ads.py     广告表重拉 + 新增素材趋势/明细补齐
 scripts/refresh_recent.py  近期活跃素材的趋势/明细重刷
 scripts/build_data.py      原始数据 -> 看板 JSON
 scripts/pack_raw.py        raw/ -> raw.tar.gz（只打包管线实际读取的文件）
+.github/workflows/         GitHub Actions（daily-refresh：每天 8:30 自动刷新）
 scripts/setup_secrets.sh   把 token 写入 Secret Manager 并授权
 ```
 
