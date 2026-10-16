@@ -103,8 +103,23 @@ def _log(msg):
 # --------------------------------------------------------------------------- #
 # 启动引导
 # --------------------------------------------------------------------------- #
+def _is_nonempty_dir(path):
+    try:
+        with os.scandir(path) as it:
+            return any(True for _ in it)
+    except OSError:
+        return False
+
+
 def extract_raw():
-    """把镜像内的 raw.tar.gz 解压到可写目录（仅首次）。"""
+    """把镜像内的 raw.tar.gz 解压到可写目录（仅首次）。
+
+    安全约定：RAW_DIR 已有内容时直接复用，绝不删除已有目录。
+    原实现会无条件 rmtree(RAW_DIR)——本地开发一旦把 DASH_RAW_DIR 指向真实
+    缓存目录，就会误删数百 MB 数据（2026-10-15 实际踩到）。
+    """
+    if _is_nonempty_dir(RAW_DIR):
+        return "raw dir already present"
     if not os.path.exists(RAW_ARCHIVE):
         return "no archive (expects existing raw dir)"
     if os.path.exists(RAW_READY_MARK):
@@ -112,16 +127,21 @@ def extract_raw():
     parent = os.path.dirname(RAW_DIR)
     os.makedirs(parent, exist_ok=True)
     tmp = RAW_DIR.rstrip("/\\") + ".partial"
-    if os.path.isdir(tmp):
-        shutil.rmtree(tmp, ignore_errors=True)
+    if _is_nonempty_dir(tmp):
+        # 残留的临时目录（上次解压中断 / 本地沙箱拦截）——提示而不强删
+        return f"partial dir blocks extraction, remove it first: {tmp}"
     os.makedirs(tmp, exist_ok=True)
     t0 = time.time()
     with tarfile.open(RAW_ARCHIVE, "r:gz") as tf:
         tf.extractall(tmp)
     inner = os.path.join(tmp, "raw")
     source = inner if os.path.isdir(inner) else tmp
+    # 走到这里说明 RAW_DIR 为空或不存在：空目录只删目录本身，不动内容
     if os.path.isdir(RAW_DIR):
-        shutil.rmtree(RAW_DIR, ignore_errors=True)
+        try:
+            os.rmdir(RAW_DIR)
+        except OSError:
+            pass
     shutil.move(source, RAW_DIR)
     if os.path.isdir(tmp):
         shutil.rmtree(tmp, ignore_errors=True)
