@@ -1,0 +1,68 @@
+name: daily-refresh
+
+# 每天早上 8:30（北京时间）触发 NP/LXP 素材看板刷新。
+# GitHub Actions 的 cron 使用 UTC：北京 08:30 = UTC 00:30。
+# 之所以放在 Actions 而不是 Cloud Scheduler：当前 GCP 账号缺少
+# cloudscheduler.jobs.create 权限（有 run/secret/storage admin，无 scheduler admin）。
+on:
+  schedule:
+    - cron: '30 0 * * *'
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: '刷新模式（quick=大盘+投放窗口+组装；full=额外重拉整张广告表）'
+        required: false
+        default: 'quick'
+
+concurrency:
+  group: daily-refresh
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Trigger refresh and wait for completion
+        env:
+          BASE: https://np-lxp-harvest-dashboard-1002667285186.asia-southeast1.run.app
+          MODE: ${{ github.event.inputs.mode || 'quick' }}
+        run: |
+          set -euo pipefail
+          Q=""
+          if [ "$MODE" = "quick" ]; then Q="?quick=1"; fi
+
+          echo "== 触发刷新 =="
+          # 必须带 body：Cloud Run 前置会以 411 拒绝没有 Content-Length 的 POST
+          curl -sS -X POST -H 'Content-Type: application/json' -d '{}' \
+            --max-time 120 "$BASE/api/refresh$Q" | tee /tmp/trigger.json
+          echo
+
+          echo "== 等待完成（每 30s 查询一次，最长约 16 分钟）=="
+          for i in $(seq 1 32); do
+            sleep 30
+            status=$(curl -sS --max-time 60 "$BASE/api/refresh/status")
+            line=$(echo "$status" | python3 -c \
+              "import json,sys; d=json.load(sys.stdin)['refresh']; print(f\"running={d['running']} stage={d['stage']} idx={d['index']}/{d['total']} ok={d['ok']} err={d['error']}\")")
+            echo "[$i] $line"
+            if echo "$line" | grep -q "running=False"; then
+              if echo "$line" | grep -q "ok=True"; then
+                echo "== 刷新成功 =="
+                curl -sS --max-time 60 "$BASE/api/status" | python3 -c \
+                  "import json,sys; d=json.load(sys.stdin); print('dataVersion =', d['dataVersion'])"
+                exit 0
+              fi
+              echo "== 刷新失败 =="
+              curl -sS --max-time 60 "$BASE/api/refresh/status" | tail -c 2000
+              exit 1
+            fi
+          done
+          echo "== 超时：刷新仍在运行 =="
+          exit 1
+
+      - name: Verify dashboard is serving
+        if: always()
+        env:
+          BASE: https://np-lxp-harvest-dashboard-1002667285186.asia-southeast1.run.app
+        run: |
+          curl -sS --max-time 120 -o /dev/null -w "index=%{http_code} time=%{time_total}s\n" "$BASE/"
