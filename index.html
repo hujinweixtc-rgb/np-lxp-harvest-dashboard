@@ -1298,6 +1298,152 @@
     }
     .post-thumb:hover .post-thumb-zoom { opacity: 1; }
     .dms-cover { cursor: zoom-in; }
+
+    /* 图片主题词：视觉模型从快照里提取，源语言 + 中文 */
+    .theme-line {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      margin: 7px 0 1px;
+    }
+    .theme-chip {
+      display: inline-flex;
+      flex-direction: column;
+      gap: 1px;
+      max-width: 100%;
+      padding: 3px 7px;
+      border-radius: 6px;
+      background: #eef4fb;
+      border: 1px solid #d7e5f4;
+      line-height: 1.25;
+      overflow: hidden;
+    }
+    .theme-chip i {
+      font-style: normal;
+      font-size: 9px;
+      color: #6b8aa8;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .theme-chip b {
+      font-weight: 700;
+      font-size: 11px;
+      color: #1d4a72;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .theme-chip.mono b { font-size: 10.5px; }
+    .theme-chip.pending {
+      flex-direction: row;
+      align-items: center;
+      background: #f4f5f7;
+      border-color: #e6e8eb;
+      color: #9aa3ad;
+      font-size: 10.5px;
+      font-weight: 400;
+    }
+    .theme-line .theme-more {
+      align-self: center;
+      font-size: 10px;
+      color: #7d8b99;
+    }
+
+    /* 大图弹窗里的完整主题面板 */
+    .lb-themes {
+      position: absolute;
+      left: 16px;
+      bottom: 66px;
+      z-index: 3;
+      width: min(430px, 42vw);
+      max-height: 48vh;
+      overflow: auto;
+      padding: 12px 14px;
+      border-radius: 12px;
+      background: rgba(18, 26, 38, .92);
+      border: 1px solid rgba(255, 255, 255, .13);
+      color: #e6edf5;
+      font-size: 12px;
+      line-height: 1.55;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, .35);
+    }
+    .lb-themes[hidden] { display: none; }
+    .lb-themes-head {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      margin-bottom: 8px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .08em;
+      color: #9fd4f5;
+    }
+    .lb-themes-head span {
+      font-weight: 400;
+      letter-spacing: 0;
+      color: #8fa3b8;
+    }
+    .lb-themes-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+      gap: 6px;
+      margin-bottom: 9px;
+    }
+    .lb-theme-item {
+      padding: 5px 8px;
+      border-radius: 7px;
+      background: rgba(255, 255, 255, .07);
+      border: 1px solid rgba(255, 255, 255, .1);
+      min-width: 0;
+    }
+    .lb-theme-item i {
+      display: block;
+      font-style: normal;
+      font-size: 10px;
+      color: #9db2c7;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .lb-theme-item b {
+      display: block;
+      font-size: 12px;
+      font-weight: 700;
+      color: #f1f5f9;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .lb-themes-kv {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 3px 9px;
+      font-size: 11.5px;
+    }
+    .lb-themes-kv dt { color: #8fa3b8; }
+    .lb-themes-kv dd { margin: 0; color: #dbe6f1; word-break: break-word; }
+    .lb-themes-onimage {
+      margin-top: 8px;
+      padding-top: 8px;
+      border-top: 1px solid rgba(255, 255, 255, .1);
+      font-size: 11.5px;
+      color: #cbd5e1;
+    }
+    .lb-themes-onimage em {
+      font-style: normal;
+      color: #9fd4f5;
+      font-weight: 700;
+      margin-right: 6px;
+    }
+    .lb-themes-foot {
+      margin-top: 7px;
+      font-size: 10px;
+      color: #7d92a8;
+    }
+    @media (max-width: 720px) {
+      .lb-themes { width: auto; right: 16px; max-height: 34vh; }
+    }
   </style>
 </head>
 <body>
@@ -1597,6 +1743,7 @@
       <a class="lb-btn lb-link" id="lbDownload" href="#" target="_blank" rel="noopener" download>下载原图</a>
       <button type="button" class="lb-btn lb-close" id="lbClose" title="关闭（Esc）">✕</button>
     </div>
+    <div class="lb-themes" id="lbThemes" hidden></div>
     <div class="lb-hint" id="lbHint">滚轮缩放 · 拖拽平移 · 点击空白处关闭</div>
   </div>
 
@@ -1608,6 +1755,8 @@
       raw: null,
       dms: { rows: [] },
       board: null,
+      themes: {},
+      themesMeta: null,
       rows: [],
       filtered: [],
       currentView: 'overview',
@@ -2419,6 +2568,7 @@
           <div class="dms-body">
             <div class="dms-title" title="${safe(row.materialName || row.adName || row.materialId)}">${safe(short(row.materialName || row.adName || row.materialId, 58))}</div>
             <div class="small">${safe(row.materialId || row.materialCode || '-')} · ${safe(row.country || '-')} · ${safe(row.product || '-')}</div>
+            ${themeChipsHtml(row)}
             <div class="dms-meta">
               <span>花费<b>${money(row.spend)}</b></span>
               <span>订单<b>${fmt(row.orders)}</b></span>
@@ -2497,6 +2647,8 @@
       const raw = row.materialName || row.adName || row.materialCode || row.materialId || '';
       const title = short(String(raw).trim() || '素材快照', 90);
       const attrs = [` data-lb-title="${safe(title)}"`];
+      const themeKey = String(row.key || row.materialCode || row.materialId || '').trim();
+      if (themeKey) attrs.push(` data-lb-key="${safe(themeKey)}"`);
       const hi = /^https?:\/\//.test(String(hiSrc || '')) ? String(hiSrc) : '';
       const thumb = /^https?:\/\//.test(String(thumbSrc || '')) ? String(thumbSrc) : '';
       if (isVideo) {
@@ -2538,6 +2690,70 @@
         <div class="dms-fallback-sub">${safe(short(sub, 30))}</div>
         <div class="dms-fallback-code">${safe(short(code, 22))}</div>
       </div>`;
+    }
+
+    const THEME_LANG_LABEL = { id: '印尼语', ms: '马来语', en: '英语', zh: '中文', none: '无文字' };
+
+    function themeOf(row) {
+      if (!state.themes) return null;
+      const key = String(row.key || row.materialCode || row.materialId || '').trim();
+      if (!key) return null;
+      const item = state.themes[key];
+      if (!item || item.status !== 'ok' || !Array.isArray(item.themes) || !item.themes.length) return null;
+      return item;
+    }
+
+    // 卡片上的主题词：最多 3 个，源语言小字 + 中文主字
+    function themeChipsHtml(row, limit = 3) {
+      const item = themeOf(row);
+      if (!item) return '';
+      const chips = item.themes.slice(0, limit).map(theme => {
+        const src = String(theme.src || '').trim();
+        const zh = String(theme.zh || '').trim();
+        if (!zh) return '';
+        const mono = src && /^[\x00-\x7F]+$/.test(src) ? '' : ' mono';
+        return `<span class="theme-chip${mono}" title="${safe(src ? `${src} / ${zh}` : zh)}">`
+          + `${src ? `<i>${safe(short(src, 24))}</i>` : ''}<b>${safe(short(zh, 14))}</b></span>`;
+      }).join('');
+      if (!chips) return '';
+      const more = item.themes.length > limit ? `<span class="theme-more">+${item.themes.length - limit}</span>` : '';
+      return `<div class="theme-line">${chips}${more}</div>`;
+    }
+
+    function renderLightboxThemes(key) {
+      const box = $('lbThemes');
+      if (!box) return;
+      const item = key && state.themes ? state.themes[String(key).trim()] : null;
+      if (!item || item.status !== 'ok' || !Array.isArray(item.themes) || !item.themes.length) {
+        box.hidden = true;
+        box.innerHTML = '';
+        return;
+      }
+      const grid = item.themes.map(theme => {
+        const src = String(theme.src || '').trim();
+        const zh = String(theme.zh || '').trim();
+        if (!zh) return '';
+        return `<div class="lb-theme-item" title="${safe(src ? `${src} / ${zh}` : zh)}">`
+          + `${src ? `<i>${safe(src)}</i>` : ''}<b>${safe(zh)}</b></div>`;
+      }).join('');
+      const rows = [
+        ['场景', item.scene],
+        ['主体', item.subject],
+        ['风格', item.style],
+        ['卖点', item.hook]
+      ].filter(([, value]) => value);
+      const kv = rows.length
+        ? `<dl class="lb-themes-kv">${rows.map(([k, v]) => `<dt>${k}</dt><dd>${safe(v)}</dd>`).join('')}</dl>`
+        : '';
+      const onimage = item.onimage
+        ? `<div class="lb-themes-onimage"><em>图上文案</em>${safe(item.onimage)}</div>`
+        : '';
+      const langLabel = THEME_LANG_LABEL[String(item.lang || '').toLowerCase()] || '';
+      const metaBits = [langLabel, item.model, item.analyzedAt].filter(Boolean).map(safe).join(' · ');
+      box.innerHTML = `<div class="lb-themes-head">画面主题<span>${metaBits}</span></div>`
+        + `<div class="lb-themes-grid">${grid}</div>${kv}${onimage}`
+        + `<div class="lb-themes-foot">由视觉模型读取快照生成，${state.themesMeta?.model || 'glm-4.6v-flash'} · 仅供创意参考</div>`;
+      box.hidden = false;
     }
 
     function renderDmsMedia(url, fallbackText, row = {}) {
@@ -2626,6 +2842,7 @@
           <div class="dms-body">
             <div class="dms-title" title="${safe(row.materialName || row.adName || row.materialId)}">${safe(short(row.materialName || row.adName || row.materialId, 58))}</div>
             <div class="small">${safe(row.materialId || row.materialCode || '-')} · ${safe(row.country || '-')} · ${safe(row.product || '-')}</div>
+            ${themeChipsHtml(row)}
             <div class="dms-meta">
               <span>花费<b>${money(row.spend)}</b></span>
               <span>订单<b>${fmt(row.orders)}</b></span>
@@ -3375,6 +3592,20 @@
       } catch {
         state.board = null;
       }
+      try {
+        const themeRes = await fetch('./data/image_themes.json', { cache: 'no-store' });
+        if (themeRes.ok) {
+          const themeDoc = await themeRes.json();
+          state.themes = (themeDoc && themeDoc.items) || {};
+          state.themesMeta = themeDoc || null;
+        } else {
+          state.themes = {};
+          state.themesMeta = null;
+        }
+      } catch {
+        state.themes = {};
+        state.themesMeta = null;
+      }
       enrichRowsWithDmsCreatedAt();
       $('sourceLine').textContent = `${state.raw.source} · 口径：${state.raw.scope || '全部素材'} · included ${fmt(state.raw.includedRows)} 素材 · generated ${state.raw.generatedAt}`;
       if (resetFilters) {
@@ -3671,6 +3902,7 @@
       document.body.style.overflow = 'hidden';
       const titleEl = $('lbTitle');
       if (titleEl) titleEl.textContent = trigger.dataset.lbTitle || '素材快照';
+      renderLightboxThemes(trigger.dataset.lbKey || '');
       const dl = $('lbDownload');
       if (dl) {
         dl.href = dmsProxyUrl(dlUrl, true) || '#';
@@ -3718,6 +3950,8 @@
       video.removeAttribute('src');
       img.removeAttribute('src');
       if (box) box.hidden = true;
+      const themesBox = $('lbThemes');
+      if (themesBox) { themesBox.hidden = true; themesBox.innerHTML = ''; }
       if (stage) stage.classList.remove('loading', 'dragging', 'zoomed');
       document.body.style.overflow = '';
       LB.dragging = false;
