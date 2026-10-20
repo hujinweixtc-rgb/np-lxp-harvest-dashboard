@@ -28,6 +28,8 @@
 """
 from __future__ import annotations
 
+import functools
+import gzip
 import json
 import mimetypes
 import os
@@ -361,6 +363,13 @@ def gcs_backup(log):
     return f"saved {saved}" if saved else "nothing saved"
 
 
+@functools.lru_cache(maxsize=8)
+def _gzip_cached(path: str, mtime: float, size: int) -> bytes:  # noqa: ARG001
+    """按 路径+mtime+大小 缓存压缩结果，避免每次请求重复压缩。"""
+    with open(path, "rb") as fh:
+        return gzip.compress(fh.read(), compresslevel=6)
+
+
 # --------------------------------------------------------------------------- #
 # HTTP
 # --------------------------------------------------------------------------- #
@@ -395,15 +404,32 @@ class Handler(BaseHTTPRequestHandler):
             ctype += "; charset=utf-8"
         try:
             size = os.path.getsize(path)
+            # 大 JSON/CSV 走 gzip（主题词文件全量后可到 7MB）
+            gz_ok = (
+                size > 2048
+                and path.endswith((".json", ".csv", ".js", ".html", ".css", ".svg", ".txt", ".md"))
+                and "gzip" in (self.headers.get("accept-encoding") or "").lower()
+            )
+            body = None
+            if gz_ok:
+                body = _gzip_cached(path, os.path.getmtime(path), size)
             self.send_response(200)
             self.send_header("content-type", ctype)
-            self.send_header("content-length", str(size))
+            if body is not None:
+                self.send_header("content-encoding", "gzip")
+                self.send_header("vary", "accept-encoding")
+                self.send_header("content-length", str(len(body)))
+            else:
+                self.send_header("content-length", str(size))
             self.send_header("cache-control", "no-store" if path.endswith(".json") else "public, max-age=300")
             self.send_header("access-control-allow-origin", "*")
             self.end_headers()
             if self.command != "HEAD":
-                with open(path, "rb") as fh:
-                    shutil.copyfileobj(fh, self.wfile)
+                if body is not None:
+                    self.wfile.write(body)
+                else:
+                    with open(path, "rb") as fh:
+                        shutil.copyfileobj(fh, self.wfile)
             return True
         except (BrokenPipeError, ConnectionResetError):
             return True
