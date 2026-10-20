@@ -72,7 +72,14 @@
       border-color: #a3d3b8;
       color: var(--green);
     }
+    .version-badge.static {
+      background: #fff6e6;
+      border-color: #f0d49b;
+      color: #a2711a;
+    }
     .refresh-wrap { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    /* hidden 必须真正隐藏，别被 display:flex 覆盖 */
+    .refresh-wrap[hidden] { display: none; }
     #refreshData {
       background: var(--deep);
       border-color: var(--deep);
@@ -89,6 +96,13 @@
     }
     .refresh-progress[data-tone="ok"] { color: var(--green); }
     .refresh-progress[data-tone="error"] { color: var(--red); }
+    .refresh-progress[data-tone="warn"] { color: #a2711a; }
+    #refreshData.need-live {
+      background: #fff6e6;
+      border-color: #f0d49b;
+      color: #a2711a;
+    }
+    #refreshData.need-live:hover:not(:disabled) { background: #fdeccd; border-color: #e3c07a; }
     button {
       height: 32px;
       border-radius: 7px;
@@ -3614,6 +3628,8 @@
 
     // ---- 实时刷新（仅在 Cloud Run 后端可用时启用）--------------------------
     const REFRESH = { available: false, busy: false, timer: 0 };
+    // 静态渠道（GitHub Pages）没有后端，刷新一律引导到实时版
+    const LIVE_BASE = 'https://np-lxp-harvest-dashboard-a2vd6kqlpq-as.a.run.app/';
 
     function setRefreshProgress(text, tone) {
       const el = document.getElementById('refreshProgress');
@@ -3643,7 +3659,33 @@
         if (wrap) wrap.hidden = false;
       } catch {
         REFRESH.available = false;
-        if (el) { el.textContent = 'static'; el.classList.remove('live'); }
+        if (el) { el.textContent = 'static'; el.classList.remove('live'); el.classList.add('static'); }
+        // 静态快照：按钮保留但改成「打开实时版」，避免点了没反应
+        const wrap = document.getElementById('refreshWrap');
+        if (wrap) wrap.hidden = false;
+        const btn = document.getElementById('refreshData');
+        if (btn) {
+          btn.textContent = '刷新数据（打开实时版）';
+          btn.title = '当前是 GitHub Pages 静态快照，本身无法刷新。点击会打开实时版并保留当前筛选条件。';
+          btn.classList.add('need-live');
+        }
+      }
+    }
+
+    // 数据过期提示：静态快照或长时间未刷新时，在顶栏给出明确提示
+    function flagDataFreshness() {
+      const stamp = state.raw?.generatedAt;
+      if (!stamp) return;
+      const age = (Date.now() - new Date(stamp.replace(/-/g, '/')).getTime()) / 3600000;
+      if (!Number.isFinite(age)) return;
+      if (!REFRESH.available) {
+        setRefreshProgress(`静态快照生成于 ${stamp}，不会自动更新`, 'warn');
+        return;
+      }
+      if (age >= 24) {
+        setRefreshProgress(`数据更新于 ${stamp}，已 ${Math.floor(age / 24)} 天未刷新，建议点左侧刷新`, 'warn');
+      } else {
+        setRefreshProgress(`数据更新于 ${stamp}`, 'ok');
       }
     }
 
@@ -3678,7 +3720,15 @@
 
     async function refreshFromDms(quick) {
       const btn = document.getElementById('refreshData');
-      if (REFRESH.busy || !REFRESH.available) return;
+      if (REFRESH.busy) return;
+      if (!REFRESH.available) {
+        // 静态快照：直接带去当前筛选打开实时版，让刷新真的能生效
+        const url = LIVE_BASE + (location.search || '');
+        setRefreshProgress('当前为静态快照，正在打开实时版…', 'warn');
+        const opened = window.open(url, '_blank', 'noopener');
+        if (!opened) location.href = url;
+        return;
+      }
       REFRESH.busy = true;
       if (btn) btn.disabled = true;
       setRefreshProgress(quick ? '已提交快速刷新，等待 DMS 返回…' : '已提交完整刷新，等待 DMS 返回…');
@@ -3821,6 +3871,7 @@
       }
       enrichRowsWithDmsCreatedAt();
       $('sourceLine').textContent = `${state.raw.source} · 口径：${state.raw.scope || '全部素材'} · included ${fmt(state.raw.includedRows)} 素材 · generated ${state.raw.generatedAt}`;
+      if (!REFRESH.busy) flagDataFreshness();
       if (resetFilters) {
         state.brand = [];
         state.country = [];
