@@ -651,8 +651,10 @@
       flex-direction: column;
       gap: 8px;
       padding: 10px;
+      overflow-y: auto;
     }
     .tree-child {
+      flex: 0 0 auto;
       min-height: 0;
       border-radius: 7px;
       padding: 9px 10px;
@@ -2271,10 +2273,14 @@
         const tag1 = String(row.tag1 || '未标注');
         const root = ensure(roots, tag1, 1, tag1, [tag1]);
         root.rows.push(row);
+        // 「未标注」只占一层，不再向下展开
+        if (tag1 === '未标注') continue;
         const tag2 = String(row.tag2 || '未标注');
+        if (tag2 === '未标注') continue;
         const node2 = ensure(root.children, tag2, 2, tag1, [tag1, tag2]);
         node2.rows.push(row);
         const tag3 = String(row.tag3 || '未标注');
+        if (tag3 === '未标注') continue;
         const node3 = ensure(node2.children, tag3, 3, tag1, [tag1, tag2, tag3]);
         node3.rows.push(row);
       }
@@ -2348,19 +2354,19 @@
 
     function renderTreeNode(node) {
       const children = (node.children || []).slice(0, 6);
-      return `<div class="tree-child ${treeColorClass(node)}" style="flex:${Math.max(1, Number(node.spend || 0))}">
+      const leaves = children.length
+        ? `<div class="tree-child-leaves">${
+            children.map(child => `<span class="tree-leaf" title="${safe(child.name)}">${safe(short(child.name, 18))} · ${fmt(child.posts)} / ${roi(child.roi)}</span>`).join('')
+          }</div>`
+        : '';
+      return `<div class="tree-child ${treeColorClass(node)}">
         <div class="tree-child-title">${safe(node.name)}</div>
         <div class="tree-child-meta">
           <span>素材 ${fmt(node.posts)}</span>
           <span>订单 ${fmt(node.conversions)}</span>
           <span>ROI ${roi(node.roi)}</span>
           <span>成功率 ${pct(node.successRate)}</span>
-        </div>
-        <div class="tree-child-leaves">${
-          children.length
-            ? children.map(child => `<span class="tree-leaf" title="${safe(child.name)}">${safe(short(child.name, 18))} · ${fmt(child.posts)} / ${roi(child.roi)}</span>`).join('')
-            : '<span class="tree-leaf">未找到下级标签</span>'
-        }</div>
+        </div>${leaves}
       </div>`;
     }
 
