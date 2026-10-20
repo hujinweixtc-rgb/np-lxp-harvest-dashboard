@@ -2538,8 +2538,30 @@
       return true;
     }
 
+    function dmsWindowRow(row) {
+      // DMS 素材行原本是全量投放区间的终身指标；这里按「统计时间」用 post 的逐日
+      // 数据重新求和，口径与顶部素材列表（collectFilteredRows）完全一致。
+      const post = state.postIndex && state.postIndex.get(
+        `${row.brand}|${row.country}|${row.materialCode || row.materialId || ''}`);
+      if (!post || !post.days) return row;
+      const metrics = sumDays(post.days, state.from, state.to);
+      return {
+        ...row,
+        spend: metrics.spend,
+        gmv: metrics.purchaseValue,
+        orders: metrics.conversions,
+        roi: metrics.roi,
+        impressions: metrics.impressions,
+        clicks: metrics.allClick,
+      };
+    }
+
     function dmsRows() {
-      const rows = (state.dms?.rows || []).filter(dmsMatchesFilters);
+      const rows = (state.dms?.rows || [])
+        .map(dmsWindowRow)
+        // 统计时间内没有任何投放（花费/订单/GMV 全为 0）的素材不展示
+        .filter(row => Number(row.spend || 0) > 0 || Number(row.gmv || 0) > 0 || Number(row.orders || 0) > 0)
+        .filter(dmsMatchesFilters);
       const key = state.dmsSortKey;
       rows.sort((a, b) => {
         if (key === 'createdAt') return String(b.createdAt || '').localeCompare(String(a.createdAt || ''));
@@ -2548,11 +2570,17 @@
       return rows;
     }
 
+    function dmsRangeText() {
+      // 选了统计时间就按统计时间口径展示；否则回退到数据全量投放区间
+      if (state.from || state.to) return `${state.from || '…'} ~ ${state.to || '…'}`;
+      return `${state.dms?.paidFrom || ''} ~ ${state.dms?.paidTo || ''}`;
+    }
+
     function renderDmsMaterials() {
       const rows = dmsRows();
       const matched = rows.filter(row => row.matchedDms).length;
       const avgRoi = rows.length ? rows.reduce((sum, row) => sum + Number(row.roi || 0), 0) / rows.length : 0;
-      $('dmsSubtitle').textContent = `${state.dms?.paidFrom || '2026-06-01'} ~ ${state.dms?.paidTo || '2026-07-31'} 有花费的图文 / 视频素材 · DMS匹配 ${fmt(matched)}/${fmt(rows.length)}`;
+      $('dmsSubtitle').textContent = `${dmsRangeText()} 有花费的图文 / 视频素材 · DMS匹配 ${fmt(matched)}/${fmt(rows.length)}`;
       $('dmsCount').innerHTML = `命中素材 <b>${fmt(rows.length)}</b> 个`;
       const shown = rows.slice(0, 120);
       $('dmsCards').innerHTML = shown.map((row, i) => {
@@ -2825,7 +2853,7 @@
       const matched = rows.filter(row => row.matchedDms).length;
       const ready = rows.filter(row => row.downloadReady || /^https?:\/\//.test(dmsDownloadUrl(row))).length;
       const avgRoi = rows.length ? rows.reduce((sum, row) => sum + Number(row.roi || 0), 0) / rows.length : 0;
-      $('dmsSubtitle').textContent = `${state.dms?.paidFrom || '2026-07-01'} ~ ${state.dms?.paidTo || '2026-07-31'} 有花费的图文 / 视频素材 · DMS匹配 ${fmt(matched)}/${fmt(rows.length)} · 可下载 ${fmt(ready)}`;
+      $('dmsSubtitle').textContent = `${dmsRangeText()} 有花费的图文 / 视频素材 · DMS匹配 ${fmt(matched)}/${fmt(rows.length)} · 可下载 ${fmt(ready)}`;
       $('dmsCount').innerHTML = `命中素材 <b>${fmt(rows.length)}</b> 个`;
       if ($('dmsSourceNote')) {
         $('dmsSourceNote').textContent = `优先解析/展示7月有花费图文视频 · 待解析 ${fmt(state.dms?.missingMediaCount || 0)} 个 · 导出文件 ${fmt((state.dms?.dmsFiles || []).length)} 个 · 生成 ${state.dms?.generatedAt || '-'}`;
@@ -3580,6 +3608,9 @@
       if (!res.ok) throw new Error(`Data load failed: ${res.status}`);
       state.raw = await res.json();
       state.rows = state.raw.posts || [];
+      // DMS 素材视图按统计时间换算指标用：brand|country|materialCode -> post（含逐日 days）
+      state.postIndex = new Map((state.raw.posts || [])
+        .map(post => [`${post.brand}|${post.country}|${post.materialCode}`, post]));
       try {
         const dmsRes = await fetch('./data/dms_materials.json', { cache: 'no-store' });
         state.dms = dmsRes.ok ? await dmsRes.json() : { rows: [] };
