@@ -39,8 +39,20 @@ SRC = DATA / "dms_materials.json"
 OUT = DATA / "image_themes.json"
 
 API_BASE = os.environ.get("ZHIPU_BASE_URL", "https://open.bigmodel.cn/api/paas/v4").rstrip("/")
-MODEL = os.environ.get("ZHIPU_VISION_MODEL", "glm-4.6v-flash")
+# glm-4.6v-flash 质量更好但白天常被挤爆(429)；glm-4v-flash 同为免费档、更稳
+MODEL = os.environ.get("ZHIPU_VISION_MODEL", "glm-4v-flash")
 KEY_ENVS = ("ZHIPU_API_KEY", "ZHIPUAI_API_KEY", "GLM_API_KEY", "ZAI_API_KEY", "BIGMODEL_API_KEY")
+
+# 防欠费：只允许免费档模型（-flash / -flashx / -free 结尾），付费模型直接拒绝运行
+FREE_SUFFIXES = ("-flash", "-flashx", "-free")
+
+
+def assert_free_model(name: str) -> None:
+    if not name.lower().endswith(FREE_SUFFIXES):
+        sys.exit(
+            f"拒绝运行：模型 {name} 不是免费档（需以 {' / '.join(FREE_SUFFIXES)} 结尾），"
+            "可能产生真实费用。请改用 glm-4.6v-flash。"
+        )
 
 MAX_SIDE = 1024
 JPEG_QUALITY = 82
@@ -62,6 +74,7 @@ PROMPT = """你是印尼 / 马来西亚 Shopee 电商广告素材分析助手。
 - themes 给 4~6 个，覆盖画面内容、产品功效、使用场景、目标人群、情绪氛围。
 - src 用画面文字的原始语言（印尼语 / 马来语）；画面确实没有文字时，用该语言对画面的自然表达。zh 必须是对应的准确中文。
 - 只描述画面看得见的内容，不要编造品牌名、价格或销量。
+- 整个 JSON 控制在 220 字以内，每个中文词不超过 6 个字，避免超长被截断。
 - 严格合法 JSON，字符串内不要出现换行符。"""
 
 
@@ -147,7 +160,7 @@ def shrink_jpeg(raw: bytes) -> bytes:
     return buf.getvalue()
 
 
-def call_vision(key: str, b64: str, retries: int = 4) -> dict:
+def call_vision(key: str, b64: str, retries: int = 7) -> dict:
     payload = {
         "model": MODEL,
         "messages": [
@@ -160,7 +173,7 @@ def call_vision(key: str, b64: str, retries: int = 4) -> dict:
             }
         ],
         "temperature": 0.2,
-        "max_tokens": 700,
+        "max_tokens": 800,
         "thinking": {"type": "disabled"},
     }
     body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
@@ -178,12 +191,23 @@ def call_vision(key: str, b64: str, retries: int = 4) -> dict:
                 method="POST",
             )
             with urllib.request.urlopen(req, timeout=150) as resp:
-                return json.loads(resp.read().decode("utf-8", "replace"))
+                doc = json.loads(resp.read().decode("utf-8", "replace"))
+            served = str(doc.get("model") or "")
+            # 防欠费：服务端若返回非免费档模型，立刻中止
+            if served and not served.lower().endswith(FREE_SUFFIXES):
+                raise RuntimeError(f"服务端返回模型 {served} 不是免费档，已中止以防计费")
+            return doc
         except urllib.error.HTTPError as exc:
             detail = exc.read().decode("utf-8", "replace")[:300]
             last = RuntimeError(f"HTTP {exc.code}: {detail}")
-            if exc.code in (429, 500, 502, 503, 504) and attempt < retries - 1:
-                time.sleep(2.0 * (2**attempt))
+            # 免费档常见 429（并发/高峰限流）：拉长退避，别把整批跑废
+            if exc.code == 429 and attempt < retries - 1:
+                wait = min(8.0 * (2**attempt), 90.0)
+                log(f"    限流 429，等待 {wait:.0f}s 后重试（第 {attempt + 1}/{retries - 1} 次）")
+                time.sleep(wait)
+                continue
+            if exc.code in (500, 502, 503, 504) and attempt < retries - 1:
+                time.sleep(min(3.0 * (attempt + 1), 20))
                 continue
             raise last
         except Exception as exc:  # noqa: BLE001
@@ -326,6 +350,9 @@ def main() -> None:
         log("（智谱开放平台 bigmodel.cn 注册 → 实名 → API Keys，GLM-4.6V-Flash 本身免费）")
         log("想先看界面效果可加 --dry-run")
         sys.exit(2)
+    if not args.dry_run:
+        assert_free_model(MODEL)
+        log(f"模型 {MODEL}：免费档，按官方定价不产生费用（仅消耗免费额度）")
 
     rows = load_source()
     targets = pick_rows(rows, args)
@@ -339,6 +366,8 @@ def main() -> None:
     log(f"模式 {'dry-run 规则兜底' if args.dry_run else f'视觉模型 {MODEL}'}")
 
     ok = skip = fail = 0
+    tok_in = tok_out = 0
+    consec_fail = 0
     t0 = time.time()
     for idx, row in enumerate(targets, 1):
         seed = seed_of(row)
@@ -374,6 +403,8 @@ def main() -> None:
                     "prompt": usage.get("prompt_tokens"),
                     "completion": usage.get("completion_tokens"),
                 }
+                tok_in += int(usage.get("prompt_tokens") or 0)
+                tok_out += int(usage.get("completion_tokens") or 0)
                 time.sleep(args.sleep)
             theme["analyzedAt"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             theme["model"] = MODEL if not args.dry_run else "dry-run"
@@ -381,16 +412,22 @@ def main() -> None:
             theme["cover"] = cover_url(row)
             items[seed] = theme
             ok += 1
+            consec_fail = 0
             log(f"{label} OK  {theme.get('scene', '')} / "
                 f"{' '.join(t['zh'] for t in theme.get('themes', [])[:4])}")
         except Exception as exc:  # noqa: BLE001
             fail += 1
+            consec_fail += 1
             items[seed] = {
                 "status": "error",
                 "error": str(exc)[:300],
                 "analyzedAt": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             }
             log(f"{label} FAIL {exc}")
+            if consec_fail >= 5:
+                log("    连续 5 条失败（免费档高峰限流），暂停 120s 后继续")
+                time.sleep(120)
+                consec_fail = 0
 
         if ok and ok % 20 == 0:
             save_cache(cache)
@@ -399,6 +436,8 @@ def main() -> None:
     elapsed = time.time() - t0
     log("")
     log(f"完成：成功 {ok} / 跳过 {skip} / 失败 {fail}，耗时 {elapsed / 60:.1f} 分钟")
+    if tok_in or tok_out:
+        log(f"本次 token：输入 {tok_in:,} / 输出 {tok_out:,}（免费档，不计费）")
     log(f"结果写入 {OUT.relative_to(ROOT)}（累计 {len(items)} 条）")
 
 

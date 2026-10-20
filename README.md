@@ -107,10 +107,31 @@ scripts/refresh_adv.py     素材投放窗口（advertisedPage）按月分桶抓
 scripts/refresh_ads.py     广告表重拉 + 新增素材趋势/明细补齐
 scripts/refresh_recent.py  近期活跃素材的趋势/明细重刷
 scripts/build_data.py      原始数据 -> 看板 JSON
+scripts/vision_theme.py    视觉模型提取素材快照主题词（智谱 GLM-4.6V-Flash 免费档）
 scripts/pack_raw.py        raw/ -> raw.tar.gz（只打包管线实际读取的文件）
 .github/workflows/         GitHub Actions（daily-refresh：每天 8:30 自动刷新）
 scripts/setup_secrets.sh   把 token 写入 Secret Manager 并授权
 ```
+
+## 图片主题词（视觉模型）
+
+素材卡片下方与大图弹窗左下角的主题词，由 `scripts/vision_theme.py` 读取快照生成，
+产物是 `data/image_themes.json`（按素材 key 索引）。模型用智谱 **GLM-4.6V-Flash**，
+官方免费档，不计费。
+
+```bash
+export ZHIPU_API_KEY=你的key                       # bigmodel.cn → API Keys
+python scripts/vision_theme.py --limit 300         # 按花费降序取前 300（覆盖 69% 花费）
+python scripts/vision_theme.py --all               # 全量 4220 张
+python scripts/vision_theme.py --brand NP --country ID --limit 100
+python scripts/vision_theme.py --dry-run --limit 20  # 不调模型，仅用素材名规则兜底
+```
+
+- 已成功的素材默认跳过，可反复执行做增量；`--force` 强制重跑。
+- 图片下载走阿里云 OSS 直连，视频用 `x-oss-process=video/snapshot` 取帧。
+- 送模型前统一压到长边 1024 / JPEG q82（单张约 1150 输入 + 190 输出 tokens）。
+- **防欠费护栏**：脚本只接受 `-flash` / `-flashx` / `-free` 结尾的模型名，服务端返回
+  非免费档模型会立即中止。
 
 ## 凭据
 
