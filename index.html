@@ -958,7 +958,7 @@
       gap: 7px;
     }
     .dms-title {
-      min-height: 48px;
+      min-height: 0;
       line-height: 1.25;
       font-weight: 900;
       color: var(--deep);
@@ -966,6 +966,13 @@
       display: -webkit-box;
       -webkit-line-clamp: 3;
       -webkit-box-orient: vertical;
+    }
+    /* 标签占位优先：素材名降级为小字，只保留两行 */
+    .dms-title.compact {
+      font-size: 11px;
+      font-weight: 600;
+      color: #6f8296;
+      -webkit-line-clamp: 2;
     }
     .dms-body > .small {
       min-height: 28px;
@@ -1216,6 +1223,16 @@
       color: #f1f5f9;
     }
     .lb-grow { flex: 1 1 auto; }
+    .lb-badges { display: inline-flex; gap: 6px; flex: none; }
+    .lb-badge {
+      font-size: 10.5px;
+      padding: 2px 7px;
+      border-radius: 20px;
+      border: 1px solid transparent;
+      white-space: nowrap;
+    }
+    .lb-badge.ok { color: #8ef0c6; background: rgba(46, 204, 145, .14); border-color: rgba(46, 204, 145, .32); }
+    .lb-badge.warn { color: #ffcaa8; background: rgba(255, 160, 92, .12); border-color: rgba(255, 160, 92, .3); }
     .lb-btn {
       height: 30px;
       min-width: 30px;
@@ -1299,7 +1316,28 @@
     .post-thumb:hover .post-thumb-zoom { opacity: 1; }
     .dms-cover { cursor: zoom-in; }
 
-    /* 图片主题词：视觉模型从快照里提取，源语言 + 中文 */
+    /* 图片主题词：视觉模型从快照里提取，卖点优先、文案次之，卡片上全量铺开 */
+    .theme-groups {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      margin: 6px 0 2px;
+    }
+    .theme-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 3px;
+      align-items: center;
+    }
+    .theme-label {
+      flex: none;
+      font-size: 9.5px;
+      font-weight: 700;
+      letter-spacing: .04em;
+      color: #9aabbd;
+      padding-right: 1px;
+    }
+    .theme-row.sell .theme-label { color: #d1663a; }
     .theme-line {
       display: flex;
       flex-wrap: wrap;
@@ -1308,27 +1346,39 @@
     }
     .theme-chip {
       display: inline-flex;
-      flex-direction: column;
-      gap: 1px;
+      flex-direction: row;
+      align-items: center;
+      gap: 3px;
       max-width: 100%;
-      padding: 3px 7px;
-      border-radius: 6px;
+      padding: 2px 6px;
+      border-radius: 5px;
       background: #eef4fb;
       border: 1px solid #d7e5f4;
-      line-height: 1.25;
+      line-height: 1.3;
       overflow: hidden;
     }
+    .theme-chip.sell {
+      background: #fff2ec;
+      border-color: #ffd8c6;
+    }
+    .theme-chip.sell b { color: #b8481d; }
+    .theme-chip.copy {
+      background: #eef4fb;
+      border-color: #d7e5f4;
+    }
+    .theme-chip.copy b { color: #1d4a72; }
     .theme-chip i {
       font-style: normal;
       font-size: 9px;
-      color: #6b8aa8;
+      color: #8fa2b5;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
+      max-width: 62px;
     }
     .theme-chip b {
       font-weight: 700;
-      font-size: 11px;
+      font-size: 10.5px;
       color: #1d4a72;
       white-space: nowrap;
       overflow: hidden;
@@ -1384,6 +1434,25 @@
       letter-spacing: 0;
       color: #8fa3b8;
     }
+    .lb-themes-sec { margin-bottom: 10px; }
+    .lb-themes-sec-head {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: .08em;
+      color: #9db2c7;
+      margin-bottom: 5px;
+    }
+    .lb-themes-sec .lb-themes-grid { margin-bottom: 0; }
+    .lb-theme-item.sell {
+      background: rgba(255, 138, 92, .14);
+      border-color: rgba(255, 138, 92, .34);
+    }
+    .lb-theme-item.sell b { color: #ffcbb4; }
+    .lb-theme-item.copy {
+      background: rgba(120, 190, 255, .12);
+      border-color: rgba(120, 190, 255, .3);
+    }
+    .lb-theme-item.copy b { color: #bfe1ff; }
     .lb-themes-grid {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
@@ -1734,6 +1803,7 @@
     </div>
     <div class="lb-bar">
       <span class="lb-title" id="lbTitle"></span>
+      <span class="lb-badges" id="lbBadges"></span>
       <span class="lb-grow"></span>
       <button type="button" class="lb-btn" id="lbZoomOut" title="缩小（-）">−</button>
       <span class="lb-zoom" id="lbZoom">100%</span>
@@ -2594,7 +2664,7 @@
         return `<article class="dms-card">
           <div class="dms-cover">${cover}<span class="chip ${typeClass}">#${i + 1} ${safe(row.materialType || '-')}</span></div>
           <div class="dms-body">
-            <div class="dms-title" title="${safe(row.materialName || row.adName || row.materialId)}">${safe(short(row.materialName || row.adName || row.materialId, 58))}</div>
+            <div class="dms-title compact" title="${safe(row.materialName || row.adName || row.materialId)}">${safe(short(row.materialName || row.adName || row.materialId, 44))}</div>
             <div class="small">${safe(row.materialId || row.materialCode || '-')} · ${safe(row.country || '-')} · ${safe(row.product || '-')}</div>
             ${themeChipsHtml(row)}
             <div class="dms-meta">
@@ -2602,10 +2672,6 @@
               <span>订单<b>${fmt(row.orders)}</b></span>
               <span>GMV<b>${money(row.gmv)}</b></span>
               <span class="${roiClass}">ROI<b>${roi(row.roi)}</b></span>
-            </div>
-            <div class="dms-actions">
-              ${downloadUrl && /^https?:\/\//.test(downloadUrl) ? `<a href="${safe(downloadUrl)}" target="_blank" rel="noopener" download>下载素材</a>` : ''}
-              ${row.matchedDms ? `<span class="chip neutral">DMS已匹配</span>` : `<span class="chip neutral">待DMS导出</span>`}
             </div>
           </div>
         </article>`;
@@ -2687,6 +2753,9 @@
       }
       const dl = hi || thumb;
       if (dl) attrs.push(` data-lb-download="${safe(dl)}"`);
+      // 卡片上不再放操作按钮，DMS 匹配 / 可下载状态挪到大图弹窗展示
+      attrs.push(` data-lb-match="${row.matchedDms ? '1' : '0'}"`);
+      attrs.push(` data-lb-ready="${dl ? '1' : '0'}"`);
       return attrs.join('');
     }
 
@@ -2727,59 +2796,77 @@
       const key = String(row.key || row.materialCode || row.materialId || '').trim();
       if (!key) return null;
       const item = state.themes[key];
-      if (!item || item.status !== 'ok' || !Array.isArray(item.themes) || !item.themes.length) return null;
-      return item;
+      if (!item || item.status !== 'ok') return null;
+      const hasTags = (item.sell || []).length || (item.copy || []).length || (item.themes || []).length;
+      return hasTags ? item : null;
     }
 
-    // 卡片上的主题词：最多 3 个，源语言小字 + 中文主字
-    function themeChipsHtml(row, limit = 3) {
+    function themeGroupsOf(item) {
+      // 新格式：sell（卖点）+ copy（文案主题）；旧数据只有 themes，统一当卖点展示
+      if (!item) return { sell: [], copy: [] };
+      const sell = (item.sell && item.sell.length) ? item.sell : (item.themes || []);
+      const copy = item.copy || [];
+      return { sell, copy };
+    }
+
+    function themeChipMarkup(tag, kind) {
+      const src = String(tag.src || '').trim();
+      const zh = String(tag.zh || '').trim();
+      if (!zh) return '';
+      const tip = src && src !== zh ? `${src} / ${zh}` : zh;
+      return `<span class="theme-chip ${kind}" title="${safe(tip)}">`
+        + `${src ? `<i>${safe(short(src, 18))}</i>` : ''}<b>${safe(short(zh, 16))}</b></span>`;
+    }
+
+    // 卡片上的标签全量铺开（不折叠、不截断），卖点在上、文案关键词在下
+    function themeChipsHtml(row) {
       const item = themeOf(row);
       if (!item) return '';
-      const chips = item.themes.slice(0, limit).map(theme => {
-        const src = String(theme.src || '').trim();
-        const zh = String(theme.zh || '').trim();
-        if (!zh) return '';
-        const mono = src && /^[\x00-\x7F]+$/.test(src) ? '' : ' mono';
-        return `<span class="theme-chip${mono}" title="${safe(src ? `${src} / ${zh}` : zh)}">`
-          + `${src ? `<i>${safe(short(src, 24))}</i>` : ''}<b>${safe(short(zh, 14))}</b></span>`;
-      }).join('');
-      if (!chips) return '';
-      const more = item.themes.length > limit ? `<span class="theme-more">+${item.themes.length - limit}</span>` : '';
-      return `<div class="theme-line">${chips}${more}</div>`;
+      const { sell, copy } = themeGroupsOf(item);
+      const sellHtml = sell.map(t => themeChipMarkup(t, 'sell')).join('');
+      const copyHtml = copy.map(t => themeChipMarkup(t, 'copy')).join('');
+      if (!sellHtml && !copyHtml) return '';
+      return `<div class="theme-groups">
+        ${sellHtml ? `<div class="theme-row sell"><span class="theme-label">卖点</span>${sellHtml}</div>` : ''}
+        ${copyHtml ? `<div class="theme-row copy"><span class="theme-label">文案</span>${copyHtml}</div>` : ''}
+      </div>`;
     }
 
     function renderLightboxThemes(key) {
       const box = $('lbThemes');
       if (!box) return;
       const item = key && state.themes ? state.themes[String(key).trim()] : null;
-      if (!item || item.status !== 'ok' || !Array.isArray(item.themes) || !item.themes.length) {
+      const { sell, copy } = themeGroupsOf(item && item.status === 'ok' ? item : null);
+      if (!sell.length && !copy.length) {
         box.hidden = true;
         box.innerHTML = '';
         return;
       }
-      const grid = item.themes.map(theme => {
-        const src = String(theme.src || '').trim();
-        const zh = String(theme.zh || '').trim();
-        if (!zh) return '';
-        return `<div class="lb-theme-item" title="${safe(src ? `${src} / ${zh}` : zh)}">`
-          + `${src ? `<i>${safe(src)}</i>` : ''}<b>${safe(zh)}</b></div>`;
-      }).join('');
-      const rows = [
-        ['场景', item.scene],
-        ['主体', item.subject],
-        ['风格', item.style],
-        ['卖点', item.hook]
-      ].filter(([, value]) => value);
+      const gridOf = (tags, kind, label) => {
+        if (!tags.length) return '';
+        const items = tags.map(theme => {
+          const src = String(theme.src || '').trim();
+          const zh = String(theme.zh || '').trim();
+          if (!zh) return '';
+          return `<div class="lb-theme-item ${kind}" title="${safe(src && src !== zh ? `${src} / ${zh}` : zh)}">`
+            + `${src ? `<i>${safe(src)}</i>` : ''}<b>${safe(zh)}</b></div>`;
+        }).join('');
+        return `<div class="lb-themes-sec"><div class="lb-themes-sec-head">${label}</div>`
+          + `<div class="lb-themes-grid">${items}</div></div>`;
+      };
+      const rows = [['场景', item.scene], ['图上语言', THEME_LANG_LABEL[String(item.lang || '').toLowerCase()] || '']]
+        .filter(([, value]) => value);
       const kv = rows.length
         ? `<dl class="lb-themes-kv">${rows.map(([k, v]) => `<dt>${k}</dt><dd>${safe(v)}</dd>`).join('')}</dl>`
         : '';
       const onimage = item.onimage
         ? `<div class="lb-themes-onimage"><em>图上文案</em>${safe(item.onimage)}</div>`
         : '';
-      const langLabel = THEME_LANG_LABEL[String(item.lang || '').toLowerCase()] || '';
-      const metaBits = [langLabel, item.model, item.analyzedAt].filter(Boolean).map(safe).join(' · ');
-      box.innerHTML = `<div class="lb-themes-head">画面主题<span>${metaBits}</span></div>`
-        + `<div class="lb-themes-grid">${grid}</div>${kv}${onimage}`
+      const metaBits = [item.model, item.analyzedAt].filter(Boolean).map(safe).join(' · ');
+      box.innerHTML = `<div class="lb-themes-head">卖点 &amp; 文案<span>${metaBits}</span></div>`
+        + gridOf(sell, 'sell', '卖点标签')
+        + gridOf(copy, 'copy', '文案主题关键词')
+        + kv + onimage
         + `<div class="lb-themes-foot">由视觉模型读取快照生成，${state.themesMeta?.model || 'glm-4.6v-flash'} · 仅供创意参考</div>`;
       box.hidden = false;
     }
@@ -2868,7 +2955,7 @@
         return `<article class="dms-card">
           <div class="dms-cover">${cover}<span class="chip ${typeClass}">#${i + 1} ${safe(row.materialType || '-')}</span></div>
           <div class="dms-body">
-            <div class="dms-title" title="${safe(row.materialName || row.adName || row.materialId)}">${safe(short(row.materialName || row.adName || row.materialId, 58))}</div>
+            <div class="dms-title compact" title="${safe(row.materialName || row.adName || row.materialId)}">${safe(short(row.materialName || row.adName || row.materialId, 44))}</div>
             <div class="small">${safe(row.materialId || row.materialCode || '-')} · ${safe(row.country || '-')} · ${safe(row.product || '-')}</div>
             ${themeChipsHtml(row)}
             <div class="dms-meta">
@@ -2876,11 +2963,6 @@
               <span>订单<b>${fmt(row.orders)}</b></span>
               <span>GMV<b>${money(row.gmv)}</b></span>
               <span class="${roiClass}">ROI<b>${roi(row.roi)}</b></span>
-            </div>
-            <div class="dms-actions">
-              ${downloadUrl && /^https?:\/\//.test(downloadUrl) ? `<a href="${safe(dmsProxyUrl(downloadUrl, true))}" target="_blank" rel="noopener" download>下载素材</a>` : ''}
-              ${row.matchedDms ? `<span class="chip neutral">DMS已匹配</span>` : `<span class="chip neutral">待DMS导出</span>`}
-              <span class="chip neutral">${safe(dmsDownloadState(row))}</span>
             </div>
           </div>
         </article>`;
@@ -3933,6 +4015,13 @@
       document.body.style.overflow = 'hidden';
       const titleEl = $('lbTitle');
       if (titleEl) titleEl.textContent = trigger.dataset.lbTitle || '素材快照';
+      const badges = $('lbBadges');
+      if (badges) {
+        const matched = trigger.dataset.lbMatch === '1';
+        const ready = trigger.dataset.lbReady === '1';
+        badges.innerHTML = `<span class="lb-badge ${matched ? 'ok' : 'warn'}">${matched ? 'DMS 已匹配' : '待 DMS 导出'}</span>`
+          + `<span class="lb-badge ${ready ? 'ok' : 'warn'}">${ready ? '可下载' : '暂无源文件'}</span>`;
+      }
       renderLightboxThemes(trigger.dataset.lbKey || '');
       const dl = $('lbDownload');
       if (dl) {

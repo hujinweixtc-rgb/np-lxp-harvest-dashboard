@@ -57,24 +57,25 @@ def assert_free_model(name: str) -> None:
 MAX_SIDE = 1024
 JPEG_QUALITY = 82
 
-PROMPT = """你是印尼 / 马来西亚 Shopee 电商广告素材分析助手。这是一条 IG 广告素材的封面快照，请提取画面主题。
+PROMPT = """你是印尼 / 马来西亚 Shopee 电商广告素材分析助手。这是一条 IG 广告素材的封面快照，请提取卖点和文案主题。
 
 只输出一个 JSON 对象，不要 Markdown 代码块，不要任何解释文字。字段如下：
 {
   "lang": "画面主要文字语言：id / ms / en / zh / none",
   "scene": "画面场景，中文，10 字以内",
-  "subject": "画面主体或人物动作，中文，12 字以内",
   "onimage": "画面上出现的主要文案原文，最多 2 条用 | 分隔，照抄不改写，没有就空字符串",
-  "themes": [{"src": "源语言主题关键词", "zh": "对应中文"}],
-  "style": "视觉风格，中文，8 字以内",
-  "hook": "这条素材打的卖点或痛点，中文，20 字以内"
+  "sell": [{"src": "源语言卖点词", "zh": "对应中文卖点"}],
+  "copy": [{"src": "源语言文案关键词", "zh": "对应中文"}]
 }
 
 要求：
-- themes 给 4~6 个，覆盖画面内容、产品功效、使用场景、目标人群、情绪氛围。
-- src 用画面文字的原始语言（印尼语 / 马来语）；画面确实没有文字时，用该语言对画面的自然表达。zh 必须是对应的准确中文。
-- 只描述画面看得见的内容，不要编造品牌名、价格或销量。
-- 整个 JSON 控制在 220 字以内，每个中文词不超过 6 个字，避免超长被截断。
+- sell 是**卖点标签**，给 3~5 个，必须是功效 / 成分 / 效果 / 数据（如：去黑头、控油祛痘、烟酰胺、弱酸性、六合一、24K金、-90%油光）。
+- copy 是**文案主题关键词**，给 2~4 个，是这条广告在讲什么（如：限时折扣、买三更划算、告别油光、男士专属、夏日轻薄、真实测评）。
+- 严禁输出：品牌名（NEXT PRIME、Lumi Xpert、Shopee 等）、产品品类名（洗面奶、洁面乳、香皂、精华、洗发水、护肤品、面膜）、包装规格（6pcs、130K、50ribu）、
+  以及没有信息量的泛词（护肤、面部护理、产品展示、效果、男士）。这些看图就知道，不需要标签。
+- src 用画面文字的原始语言（印尼语 / 马来语）；画面确实没有文字时，用该语言对卖点的自然表达。zh 必须是对应的准确中文。
+- 同一个词不要重复出现；文案整句不要直接抄，提炼成 2~6 个字的关键词。
+- 整个 JSON 控制在 200 字以内，每个中文词不超过 8 个字，避免超长被截断。
 - 严格合法 JSON，字符串内不要出现换行符。"""
 
 
@@ -218,25 +219,89 @@ def call_vision(key: str, b64: str, retries: int = 7) -> dict:
     raise RuntimeError(f"模型调用失败: {last}")
 
 
+def _normalize_pairs(raw) -> list[dict]:
+    out = []
+    for item in raw or []:
+        if isinstance(item, dict):
+            src = str(item.get("src") or "").strip()
+            zh = str(item.get("zh") or "").strip()
+            for piece in _split_tag(zh):
+                out.append({"src": src if piece == zh else "", "zh": piece})
+        elif isinstance(item, str) and item.strip():
+            for piece in _split_tag(item.strip()):
+                out.append({"src": "", "zh": piece})
+    return out
+
+
+def _split_tag(text: str) -> list[str]:
+    """模型偶尔把多个卖点塞进一个标签（"提亮肤色，深层清洁，控油祛痘"），拆成独立标签。"""
+    text = (text or "").strip()
+    if not text:
+        return []
+    parts = [p.strip(" .。") for p in re.split(r"[，,、/|｜]+", text)]
+    parts = [p for p in parts if p]
+    if len(parts) > 1 and all(len(p) <= 10 for p in parts):
+        return parts
+    return [text]
+
+
+# 看图就有的信息不做标签：品牌名、产品品类名、包装规格、没有信息量的泛词
+BRAND_NOISE = ("next prime", "lumi xpert", "skintific", "glad2glow", "shopee", "虾皮")
+PRODUCT_NOISE = (
+    "洗面奶", "洁面", "洗脸", "香皂", "肥皂", "洗发", "护发", "沐浴", "面霜", "面膜",
+    "精华", "护肤", "面部护理", "防晒", "卸妆", "磨砂", "凝胶", "喷雾", "身体乳",
+    "素颜霜", "产品展示", "产品", "男士护理", "男性护肤",
+)
+GENERIC_NOISE = ("效果", "男士", "女性", "护肤", "美容", "美妆")
+SPEC_RE = re.compile(r"^[\d.,]+\s*(pcs|pc|k|ribu|rb|%|ml|g|件|个|瓶|支|片)?\s*(装|套装|入)?$", re.I)
+
+
+def _is_noise_tag(tag: dict) -> bool:
+    zh = str(tag.get("zh") or "").strip()
+    src = str(tag.get("src") or "").strip().lower()
+    if not zh:
+        return True
+    low = zh.lower()
+    if any(word in low or word in src for word in BRAND_NOISE):
+        return True
+    if any(word in low for word in PRODUCT_NOISE):
+        return True
+    if zh in GENERIC_NOISE:
+        return True
+    if SPEC_RE.match(low.replace(" ", "")):
+        return True
+    return False
+
+
+def _clean_tags(tags: list[dict]) -> list[dict]:
+    """去重 + 剔除产品名 / 品牌名 / 规格类噪音标签。"""
+    seen, out = set(), []
+    for tag in tags:
+        zh = str(tag.get("zh") or "").strip()
+        if not zh or zh in seen or _is_noise_tag(tag):
+            continue
+        seen.add(zh)
+        out.append(tag)
+    return out
+
+
 def _salvage_truncated(text: str) -> dict:
     """模型输出撞 max_tokens 被截断时，按字段抽取已生成的部分。"""
     doc: dict = {}
-    for field in ("lang", "scene", "subject", "onimage", "style", "hook"):
+    for field in ("lang", "scene", "onimage"):
         m = re.search(rf'"{field}"\s*:\s*"((?:[^"\\]|\\.)*)"', text)
         if m:
             doc[field] = m.group(1)
-    themes = []
-    for m in re.finditer(
-        r'\{\s*"src"\s*:\s*"((?:[^"\\]|\\.)*)"\s*,\s*"zh"\s*:\s*"((?:[^"\\]|\\.)*)"', text
-    ):
-        themes.append({"src": m.group(1), "zh": m.group(2)})
-    if not themes:
-        m = re.search(r'"themes"\s*:\s*\[(.*)', text, re.S)
-        for item in re.finditer(r'"((?:[^"\\]|\\.)*)"', m.group(1) if m else ""):
-            val = item.group(1).strip()
-            if val:
-                themes.append({"src": "", "zh": val})
-    doc["themes"] = themes
+    for group in ("sell", "copy", "themes"):
+        m = re.search(rf'"{group}"\s*:\s*\[(.*)', text, re.S)
+        pairs = []
+        for item in re.finditer(
+            r'\{\s*"src"\s*:\s*"((?:[^"\\]|\\.)*)"\s*,\s*"zh"\s*:\s*"((?:[^"\\]|\\.)*)"',
+            m.group(1) if m else "",
+        ):
+            pairs.append({"src": item.group(1), "zh": item.group(2)})
+        if pairs:
+            doc[group] = pairs
     return doc
 
 
@@ -255,20 +320,20 @@ def parse_json_reply(text: str) -> dict:
             doc = json.loads(cleaned[start : end + 1])
         except json.JSONDecodeError:
             doc = _salvage_truncated(cleaned)
-    themes = []
-    for item in doc.get("themes") or []:
-        if isinstance(item, dict):
-            src = str(item.get("src") or "").strip()
-            zh = str(item.get("zh") or "").strip()
-            if zh:
-                themes.append({"src": src, "zh": zh})
-        elif isinstance(item, str) and item.strip():
-            themes.append({"src": "", "zh": item.strip()})
-    doc["themes"] = themes[:8]
+    sell = _clean_tags(_normalize_pairs(doc.get("sell")))
+    copy = _clean_tags(_normalize_pairs(doc.get("copy")))
+    legacy = _clean_tags(_normalize_pairs(doc.get("themes")))
+    if not sell and not copy:
+        # 旧格式（只有 themes）兜底：全部当卖点
+        sell = legacy
+    doc["sell"] = sell[:6]
+    doc["copy"] = copy[:4]
+    # 兼容旧读取逻辑：themes = 卖点 + 文案
+    doc["themes"] = (doc["sell"] + doc["copy"])[:8]
     for field in ("lang", "scene", "subject", "onimage", "style", "hook"):
         doc[field] = str(doc.get(field) or "").strip()
     if not doc["themes"]:
-        raise ValueError("模型没有返回 themes")
+        raise ValueError("模型没有返回 sell / copy")
     return doc
 
 
