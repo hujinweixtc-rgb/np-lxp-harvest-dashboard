@@ -24,20 +24,21 @@ if (!fs.existsSync(OUT)) fs.mkdirSync(OUT, { recursive: true });
 
   // ① 概览：卖点/文案交叉分析表
   const kw = await page.evaluate(() => {
-    const t = document.getElementById('aiKeywordTable');
-    if (!t) return { missing: true };
-    return {
+    const s = document.getElementById('aiSellTable');
+    const c = document.getElementById('aiCopyTable');
+    if (!s || !c) return { missing: true };
+    const dump = t => ({
       rows: t.querySelectorAll('tbody tr').length,
       headers: [...t.querySelectorAll('thead th')].map(th => th.textContent.trim()),
-      first: [...t.querySelectorAll('tbody tr')].slice(0, 3).map(tr => tr.textContent.replace(/\s+/g, ' ').trim().slice(0, 90)),
-      note: document.getElementById('aiKwNote')?.textContent
-    };
+      first: [...t.querySelectorAll('tbody tr')].slice(0, 2).map(tr => tr.textContent.replace(/\s+/g, ' ').trim().slice(0, 80))
+    });
+    return { sell: dump(s), copy: dump(c), note: document.getElementById('aiKwNote')?.textContent };
   });
   console.log('交叉分析表:', JSON.stringify(kw));
 
-  if (!kw.missing && kw.rows) {
+  if (!kw.missing && kw.sell && kw.sell.rows) {
     await page.evaluate(() => {
-      const head = document.getElementById('aiKeywordTable').closest('section');
+      const head = document.getElementById('aiSellTable').closest('section');
       head.scrollIntoView({ block: 'start' });
     });
     await page.waitForTimeout(1200);

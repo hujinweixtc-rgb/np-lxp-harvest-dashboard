@@ -1756,16 +1756,28 @@
       </div>
     </section>
 
-    <section class="panel tree-section">
-      <div class="head">
-        <div>
-          <h2>卖点 / 文案关键词 交叉分析</h2>
-          <div class="small" id="aiKwNote">视觉模型从素材快照提取 · 按当前筛选汇总 · 词组按花费降序 Top 40</div>
+    <section class="grid2">
+      <div class="panel">
+        <div class="head">
+          <div>
+            <h2>卖点关键词 交叉分析</h2>
+            <div class="small" id="aiKwNote">视觉模型从素材快照提取 · 按当前筛选汇总 · 按花费降序 Top 40</div>
+          </div>
         </div>
-        <div class="small">ROI = GMV / 花费</div>
+        <div class="table-wrap tree-table-wrap">
+          <table id="aiSellTable"></table>
+        </div>
       </div>
-      <div class="table-wrap tree-table-wrap">
-        <table id="aiKeywordTable"></table>
+      <div class="panel">
+        <div class="head">
+          <div>
+            <h2>文案关键词 交叉分析</h2>
+            <div class="small">文案主题词 · 按花费降序 Top 40 · ROI = GMV / 花费</div>
+          </div>
+        </div>
+        <div class="table-wrap tree-table-wrap">
+          <table id="aiCopyTable"></table>
+        </div>
       </div>
     </section>
 
@@ -2389,10 +2401,11 @@
       }</tbody>`;
     }
 
-    // 概览：AI 卖点 / 文案关键词 交叉分析（花费、GMV、订单、ROI）
+    // 概览：AI 卖点 / 文案关键词 交叉分析（左右两张表，花费、GMV、订单、ROI）
     function renderAiKeywords() {
-      const table = $('aiKeywordTable');
-      if (!table) return;
+      const sellTable = $('aiSellTable');
+      const copyTable = $('aiCopyTable');
+      if (!sellTable || !copyTable) return;
       const themes = state.themes || {};
       const groups = { sell: new Map(), copy: new Map() };
       let analyzed = 0;
@@ -2422,24 +2435,23 @@
           }
         }
       }
-      const topOf = map => [...map.values()].sort((a, b) => b.spend - a.spend).slice(0, 40);
-      const rowsOf = (label, list) => list.map(item => {
-        const itemRoi = item.spend ? item.gmv / item.spend : 0;
-        return `<tr>
-          <td><span class="chip neutral">${label}</span></td>
+      const headers = ['关键词', '素材数', '花费', 'GMV', '订单', 'ROI'];
+      const draw = (table, map) => {
+        const list = [...map.values()].sort((a, b) => b.spend - a.spend).slice(0, 40);
+        const body = list.map(item => `<tr>
           <td><div class="ai-kw"><b>${safe(item.zh)}</b>${item.src && item.src !== item.zh ? `<i>${safe(item.src)}</i>` : ''}</div></td>
           <td class="num">${fmt(item.posts)}</td>
           <td class="num">${money(item.spend)}</td>
           <td class="num">${money(item.gmv)}</td>
           <td class="num">${fmt(item.orders)}</td>
-          <td class="num">${roi(itemRoi)}</td>
-        </tr>`;
-      }).join('');
-      const body = rowsOf('卖点', topOf(groups.sell)) + rowsOf('文案', topOf(groups.copy));
-      const headers = ['组别', '关键词', '素材数', '花费', 'GMV', '订单', 'ROI'];
-      table.innerHTML = `<thead><tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr></thead>`
-        + `<tbody>${body || `<tr><td colspan="${headers.length}" class="empty">当前筛选下暂无已分析素材</td></tr>`}</tbody>`;
-      $('aiKwNote').textContent = `视觉模型从素材快照提取 · 当前筛选内已分析 ${fmt(analyzed)} 条素材 · 卖点/文案各取花费 Top 40`;
+          <td class="num">${roi(item.spend ? item.gmv / item.spend : 0)}</td>
+        </tr>`).join('');
+        table.innerHTML = `<thead><tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr></thead>`
+          + `<tbody>${body || `<tr><td colspan="${headers.length}" class="empty">当前筛选下暂无已分析素材</td></tr>`}</tbody>`;
+      };
+      draw(sellTable, groups.sell);
+      draw(copyTable, groups.copy);
+      $('aiKwNote').textContent = `视觉模型从素材快照提取 · 当前筛选内已分析 ${fmt(analyzed)} 条素材 · 按花费降序 Top 40`;
     }
 
     function deltaChip(current, base) {
