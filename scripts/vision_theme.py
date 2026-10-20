@@ -218,14 +218,43 @@ def call_vision(key: str, b64: str, retries: int = 7) -> dict:
     raise RuntimeError(f"模型调用失败: {last}")
 
 
+def _salvage_truncated(text: str) -> dict:
+    """模型输出撞 max_tokens 被截断时，按字段抽取已生成的部分。"""
+    doc: dict = {}
+    for field in ("lang", "scene", "subject", "onimage", "style", "hook"):
+        m = re.search(rf'"{field}"\s*:\s*"((?:[^"\\]|\\.)*)"', text)
+        if m:
+            doc[field] = m.group(1)
+    themes = []
+    for m in re.finditer(
+        r'\{\s*"src"\s*:\s*"((?:[^"\\]|\\.)*)"\s*,\s*"zh"\s*:\s*"((?:[^"\\]|\\.)*)"', text
+    ):
+        themes.append({"src": m.group(1), "zh": m.group(2)})
+    if not themes:
+        m = re.search(r'"themes"\s*:\s*\[(.*)', text, re.S)
+        for item in re.finditer(r'"((?:[^"\\]|\\.)*)"', m.group(1) if m else ""):
+            val = item.group(1).strip()
+            if val:
+                themes.append({"src": "", "zh": val})
+    doc["themes"] = themes
+    return doc
+
+
 def parse_json_reply(text: str) -> dict:
     cleaned = (text or "").strip()
     cleaned = re.sub(r"^```(?:json)?\s*", "", cleaned)
     cleaned = re.sub(r"\s*```$", "", cleaned)
     start, end = cleaned.find("{"), cleaned.rfind("}")
-    if start == -1 or end <= start:
+    if start == -1:
         raise ValueError(f"返回里没有 JSON: {cleaned[:160]}")
-    doc = json.loads(cleaned[start : end + 1])
+    if end <= start:
+        # 输出被截断（撞 max_tokens）时做宽松抢救：逐字段正则抽取
+        doc = _salvage_truncated(cleaned)
+    else:
+        try:
+            doc = json.loads(cleaned[start : end + 1])
+        except json.JSONDecodeError:
+            doc = _salvage_truncated(cleaned)
     themes = []
     for item in doc.get("themes") or []:
         if isinstance(item, dict):
