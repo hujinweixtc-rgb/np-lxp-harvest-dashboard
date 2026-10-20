@@ -3658,18 +3658,27 @@
         const wrap = document.getElementById('refreshWrap');
         if (wrap) wrap.hidden = false;
       } catch {
+        // 静态托管（GitHub Pages）：页面本身无后端，但接口和数据一律走实时后端，
+        // 所以刷新按钮在原地依然可用，不需要跳转。
         REFRESH.available = false;
+        REFRESH.remote = true;
         if (el) { el.textContent = 'static'; el.classList.remove('live'); el.classList.add('static'); }
-        // 静态快照：按钮保留但改成「打开实时版」，避免点了没反应
         const wrap = document.getElementById('refreshWrap');
         if (wrap) wrap.hidden = false;
         const btn = document.getElementById('refreshData');
         if (btn) {
-          btn.textContent = '刷新数据（打开实时版）';
-          btn.title = '当前是 GitHub Pages 静态快照，本身无法刷新。点击会打开实时版并保留当前筛选条件。';
-          btn.classList.add('need-live');
+          btn.textContent = '刷新数据';
+          btn.title = '当前为 GitHub Pages 静态页面，刷新会直接调用实时后端，无需跳转。\n单击：快速刷新（约 2-3 分钟）；Shift + 单击：完整刷新。';
         }
       }
+    }
+
+    // 数据与接口地址：静态页面统一走实时后端（后端已开启 CORS）
+    function dataUrl(name) {
+      return (REFRESH.available ? './data/' : LIVE_BASE + 'data/') + name;
+    }
+    function apiUrl(path) {
+      return (REFRESH.available ? './api/' : LIVE_BASE + 'api/') + path;
     }
 
     // 数据过期提示：静态快照或长时间未刷新时，在顶栏给出明确提示
@@ -3679,7 +3688,9 @@
       const age = (Date.now() - new Date(stamp.replace(/-/g, '/')).getTime()) / 3600000;
       if (!Number.isFinite(age)) return;
       if (!REFRESH.available) {
-        setRefreshProgress(`静态快照生成于 ${stamp}，不会自动更新`, 'warn');
+        setRefreshProgress(age >= 24
+          ? `数据更新于 ${stamp}，已 ${Math.floor(age / 24)} 天未刷新，点「刷新数据」即时更新`
+          : `数据更新于 ${stamp}`, age >= 24 ? 'warn' : 'ok');
         return;
       }
       if (age >= 24) {
@@ -3693,7 +3704,7 @@
       const btn = document.getElementById('refreshData');
       let job = {};
       try {
-        const res = await fetch('./api/refresh/status', { cache: 'no-store' });
+        const res = await fetch(apiUrl('refresh/status'), { cache: 'no-store' });
         job = (await res.json()).refresh || {};
       } catch (err) {
         setRefreshProgress('无法获取刷新进度：' + err.message, 'error');
@@ -3721,21 +3732,13 @@
     async function refreshFromDms(quick) {
       const btn = document.getElementById('refreshData');
       if (REFRESH.busy) return;
-      if (!REFRESH.available) {
-        // 静态快照：直接带去当前筛选打开实时版，让刷新真的能生效
-        const url = LIVE_BASE + (location.search || '');
-        setRefreshProgress('当前为静态快照，正在打开实时版…', 'warn');
-        const opened = window.open(url, '_blank', 'noopener');
-        if (!opened) location.href = url;
-        return;
-      }
       REFRESH.busy = true;
       if (btn) btn.disabled = true;
       setRefreshProgress(quick ? '已提交快速刷新，等待 DMS 返回…' : '已提交完整刷新，等待 DMS 返回…');
       try {
         // 必须带 body/Content-Length：Cloud Run 前置的 Google 前端会以 411 拒绝
         // 没有 Content-Length 的 POST，请求根本到不了容器。
-        const res = await fetch('./api/refresh' + (quick ? '?quick=1' : ''), {
+        const res = await fetch(apiUrl('refresh' + (quick ? '?quick=1' : '')), {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({ quick: !!quick }),
@@ -3836,7 +3839,7 @@
       // 必须等形态探测完成：静态托管时 REFRESH.available=false，
       // 图片/视频要回退到外部媒体代理
       await loadVersion();
-      const res = await fetch('./data/materials.json', { cache: 'no-store' });
+      const res = await fetch(dataUrl('materials.json'), { cache: 'no-store' });
       if (!res.ok) throw new Error(`Data load failed: ${res.status}`);
       state.raw = await res.json();
       state.rows = state.raw.posts || [];
@@ -3844,19 +3847,19 @@
       state.postIndex = new Map((state.raw.posts || [])
         .map(post => [`${post.brand}|${post.country}|${post.materialCode}`, post]));
       try {
-        const dmsRes = await fetch('./data/dms_materials.json', { cache: 'no-store' });
+        const dmsRes = await fetch(dataUrl('dms_materials.json'), { cache: 'no-store' });
         state.dms = dmsRes.ok ? await dmsRes.json() : { rows: [] };
       } catch {
         state.dms = { rows: [] };
       }
       try {
-        const boardRes = await fetch('./data/board.json', { cache: 'no-store' });
+        const boardRes = await fetch(dataUrl('board.json'), { cache: 'no-store' });
         state.board = boardRes.ok ? await boardRes.json() : null;
       } catch {
         state.board = null;
       }
       try {
-        const themeRes = await fetch('./data/image_themes.json', { cache: 'no-store' });
+        const themeRes = await fetch(dataUrl('image_themes.json'), { cache: 'no-store' });
         if (themeRes.ok) {
           const themeDoc = await themeRes.json();
           state.themes = (themeDoc && themeDoc.items) || {};
