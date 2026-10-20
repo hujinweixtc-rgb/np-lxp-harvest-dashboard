@@ -116,8 +116,8 @@ scripts/setup_secrets.sh   把 token 写入 Secret Manager 并授权
 ## 图片主题词（视觉模型）
 
 素材卡片下方与大图弹窗左下角的主题词，由 `scripts/vision_theme.py` 读取快照生成，
-产物是 `data/image_themes.json`（按素材 key 索引）。模型用智谱 **GLM-4.6V-Flash**，
-官方免费档，不计费。
+产物是 `data/image_themes.json`（按素材 key 索引）。模型用智谱 **GLM-4V-Flash**（`glm-4.6v-flash` 白天常 429，已切更稳的旧版），
+官方免费档，不计费；补译用文本模型 `glm-4-flash`，同样免费。
 
 ```bash
 export ZHIPU_API_KEY=你的key                       # bigmodel.cn → API Keys
@@ -132,6 +132,23 @@ python scripts/vision_theme.py --dry-run --limit 20  # 不调模型，仅用素�
 - 送模型前统一压到长边 1024 / JPEG q82（单张约 1150 输入 + 190 输出 tokens）。
 - **防欠费护栏**：脚本只接受 `-flash` / `-flashx` / `-free` 结尾的模型名，服务端返回
   非免费档模型会立即中止。
+- 图上文案会同时输出中文翻译（`onimageZh`），历史数据可用
+  `python scripts/vision_theme.py --translate-onimage` 补译（免费文本模型 `glm-4-flash`）。
+
+### 分析底稿（给其他 AI / BI 用）
+
+`scripts/vision_theme.py` 跑完会自动调用 `scripts/export_themes.py`，把结果和素材
+元数据、DMS 标签、投放指标拼成可直接消费的数据集，输出到 `data/theme_dataset/`：
+
+| 文件 | 说明 |
+|---|---|
+| `themes.jsonl` | 一行一个素材（机器读取），含 `sellZh/sellSrc`、`copyZh/copySrc`、`onimage/onimageZh`、DMS 标签、花费/GMV/订单/ROI |
+| `themes.csv` | 同上，UTF-8 BOM，Excel 直接打开 |
+| `sell_keywords.csv` | 卖点关键词汇总（素材数 / 花费 / 订单 / GMV / ROI） |
+| `copy_keywords.csv` | 文案主题关键词汇总 |
+| `README.md` | 字段级数据字典 |
+
+单独重跑导出：`python scripts/export_themes.py`（无分析数据时会安全跳过）。
 
 ## 凭据
 

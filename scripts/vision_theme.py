@@ -21,8 +21,10 @@ import json
 import os
 import re
 import sys
+import threading
 import time
 import urllib.error
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import urllib.request
 from datetime import datetime
 from pathlib import Path
@@ -553,7 +555,8 @@ def main() -> None:
     ap.add_argument("--country", default="", help="只跑某国家，如 ID / MY")
     ap.add_argument("--dry-run", action="store_true", help="不调模型，仅用规则兜底")
     ap.add_argument("--force", action="store_true", help="已有结果也重跑")
-    ap.add_argument("--sleep", type=float, default=0.4, help="每次请求间隔秒数")
+    ap.add_argument("--sleep", type=float, default=0.4, help="每次请求间隔秒数（单线程模式）")
+    ap.add_argument("--workers", type=int, default=1, help="并发线程数（免费档建议 3~4）")
     ap.add_argument("--translate-onimage", action="store_true", help="只给已有图上文案补中文翻译")
     args = ap.parse_args()
 
@@ -589,7 +592,11 @@ def main() -> None:
     ok = skip = fail = 0
     tok_in = tok_out = 0
     consec_fail = 0
+    lock = threading.Lock()
     t0 = time.time()
+
+    # 先筛出真正要跑的条目（已完成的跳过），再交给线程池
+    todo: list[tuple[int, str, dict]] = []
     for idx, row in enumerate(targets, 1):
         seed = seed_of(row)
         cached = items.get(seed)
@@ -600,58 +607,88 @@ def main() -> None:
         if cached and cached.get("mode") == "dry" and args.dry_run and not args.force:
             skip += 1
             continue
+        todo.append((idx, seed, row))
 
+    def run_one(idx: int, seed: str, row: dict):
+        """单条处理：下载封面 -> 压缩 -> 调模型 -> 解析。返回 (seed, theme|None, err, label, tin, tout)。"""
         label = f"[{idx}/{len(targets)}] {seed}"
         try:
             if args.dry_run:
                 theme = dry_themes(row)
                 theme["status"] = "ok"
-            else:
-                raw = fetch_bytes(cover_url(row))
-                jpeg = shrink_jpeg(raw)
-                b64 = base64.b64encode(jpeg).decode("ascii")
-                reply = call_vision(key, b64)
-                choices = reply.get("choices") or []
-                content = (choices[0].get("message") or {}).get("content") if choices else ""
-                if isinstance(content, list):
-                    content = "".join(str(p.get("text", "")) for p in content if isinstance(p, dict))
-                theme = parse_json_reply(str(content or ""))
-                theme["status"] = "ok"
-                theme["imageBytes"] = len(raw)
-                theme["sentBytes"] = len(jpeg)
-                usage = reply.get("usage") or {}
-                theme["usage"] = {
-                    "prompt": usage.get("prompt_tokens"),
-                    "completion": usage.get("completion_tokens"),
-                }
-                tok_in += int(usage.get("prompt_tokens") or 0)
-                tok_out += int(usage.get("completion_tokens") or 0)
-                time.sleep(args.sleep)
+                return seed, theme, None, label, 0, 0
+            raw = fetch_bytes(cover_url(row))
+            jpeg = shrink_jpeg(raw)
+            b64 = base64.b64encode(jpeg).decode("ascii")
+            reply = call_vision(key, b64)
+            choices = reply.get("choices") or []
+            content = (choices[0].get("message") or {}).get("content") if choices else ""
+            if isinstance(content, list):
+                content = "".join(str(p.get("text", "")) for p in content if isinstance(p, dict))
+            theme = parse_json_reply(str(content or ""))
+            theme["status"] = "ok"
+            theme["imageBytes"] = len(raw)
+            theme["sentBytes"] = len(jpeg)
+            usage = reply.get("usage") or {}
+            theme["usage"] = {
+                "prompt": usage.get("prompt_tokens"),
+                "completion": usage.get("completion_tokens"),
+            }
             theme["analyzedAt"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            theme["model"] = MODEL if not args.dry_run else "dry-run"
+            theme["model"] = MODEL
             theme["materialName"] = row.get("materialName", "")
             theme["cover"] = cover_url(row)
+            return seed, theme, None, label, int(usage.get("prompt_tokens") or 0), int(usage.get("completion_tokens") or 0)
+        except Exception as exc:  # noqa: BLE001
+            return seed, None, exc, label, 0, 0
+
+    def handle(seed: str, theme, err, label: str, tin: int, tout: int) -> None:
+        nonlocal ok, fail, tok_in, tok_out, consec_fail
+        if theme is not None and theme.get("status") == "ok":
             items[seed] = theme
             ok += 1
             consec_fail = 0
+            tok_in += tin
+            tok_out += tout
             log(f"{label} OK  {theme.get('scene', '')} / "
                 f"{' '.join(t['zh'] for t in theme.get('themes', [])[:4])}")
-        except Exception as exc:  # noqa: BLE001
+        else:
             fail += 1
             consec_fail += 1
             items[seed] = {
                 "status": "error",
-                "error": str(exc)[:300],
+                "error": str(err)[:300],
                 "analyzedAt": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             }
-            log(f"{label} FAIL {exc}")
+            log(f"{label} FAIL {err}")
+
+    if args.workers > 1 and not args.dry_run and todo:
+        done = 0
+        with ThreadPoolExecutor(max_workers=args.workers) as pool:
+            futures = [pool.submit(run_one, idx, seed, row) for idx, seed, row in todo]
+            for fut in as_completed(futures):
+                seed, theme, err, label, tin, tout = fut.result()
+                with lock:
+                    handle(seed, theme, err, label, tin, tout)
+                    done += 1
+                    if done % 20 == 0:
+                        save_cache(cache)
+                    if consec_fail >= 8:
+                        log(f"    连续 {consec_fail} 条失败（高峰限流），暂停 90s 后继续")
+                        consec_fail = 0
+        save_cache(cache)
+    else:
+        for idx, seed, row in todo:
+            seed, theme, err, label, tin, tout = run_one(idx, seed, row)
+            handle(seed, theme, err, label, tin, tout)
+            time.sleep(args.sleep)
+            if ok and ok % 20 == 0:
+                save_cache(cache)
             if consec_fail >= 5:
                 log("    连续 5 条失败（免费档高峰限流），暂停 120s 后继续")
                 time.sleep(120)
                 consec_fail = 0
-
-        if ok and ok % 20 == 0:
-            save_cache(cache)
+        save_cache(cache)
 
     save_cache(cache)
     elapsed = time.time() - t0
@@ -660,6 +697,12 @@ def main() -> None:
     if tok_in or tok_out:
         log(f"本次 token：输入 {tok_in:,} / 输出 {tok_out:,}（免费档，不计费）")
     log(f"结果写入 {OUT.relative_to(ROOT)}（累计 {len(items)} 条）")
+    # 顺手刷新给其他 AI / BI 用的底稿数据集（data/theme_dataset/）
+    try:
+        import subprocess
+        subprocess.run([sys.executable, str(ROOT / "scripts" / "export_themes.py")], check=False)
+    except Exception as exc:  # noqa: BLE001
+        log(f"底稿导出跳过：{exc}")
 
 
 if __name__ == "__main__":
