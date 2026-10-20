@@ -1394,17 +1394,23 @@
       font-size: 10px;
       color: #7d8b99;
     }
-    /* 概览：卖点 / 文案关键词交叉分析表 */
+    /* 概览：卖点 / 文案关键词交叉分析表（紧凑、单屏放下全部指标列、无横向滚动） */
+    .ai-kw-wrap { max-height: 620px; }
+    .ai-kw-wrap table { min-width: 0; table-layout: fixed; }
+    .ai-kw-wrap th, .ai-kw-wrap td { padding: 5px 8px; font-size: 11.5px; }
+    .ai-kw-wrap th:nth-child(1), .ai-kw-wrap td:nth-child(1) { width: 42%; }
+    .ai-kw-wrap th:not(:first-child), .ai-kw-wrap td.num { text-align: right; white-space: nowrap; }
     .ai-kw {
       display: flex;
       flex-direction: column;
       gap: 1px;
-      min-width: 140px;
+      min-width: 0;
+      overflow-wrap: anywhere;
     }
-    .ai-kw b { font-weight: 700; color: var(--deep); }
+    .ai-kw b { font-weight: 700; font-size: 11.5px; color: var(--deep); }
     .ai-kw i {
       font-style: normal;
-      font-size: 10px;
+      font-size: 9.5px;
       color: #8fa2b5;
       word-break: break-word;
     }
@@ -1715,6 +1721,31 @@
       </div>
     </section>
 
+    <section class="grid2">
+      <div class="panel">
+        <div class="head">
+          <div>
+            <h2>卖点关键词 交叉分析</h2>
+            <div class="small" id="aiKwNote">视觉模型从素材快照提取 · 按当前筛选汇总 · 按花费降序 Top 40</div>
+          </div>
+        </div>
+        <div class="table-wrap ai-kw-wrap">
+          <table id="aiSellTable"></table>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="head">
+          <div>
+            <h2>文案关键词 交叉分析</h2>
+            <div class="small">文案主题词 · 按花费降序 Top 40 · ROI = GMV / 花费</div>
+          </div>
+        </div>
+        <div class="table-wrap ai-kw-wrap">
+          <table id="aiCopyTable"></table>
+        </div>
+      </div>
+    </section>
+
     <section class="grid3">
       <div class="panel">
         <div class="head">
@@ -1752,31 +1783,6 @@
         <div id="tagTreemap" class="tree-map"></div>
         <div class="table-wrap tree-table-wrap">
           <table id="tagHierarchyTable"></table>
-        </div>
-      </div>
-    </section>
-
-    <section class="grid2">
-      <div class="panel">
-        <div class="head">
-          <div>
-            <h2>卖点关键词 交叉分析</h2>
-            <div class="small" id="aiKwNote">视觉模型从素材快照提取 · 按当前筛选汇总 · 按花费降序 Top 40</div>
-          </div>
-        </div>
-        <div class="table-wrap tree-table-wrap">
-          <table id="aiSellTable"></table>
-        </div>
-      </div>
-      <div class="panel">
-        <div class="head">
-          <div>
-            <h2>文案关键词 交叉分析</h2>
-            <div class="small">文案主题词 · 按花费降序 Top 40 · ROI = GMV / 花费</div>
-          </div>
-        </div>
-        <div class="table-wrap tree-table-wrap">
-          <table id="aiCopyTable"></table>
         </div>
       </div>
     </section>
