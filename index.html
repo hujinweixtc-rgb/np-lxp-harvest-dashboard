@@ -1371,18 +1371,13 @@
       font-style: normal;
       font-size: 9px;
       color: #8fa2b5;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      max-width: 62px;
+      word-break: break-word;
     }
     .theme-chip b {
       font-weight: 700;
       font-size: 10.5px;
       color: #1d4a72;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
+      word-break: break-word;
     }
     .theme-chip.mono b { font-size: 10.5px; }
     .theme-chip.pending {
@@ -1398,6 +1393,20 @@
       align-self: center;
       font-size: 10px;
       color: #7d8b99;
+    }
+    /* 概览：卖点 / 文案关键词交叉分析表 */
+    .ai-kw {
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+      min-width: 140px;
+    }
+    .ai-kw b { font-weight: 700; color: var(--deep); }
+    .ai-kw i {
+      font-style: normal;
+      font-size: 10px;
+      color: #8fa2b5;
+      word-break: break-word;
     }
 
     /* 大图弹窗里的完整主题面板 */
@@ -1504,6 +1513,12 @@
       color: #9fd4f5;
       font-weight: 700;
       margin-right: 6px;
+    }
+    .lb-onimage-zh {
+      display: block;
+      margin-top: 3px;
+      color: #7fd0a8;
+      word-break: break-word;
     }
     .lb-themes-foot {
       margin-top: 7px;
@@ -1738,6 +1753,19 @@
         <div class="table-wrap tree-table-wrap">
           <table id="tagHierarchyTable"></table>
         </div>
+      </div>
+    </section>
+
+    <section class="panel tree-section">
+      <div class="head">
+        <div>
+          <h2>卖点 / 文案关键词 交叉分析</h2>
+          <div class="small" id="aiKwNote">视觉模型从素材快照提取 · 按当前筛选汇总 · 词组按花费降序 Top 40</div>
+        </div>
+        <div class="small">ROI = GMV / 花费</div>
+      </div>
+      <div class="table-wrap tree-table-wrap">
+        <table id="aiKeywordTable"></table>
       </div>
     </section>
 
@@ -2361,6 +2389,59 @@
       }</tbody>`;
     }
 
+    // 概览：AI 卖点 / 文案关键词 交叉分析（花费、GMV、订单、ROI）
+    function renderAiKeywords() {
+      const table = $('aiKeywordTable');
+      if (!table) return;
+      const themes = state.themes || {};
+      const groups = { sell: new Map(), copy: new Map() };
+      let analyzed = 0;
+      for (const row of state.filtered) {
+        const item = themes[String(row.materialCode || '').trim()];
+        if (!item || item.status !== 'ok') continue;
+        analyzed += 1;
+        const { sell, copy } = themeGroupsOf(item);
+        const spend = Number(row.spend || 0);
+        const gmv = Number(row.purchaseValue || 0);
+        const orders = Number(row.conversions || 0);
+        for (const [kind, list] of [['sell', sell], ['copy', copy]]) {
+          const seen = new Set();
+          for (const tag of list) {
+            const zh = String(tag.zh || '').trim();
+            if (!zh || seen.has(zh)) continue;
+            seen.add(zh);
+            let bucket = groups[kind].get(zh);
+            if (!bucket) {
+              bucket = { zh, src: String(tag.src || '').trim(), posts: 0, spend: 0, gmv: 0, orders: 0 };
+              groups[kind].set(zh, bucket);
+            }
+            bucket.posts += 1;
+            bucket.spend += spend;
+            bucket.gmv += gmv;
+            bucket.orders += orders;
+          }
+        }
+      }
+      const topOf = map => [...map.values()].sort((a, b) => b.spend - a.spend).slice(0, 40);
+      const rowsOf = (label, list) => list.map(item => {
+        const itemRoi = item.spend ? item.gmv / item.spend : 0;
+        return `<tr>
+          <td><span class="chip neutral">${label}</span></td>
+          <td><div class="ai-kw"><b>${safe(item.zh)}</b>${item.src && item.src !== item.zh ? `<i>${safe(item.src)}</i>` : ''}</div></td>
+          <td class="num">${fmt(item.posts)}</td>
+          <td class="num">${money(item.spend)}</td>
+          <td class="num">${money(item.gmv)}</td>
+          <td class="num">${fmt(item.orders)}</td>
+          <td class="num">${roi(itemRoi)}</td>
+        </tr>`;
+      }).join('');
+      const body = rowsOf('卖点', topOf(groups.sell)) + rowsOf('文案', topOf(groups.copy));
+      const headers = ['组别', '关键词', '素材数', '花费', 'GMV', '订单', 'ROI'];
+      table.innerHTML = `<thead><tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr></thead>`
+        + `<tbody>${body || `<tr><td colspan="${headers.length}" class="empty">当前筛选下暂无已分析素材</td></tr>`}</tbody>`;
+      $('aiKwNote').textContent = `视觉模型从素材快照提取 · 当前筛选内已分析 ${fmt(analyzed)} 条素材 · 卖点/文案各取花费 Top 40`;
+    }
+
     function deltaChip(current, base) {
       if (!state.compareAppliedRange) return '';
       const now = Number(current || 0);
@@ -2815,7 +2896,7 @@
       if (!zh) return '';
       const tip = src && src !== zh ? `${src} / ${zh}` : zh;
       return `<span class="theme-chip ${kind}" title="${safe(tip)}">`
-        + `${src ? `<i>${safe(short(src, 18))}</i>` : ''}<b>${safe(short(zh, 16))}</b></span>`;
+        + `${src ? `<i>${safe(src)}</i>` : ''}<b>${safe(zh)}</b></span>`;
     }
 
     // 卡片上的标签全量铺开（不折叠、不截断），卖点在上、文案关键词在下
@@ -2859,8 +2940,8 @@
       const kv = rows.length
         ? `<dl class="lb-themes-kv">${rows.map(([k, v]) => `<dt>${k}</dt><dd>${safe(v)}</dd>`).join('')}</dl>`
         : '';
-      const onimage = item.onimage
-        ? `<div class="lb-themes-onimage"><em>图上文案</em>${safe(item.onimage)}</div>`
+      const onimage = (item.onimage || item.onimageZh)
+        ? `<div class="lb-themes-onimage"><em>图上文案</em>${safe(item.onimage || '')}${item.onimageZh ? `<span class="lb-onimage-zh">中译：${safe(item.onimageZh)}</span>` : ''}</div>`
         : '';
       const metaBits = [item.model, item.analyzedAt].filter(Boolean).map(safe).join(' · ');
       box.innerHTML = `<div class="lb-themes-head">卖点 &amp; 文案<span>${metaBits}</span></div>`
@@ -3285,6 +3366,7 @@
       renderBars('typeBars', groupRows(state.filtered, 'materialType'), 4, true);
       renderHarvestTags();
       renderHarvestHierarchy();
+      renderAiKeywords();
       renderTable();
       renderDmsMaterials();
       drawTrend();

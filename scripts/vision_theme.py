@@ -41,6 +41,8 @@ OUT = DATA / "image_themes.json"
 API_BASE = os.environ.get("ZHIPU_BASE_URL", "https://open.bigmodel.cn/api/paas/v4").rstrip("/")
 # glm-4.6v-flash 质量更好但白天常被挤爆(429)；glm-4v-flash 同为免费档、更稳
 MODEL = os.environ.get("ZHIPU_VISION_MODEL", "glm-4v-flash")
+# 补译图上文案用的纯文本免费模型
+TEXT_MODEL = os.environ.get("ZHIPU_TEXT_MODEL", "glm-4-flash")
 KEY_ENVS = ("ZHIPU_API_KEY", "ZHIPUAI_API_KEY", "GLM_API_KEY", "ZAI_API_KEY", "BIGMODEL_API_KEY")
 
 # 防欠费：只允许免费档模型（-flash / -flashx / -free 结尾），付费模型直接拒绝运行
@@ -64,6 +66,7 @@ PROMPT = """你是印尼 / 马来西亚 Shopee 电商广告素材分析助手。
   "lang": "画面主要文字语言：id / ms / en / zh / none",
   "scene": "画面场景，中文，10 字以内",
   "onimage": "画面上出现的主要文案原文，最多 2 条用 | 分隔，照抄不改写，没有就空字符串",
+  "onimageZh": "onimage 的简体中文翻译，逐条对应，保留数字与百分比；onimage 为空时留空字符串",
   "sell": [{"src": "源语言卖点词", "zh": "对应中文卖点"}],
   "copy": [{"src": "源语言文案关键词", "zh": "对应中文"}]
 }
@@ -77,6 +80,19 @@ PROMPT = """你是印尼 / 马来西亚 Shopee 电商广告素材分析助手。
 - 同一个词不要重复出现；文案整句不要直接抄，提炼成 2~6 个字的关键词。
 - 整个 JSON 控制在 200 字以内，每个中文词不超过 8 个字，避免超长被截断。
 - 严格合法 JSON，字符串内不要出现换行符。"""
+
+TRANSLATE_PROMPT = """你是印尼语 / 马来语 / 英语到简体中文的电商广告翻译。
+输入是若干条编号的广告文案（可能用 | 分隔多条），请逐条翻译成自然、口语化的简体中文。
+要求：
+- **必须输出中文译文，禁止照抄原文**；品牌名/型号可保留原文。
+- 保留数字、百分比、折扣信息（如 -90.60%、6pcs、买 3 送 1）。
+- 印尼盾价格换算注意：ribu / ribuan = 千，30 ribuan ≈ 3 万印尼盾；juta = 百万。
+- 不要加解释、不要扩写，只翻原文意思。
+- 只输出 JSON 数组，形如 [{"i":1,"zh":"译文"},{"i":2,"zh":"译文"}]，不要 Markdown 代码块。"""
+
+
+def _looks_translated(text: str) -> bool:
+    return len(re.findall(r"[\u4e00-\u9fff]", text or "")) >= 2
 
 
 def log(msg: str) -> None:
@@ -219,6 +235,108 @@ def call_vision(key: str, b64: str, retries: int = 7) -> dict:
     raise RuntimeError(f"模型调用失败: {last}")
 
 
+def call_text(key: str, user_text: str, retries: int = 6) -> dict:
+    """纯文本调用，用于给已分析的图上文案补中文翻译（同样限免费档）。"""
+    payload = {
+        "model": TEXT_MODEL,
+        "messages": [
+            {"role": "system", "content": TRANSLATE_PROMPT},
+            {"role": "user", "content": user_text},
+        ],
+        "temperature": 0.1,
+        "max_tokens": 1400,
+        "thinking": {"type": "disabled"},
+    }
+    body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+    last: Exception | None = None
+    for attempt in range(retries):
+        try:
+            req = urllib.request.Request(
+                f"{API_BASE}/chat/completions",
+                data=body,
+                headers={
+                    "Authorization": f"Bearer {key}",
+                    "Content-Type": "application/json",
+                    "Accept": "application/json",
+                },
+                method="POST",
+            )
+            with urllib.request.urlopen(req, timeout=90) as resp:
+                doc = json.loads(resp.read().decode("utf-8", "replace"))
+            served = str(doc.get("model") or "")
+            if served and not served.lower().endswith(FREE_SUFFIXES):
+                raise RuntimeError(f"服务端返回模型 {served} 不是免费档，已中止以防计费")
+            return doc
+        except urllib.error.HTTPError as exc:
+            detail = exc.read().decode("utf-8", "replace")[:200]
+            last = RuntimeError(f"HTTP {exc.code}: {detail}")
+            if exc.code == 429 and attempt < retries - 1:
+                wait = min(6.0 * (2**attempt), 60.0)
+                log(f"    翻译限流 429，等待 {wait:.0f}s")
+                time.sleep(wait)
+                continue
+            if exc.code in (500, 502, 503, 504) and attempt < retries - 1:
+                time.sleep(2.0 * (attempt + 1))
+                continue
+            raise last
+        except Exception as exc:  # noqa: BLE001
+            last = exc
+            if attempt < retries - 1:
+                time.sleep(1.5 * (attempt + 1))
+                continue
+    raise RuntimeError(f"翻译调用失败: {last}")
+
+
+def translate_onimage(key: str, sleep: float = 0.4, batch: int = 15) -> None:
+    """给缓存里已有 onimage 但缺 onimageZh 的条目批量补中文翻译。"""
+    cache = load_cache()
+    items = cache["items"]
+    todo = [
+        (k, v) for k, v in items.items()
+        if v.get("status") == "ok" and str(v.get("onimage") or "").strip()
+        and not _looks_translated(v.get("onimageZh") or "")
+    ]
+    log(f"待补译 {len(todo)} 条（文本模型 {TEXT_MODEL}，免费档）")
+    if not todo:
+        return
+    done = fail = 0
+    t0 = time.time()
+    for start in range(0, len(todo), batch):
+        chunk = todo[start : start + batch]
+        lines = "\n".join(f"{i}. {v['onimage']}" for i, (_, v) in enumerate(chunk, 1))
+        try:
+            doc = call_text(key, lines)
+            content = doc["choices"][0]["message"]["content"]
+            arr = _extract_json_array(content)
+            mapping = {}
+            for row in arr:
+                try:
+                    mapping[int(row.get("i"))] = str(row.get("zh") or "").strip()
+                except (TypeError, ValueError):
+                    continue
+            for i, (_, v) in enumerate(chunk, 1):
+                zh = mapping.get(i, "")
+                if zh:
+                    v["onimageZh"] = zh
+                    done += 1
+        except Exception as exc:  # noqa: BLE001
+            fail += len(chunk)
+            log(f"  批次 {start // batch + 1} 失败：{exc}")
+        save_cache(cache)
+        log(f"  进度 {min(start + batch, len(todo))}/{len(todo)}（成功 {done}，失败 {fail}）")
+        time.sleep(sleep)
+    log(f"补译完成：成功 {done} / 失败 {fail}，耗时 {(time.time() - t0) / 60:.1f} 分钟")
+
+
+def _extract_json_array(text: str) -> list:
+    cleaned = re.sub(r"^```(?:json)?\s*", "", (text or "").strip())
+    cleaned = re.sub(r"\s*```$", "", cleaned)
+    start, end = cleaned.find("["), cleaned.rfind("]")
+    if start == -1 or end <= start:
+        raise ValueError(f"返回里没有 JSON 数组: {cleaned[:160]}")
+    return json.loads(cleaned[start : end + 1])
+
+
 def _normalize_pairs(raw) -> list[dict]:
     out = []
     for item in raw or []:
@@ -288,7 +406,7 @@ def _clean_tags(tags: list[dict]) -> list[dict]:
 def _salvage_truncated(text: str) -> dict:
     """模型输出撞 max_tokens 被截断时，按字段抽取已生成的部分。"""
     doc: dict = {}
-    for field in ("lang", "scene", "onimage"):
+    for field in ("lang", "scene", "onimage", "onimageZh"):
         m = re.search(rf'"{field}"\s*:\s*"((?:[^"\\]|\\.)*)"', text)
         if m:
             doc[field] = m.group(1)
@@ -330,7 +448,7 @@ def parse_json_reply(text: str) -> dict:
     doc["copy"] = copy[:4]
     # 兼容旧读取逻辑：themes = 卖点 + 文案
     doc["themes"] = (doc["sell"] + doc["copy"])[:8]
-    for field in ("lang", "scene", "subject", "onimage", "style", "hook"):
+    for field in ("lang", "scene", "subject", "onimage", "onimageZh", "style", "hook"):
         doc[field] = str(doc.get(field) or "").strip()
     if not doc["themes"]:
         raise ValueError("模型没有返回 sell / copy")
@@ -436,9 +554,18 @@ def main() -> None:
     ap.add_argument("--dry-run", action="store_true", help="不调模型，仅用规则兜底")
     ap.add_argument("--force", action="store_true", help="已有结果也重跑")
     ap.add_argument("--sleep", type=float, default=0.4, help="每次请求间隔秒数")
+    ap.add_argument("--translate-onimage", action="store_true", help="只给已有图上文案补中文翻译")
     args = ap.parse_args()
 
     key = api_key()
+    if args.translate_onimage:
+        if not key:
+            log("缺少 API Key，无法补译")
+            sys.exit(2)
+        assert_free_model(TEXT_MODEL)
+        log(f"文本模型 {TEXT_MODEL}：免费档，补译不产生费用")
+        translate_onimage(key, sleep=args.sleep)
+        return
     if not args.dry_run and not key:
         log("缺少 API Key。请先执行：export ZHIPU_API_KEY=你的key")
         log("（智谱开放平台 bigmodel.cn 注册 → 实名 → API Keys，GLM-4.6V-Flash 本身免费）")
