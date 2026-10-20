@@ -12,8 +12,11 @@
 #   bash deploy.sh
 set -euo pipefail
 
-# 本机代理会打断 gcloud 的 GCS 上传
-unset http_proxy https_proxy HTTP_PROXY HTTPS_PROXY all_proxy ALL_PROXY || true
+# 本机代理会打断 gcloud 的 GCS 上传；国内网络下 oauth2.googleapis.com 又必须走代理。
+# 默认清掉代理；设 KEEP_PROXY=1 可保留（网络环境导致 token 刷新超时时使用）。
+if [ "${KEEP_PROXY:-0}" != "1" ]; then
+  unset http_proxy https_proxy HTTP_PROXY HTTPS_PROXY all_proxy ALL_PROXY || true
+fi
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$ROOT"
