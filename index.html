@@ -44,6 +44,8 @@
       border-bottom: 1px solid var(--line);
       padding: 14px 0 12px;
     }
+    /* 头部收窄：筛选/状态行下方不要留大片空白 */
+    .top .shell { padding-bottom: 8px; }
     .topline { display: flex; justify-content: space-between; align-items: flex-start; gap: 14px; }
     h1 { margin: 0; font-size: 21px; color: var(--deep); }
     .sub { margin-top: 4px; color: var(--muted); font: 11px var(--mono); }
@@ -183,6 +185,7 @@
     .span2 { grid-column: span 2; }
     .span3 { grid-column: span 3; }
     .span4 { grid-column: span 4; }
+    .span10 { grid-column: span 10; }
     .span12 { grid-column: 1 / -1; }
     /* 指标区间筛选（参考 DMS「介于 最小值 / 最大值」样式） */
     .metric-ranges { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; min-height: 32px; }
@@ -1136,14 +1139,14 @@
       .grid2 { grid-template-columns: 1fr; }
       .grid3 { grid-template-columns: 1fr; }
       .filters { grid-template-columns: repeat(6, minmax(0, 1fr)); }
-      .span2, .span3, .span4 { grid-column: span 3; }
+      .span2, .span3, .span4, .span10 { grid-column: span 3; }
     }
     @media (max-width: 720px) {
       .shell { padding-left: 12px; padding-right: 12px; }
       .topline { display: grid; }
       .top-actions { justify-content: flex-start; }
       .filters { grid-template-columns: 1fr; }
-      .span2, .span3, .span4, .span12 { grid-column: 1 / -1; }
+      .span2, .span3, .span4, .span10, .span12 { grid-column: 1 / -1; }
       .filters.collapsed .field[data-keep] { grid-column: 1 / -1; }
       .kpis { grid-template-columns: repeat(2, minmax(118px, 1fr)); }
       .compare-row input[type="date"] { width: 100%; min-width: min(128px, 100%); }
@@ -1616,13 +1619,6 @@
             <div class="multi-panel" id="countryPanel"></div>
           </div>
         </div>
-        <div class="field span2">
-          <label>素材来源</label>
-          <div class="multi-select" data-key="source">
-            <button class="multi-button" type="button"><span id="sourceLabel">全部来源</span></button>
-            <div class="multi-panel" id="sourcePanel"></div>
-          </div>
-        </div>
         <div class="field span2" data-keep="1">
           <label>产品</label>
           <div class="multi-select" data-key="product">
@@ -1652,7 +1648,7 @@
           <label>操作</label>
           <button id="resetFilters" class="ghost" type="button">重置筛选</button>
         </div>
-        <div class="field span12">
+        <div class="field span10">
           <label>指标区间</label>
           <div class="metric-ranges">
             <div class="metric-range">
@@ -1672,13 +1668,13 @@
             </div>
           </div>
         </div>
-        <details class="advanced-filters" id="advancedFilters">
-          <summary><span>高级筛选</span><span class="advanced-count" id="advancedCount">0 项启用</span></summary>
+        <details class="advanced-filters" id="advancedFilters" open>
+          <summary><span>高级筛选</span><span class="advanced-count" id="advancedCount">1 项启用</span></summary>
           <div class="advanced-body">
             <div class="field compare-field">
               <label>开启环比对比</label>
-              <div class="compare-row disabled" id="compareRow">
-                <label class="switch"><input id="compareEnabled" type="checkbox"><span></span></label>
+              <div class="compare-row" id="compareRow">
+                <label class="switch"><input id="compareEnabled" type="checkbox" checked><span></span></label>
                 <span class="compare-off">未启用</span>
                 <button type="button" class="compare-mode active" data-mode="previous">上期</button>
                 <button type="button" class="compare-mode" data-mode="month">上月同期</button>
@@ -1896,7 +1892,6 @@
       dmsSortKey: 'spend',
       brand: [],
       country: [],
-      source: [],
       product: [],
       tag1: [],
       tag2: [],
@@ -1909,7 +1904,7 @@
       spendMin: null, spendMax: null,
       ordersMin: null, ordersMax: null,
       roiMin: null, roiMax: null,
-      compareEnabled: false,
+      compareEnabled: true,
       compareMode: 'previous',
       compareFrom: '',
       compareTo: '',
@@ -1928,9 +1923,9 @@
       sortDir: -1,
       productSortKey: 'spend',
       productSortDir: -1,
-      options: { brand: [], country: [], source: [], product: [], tag1: [], tag2: [] },
-      multiSearch: { brand: '', country: '', source: '', product: '', tag1: '', tag2: '' },
-      multiMode: { brand: 'default', country: 'default', source: 'default', product: 'default', tag1: 'default', tag2: 'default' },
+      options: { brand: [], country: [], product: [], tag1: [], tag2: [] },
+      multiSearch: { brand: '', country: '', product: '', tag1: '', tag2: '' },
+      multiMode: { brand: 'default', country: 'default', product: 'default', tag1: 'default', tag2: 'default' },
       initialized: false
     };
 
@@ -2032,11 +2027,6 @@
 
     function matchesMulti(key, value) {
       return !state[key].length || state[key].includes(value || '未标注');
-    }
-
-    function sourceLabelOf(row) {
-      const map = { '1': '剪辑素材（JJ）', '2': '设计素材（SC）' };
-      return map[String(row.dataFromType || '')] || '未标注';
     }
 
     function materialLabel(row) {
@@ -2145,7 +2135,6 @@
         if (!matchesMulti('country', row.country)) continue;
         if (!matchesMaterialCreated(row)) continue;
         if (!state.materialTypes.includes(row.materialType)) continue;
-        if (!matchesMulti('source', sourceLabelOf(row))) continue;
         if (!matchesMulti('product', row.product)) continue;
         if (!matchesMulti('tag1', row.tag1)) continue;
         if (!matchesMulti('tag2', row.tag2)) continue;
@@ -2709,7 +2698,6 @@
       if (!withinRange(Number(row.roi || 0), state.roiMin, state.roiMax)) return false;
       if (!matchesMulti('brand', row.brand)) return false;
       if (!matchesMulti('country', row.country)) return false;
-      if (!matchesMulti('source', sourceLabelOf(row))) return false;
       if (!matchesMulti('product', row.product)) return false;
       if (!state.materialTypes.includes(row.materialType)) return false;
       if (state.materialFrom || state.materialTo) {
@@ -3428,7 +3416,6 @@
     function fallbackText(key) {
       if (key === 'brand') return '全部品牌';
       if (key === 'country') return '全部国家';
-      if (key === 'source') return '全部来源';
       if (key === 'product') return '全部产品';
       if (key === 'tag1') return '全部一级标签';
       return '全部主题';
@@ -3437,7 +3424,6 @@
     function multiSearchLabel(key) {
       if (key === 'brand') return '搜索品牌';
       if (key === 'country') return '搜索国家';
-      if (key === 'source') return '搜索来源';
       if (key === 'product') return '搜索产品';
       if (key === 'tag1') return '搜索一级标签';
       return '搜索主题';
@@ -3479,14 +3465,11 @@
         .sort((a, b) => a.localeCompare(b, 'zh-Hans-CN'));
       state.options.brand = collect('brand');
       state.options.country = collect('country');
-      state.options.source = [...new Set(state.rows.map(row => sourceLabelOf(row)))]
-        .sort((a, b) => a.localeCompare(b, 'zh-Hans-CN'));
       state.options.product = collect('product');
       state.options.tag1 = collect('tag1');
       state.options.tag2 = collect('tag2');
       renderMulti('brand', '全部品牌');
       renderMulti('country', '全部国家');
-      renderMulti('source', '全部来源');
       renderMulti('product', '全部产品');
       renderMulti('tag1', '全部一级标签');
       renderMulti('tag2', '全部主题');
@@ -3516,12 +3499,11 @@
     function resetFilters() {
       state.brand = [];
       state.country = [];
-      state.source = [];
       state.product = [];
       state.tag1 = [];
       state.tag2 = [];
-      state.multiSearch = { brand: '', country: '', source: '', product: '', tag1: '', tag2: '' };
-      state.multiMode = { brand: 'default', country: 'default', source: 'default', product: 'default', tag1: 'default', tag2: 'default' };
+      state.multiSearch = { brand: '', country: '', product: '', tag1: '', tag2: '' };
+      state.multiMode = { brand: 'default', country: 'default', product: 'default', tag1: 'default', tag2: 'default' };
       state.materialTypes = [...DEFAULT_TYPES];
       $('from').value = state.raw?.filters?.performanceFrom || '';
       $('to').value = state.raw?.filters?.performanceTo || '';
@@ -3531,13 +3513,13 @@
       state.spendMin = state.spendMax = null;
       state.ordersMin = state.ordersMax = null;
       state.roiMin = state.roiMax = null;
-      state.compareEnabled = false;
+      state.compareEnabled = true;
       state.compareMode = 'previous';
       state.compareFrom = '';
       state.compareTo = '';
       state.compareFiltered = [];
       state.compareAppliedRange = null;
-      $('compareEnabled').checked = false;
+      $('compareEnabled').checked = true;
       $('compareFrom').value = '';
       $('compareTo').value = '';
       $('search').value = '';
@@ -3552,7 +3534,6 @@
       const params = new URLSearchParams();
       if (state.brand.length) params.set('brand', state.brand.join('|'));
       if (state.country.length) params.set('country', state.country.join('|'));
-      if (state.source.length) params.set('source', state.source.join('|'));
       if (state.from) params.set('from', state.from);
       if (state.to) params.set('to', state.to);
       if (state.materialFrom) params.set('materialFrom', state.materialFrom);
@@ -3593,8 +3574,6 @@
       $('materialTo').value = params.get('materialTo') || '';
       $('search').value = params.get('q') || '';
       state.product = params.get('product') ? params.get('product').split('|') : [];
-      const sourceParam = params.get('source');
-      state.source = sourceParam && sourceParam !== 'ALL' ? sourceParam.split('|') : [];
       state.tag1 = params.get('tag1') ? params.get('tag1').split('|') : [];
       state.tag2 = params.get('tag2') ? params.get('tag2').split('|') : [];
       const parseRange = key => {
@@ -3610,11 +3589,10 @@
       $('ordersMax').value = state.ordersMax ?? '';
       $('roiMin').value = state.roiMin ?? '';
       $('roiMax').value = state.roiMax ?? '';
-      state.multiSearch = { brand: '', country: '', source: '', product: '', tag1: '', tag2: '' };
+      state.multiSearch = { brand: '', country: '', product: '', tag1: '', tag2: '' };
       state.multiMode = {
         brand: state.brand.length ? 'custom' : 'default',
         country: state.country.length ? 'custom' : 'default',
-        source: state.source.length ? 'custom' : 'default',
         product: state.product.length ? 'custom' : 'default',
         tag1: state.tag1.length ? 'custom' : 'default',
         tag2: state.tag2.length ? 'custom' : 'default'
@@ -3622,7 +3600,7 @@
       const typeParam = params.get('type');
       if (typeParam) state.materialTypes = typeParam.split('|').filter(value => DEFAULT_TYPES.includes(value));
       if (!state.materialTypes.length) state.materialTypes = [...DEFAULT_TYPES];
-      state.compareEnabled = params.get('compare') === '1';
+      state.compareEnabled = params.get('compare') !== '0';
       state.compareMode = ['previous', 'month', 'custom'].includes(params.get('compareMode')) ? params.get('compareMode') : 'previous';
       state.compareFrom = params.get('compareFrom') || '';
       state.compareTo = params.get('compareTo') || '';
@@ -3953,19 +3931,18 @@
       if (resetFilters) {
         state.brand = [];
         state.country = [];
-        state.source = [];
-        state.product = [];
+          state.product = [];
         state.tag1 = [];
         state.tag2 = [];
         $('from').value = state.raw.filters?.performanceFrom || '';
         $('to').value = state.raw.filters?.performanceTo || '';
         $('materialFrom').value = '';
         $('materialTo').value = '';
-        state.compareEnabled = false;
+        state.compareEnabled = true;
         state.compareMode = 'previous';
         state.compareFrom = '';
         state.compareTo = '';
-        $('compareEnabled').checked = false;
+        $('compareEnabled').checked = true;
         $('compareFrom').value = '';
         $('compareTo').value = '';
         $('search').value = '';
