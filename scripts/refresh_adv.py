@@ -154,41 +154,44 @@ def backfill_trend(client, codes, trend_dir, detail_dir, rng, log):
     return done
 
 
+def run_combo(combo, brand, host, brand_id, country, tenant, token, buckets, today, log):
+    """单个 combo：按月桶拉素材窗口 + 回补 trend/detail。返回结果 dict。"""
+    client = Dms(host, brand_id, country, tenant, token)
+    out = []
+    all_codes = set()
+    for rng in buckets:
+        tag = f"{rng['start']}~{rng['end']}"
+        rows = pull_window(client, rng, log, tag)
+        spend = sum(float(r.get("spend") or 0) for r in rows)
+        orders = sum(float(r.get("orderCount") or 0) for r in rows)
+        log(f"      {tag}: rows={len(rows)} spend={spend:.2f} orders={orders:.0f}")
+        out.append({"window": rng, "rows": rows})
+        for r in rows:
+            c = (r.get("materialCode") or "").strip()
+            if c and (float(r.get("spend") or 0) > 0 or float(r.get("orderCount") or 0) > 0):
+                all_codes.add(c)
+    payload = {"fetchedAt": time.strftime("%Y-%m-%d %H:%M:%S"), "buckets": out}
+    path = os.path.join(RAW, combo, "advertised.json")
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w", encoding="utf-8") as fh:
+        json.dump(payload, fh, ensure_ascii=False)
+    log(f"  [{combo}] saved {sum(len(b['rows']) for b in out)} rows across {len(out)} buckets")
+    backfill_trend(client, all_codes,
+                   os.path.join(RAW, combo, "trend"), os.path.join(RAW, combo, "detail"),
+                   {"start": "2025-06-01", "end": today.isoformat()}, log)
+    return {"combo": combo, "buckets": [len(b["rows"]) for b in out]}
+
+
 def main():
     only = sys.argv[1:] or None
     today = date.today()
     buckets = adv_buckets(today)
     print("buckets:", buckets, flush=True)
-    results = []
-    for combo, brand, host, brand_id, country, tenant, token in COMBOS:
-        if only and combo not in only:
-            continue
-        client = Dms(host, brand_id, country, tenant, token)
-        log = lambda m: print(m, flush=True)  # noqa: E731
-        out = []
-        all_codes = set()
-        for rng in buckets:
-            tag = f"{rng['start']}~{rng['end']}"
-            rows = pull_window(client, rng, lambda m: print(m, flush=True), tag)
-            spend = sum(float(r.get("spend") or 0) for r in rows)
-            orders = sum(float(r.get("orderCount") or 0) for r in rows)
-            log(f"      {tag}: rows={len(rows)} spend={spend:.2f} orders={orders:.0f}")
-            out.append({"window": rng, "rows": rows})
-            for r in rows:
-                c = (r.get("materialCode") or "").strip()
-                if c and (float(r.get("spend") or 0) > 0 or float(r.get("orderCount") or 0) > 0):
-                    all_codes.add(c)
-        payload = {"fetchedAt": time.strftime("%Y-%m-%d %H:%M:%S"), "buckets": out}
-        path = os.path.join(RAW, combo, "advertised.json")
-        os.makedirs(os.path.dirname(path), exist_ok=True)
-        with open(path, "w", encoding="utf-8") as fh:
-            json.dump(payload, fh, ensure_ascii=False)
-        log(f"  [{combo}] saved {sum(len(b['rows']) for b in out)} rows across {len(out)} buckets")
-        backfill_trend(client, all_codes,
-                       os.path.join(RAW, combo, "trend"), os.path.join(RAW, combo, "detail"),
-                       {"start": "2025-06-01", "end": today.isoformat()},
-                       lambda m: print(m, flush=True))
-        results.append({"combo": combo, "buckets": [len(b["rows"]) for b in out]})
+    combos = [c for c in COMBOS if not only or c[0] in only]
+    log = lambda m: print(m, flush=True)  # noqa: E731
+    # 4 个 combo 并行（各自独立 token），整体耗时 = 最慢的那个
+    with ThreadPoolExecutor(max_workers=min(4, max(1, len(combos)))) as pool:
+        results = list(pool.map(lambda c: run_combo(*c, buckets, today, log), combos))
     print(json.dumps(results, ensure_ascii=False), flush=True)
 
 

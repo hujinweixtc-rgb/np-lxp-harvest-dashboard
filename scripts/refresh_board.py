@@ -14,6 +14,7 @@ import json
 import os
 import sys
 import time
+from concurrent.futures import ThreadPoolExecutor
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from dms_api import COMBOS, Dms  # noqa: E402
@@ -62,12 +63,12 @@ def main():
     today = time.strftime("%Y-%m-%d")
     rng = {"start": RANGE_START, "end": today}
     only = sys.argv[1:] or None
-    results = []
-    for combo, brand, host, brand_id, country, tenant, token in COMBOS:
-        if only and combo not in only:
-            continue
-        results.append(refresh_combo(combo, brand, host, brand_id, country, tenant, token, rng,
-                                     lambda m: print(m, flush=True)))
+    combos = [c for c in COMBOS if not only or c[0] in only]
+    # 4 个 combo 并行拉取（各自独立 token/接口），整体耗时 = 最慢的那个
+    with ThreadPoolExecutor(max_workers=min(4, max(1, len(combos)))) as pool:
+        results = list(pool.map(
+            lambda c: refresh_combo(*c, rng, lambda m: print(m, flush=True)), combos
+        ))
     print(json.dumps(results, ensure_ascii=False), flush=True)
 
 

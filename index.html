@@ -1563,7 +1563,7 @@
         <div class="top-actions">
           <span class="badge version-badge" id="appVersion">local</span>
           <div class="refresh-wrap" id="refreshWrap" hidden>
-            <button id="refreshData" type="button" title="单击：快速刷新（约 2-3 分钟，重拉最新投放窗口与大盘）&#10;Shift + 单击：完整刷新（约 6-8 分钟，含广告表与全量趋势重拉）">刷新数据</button>
+            <button id="refreshData" type="button" title="单击：快速刷新（约 1-2 分钟，4 个品牌市场并行拉取）&#10;Shift + 单击：完整刷新（约 4-5 分钟，含广告表与全量趋势重拉）">刷新数据</button>
             <span class="refresh-progress" id="refreshProgress" hidden></span>
           </div>
           <button id="shareLink" type="button">分享链接</button>
@@ -3719,7 +3719,11 @@
         return;
       }
       if (job.running) {
-        setRefreshProgress(`[${job.index}/${job.total}] ${job.stage || '处理中'}…`);
+        const sec = job.startedAt
+          ? Math.max(0, Math.round((Date.now() - new Date(job.startedAt.replace(/-/g, '/')).getTime()) / 1000))
+          : 0;
+        const elapsed = sec >= 60 ? `${Math.floor(sec / 60)} 分 ${sec % 60} 秒` : `${sec} 秒`;
+        setRefreshProgress(`[${job.index}/${job.total}] ${job.stage || '处理中'}…（已 ${elapsed}）`);
         REFRESH.timer = setTimeout(pollRefresh, 3000);
         return;
       }
