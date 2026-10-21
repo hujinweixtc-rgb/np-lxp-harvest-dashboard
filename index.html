@@ -1282,7 +1282,7 @@
     .lb-hint {
       position: absolute;
       left: 50%;
-      bottom: 62px;
+      top: 12px;
       transform: translateX(-50%);
       padding: 5px 12px;
       border-radius: 999px;
@@ -1433,23 +1433,28 @@
 
     /* 大图弹窗里的完整主题面板 */
     .lb-themes {
-      position: absolute;
-      left: 16px;
-      bottom: 66px;
-      z-index: 3;
-      width: min(430px, 42vw);
-      max-height: 48vh;
+      /* 不再悬浮在图片上：作为图片下方的独立信息条（卖点/文案左右两栏，压低高度） */
+      flex: 0 0 auto;
+      width: auto;
+      max-height: 30vh;
       overflow: auto;
-      padding: 12px 14px;
-      border-radius: 12px;
-      background: rgba(18, 26, 38, .92);
-      border: 1px solid rgba(255, 255, 255, .13);
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      column-gap: 28px;
+      align-content: start;
+      padding: 10px 16px;
+      border-radius: 0;
+      background: rgba(15, 22, 34, .97);
+      border-top: 1px solid rgba(255, 255, 255, .13);
       color: #e6edf5;
       font-size: 12px;
       line-height: 1.55;
-      box-shadow: 0 8px 24px rgba(0, 0, 0, .35);
     }
     .lb-themes[hidden] { display: none; }
+    .lb-themes-head,
+    .lb-themes-kv,
+    .lb-themes-onimage,
+    .lb-themes-foot { grid-column: 1 / -1; }
     .lb-themes-head {
       display: flex;
       align-items: baseline;
@@ -1502,18 +1507,14 @@
       font-style: normal;
       font-size: 10px;
       color: #9db2c7;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
+      word-break: break-word;
     }
     .lb-theme-item b {
       display: block;
       font-size: 12px;
       font-weight: 700;
       color: #f1f5f9;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
+      word-break: break-word;
     }
     .lb-themes-kv {
       display: grid;
@@ -1548,7 +1549,7 @@
       color: #7d92a8;
     }
     @media (max-width: 720px) {
-      .lb-themes { width: auto; right: 16px; max-height: 34vh; }
+      .lb-themes { max-height: 40vh; grid-template-columns: 1fr; }
     }
   </style>
 </head>
@@ -1863,6 +1864,7 @@
       <img id="lbImage" alt="" hidden>
       <video id="lbVideo" playsinline controls hidden></video>
     </div>
+    <div class="lb-themes" id="lbThemes" hidden></div>
     <div class="lb-bar">
       <span class="lb-title" id="lbTitle"></span>
       <span class="lb-badges" id="lbBadges"></span>
@@ -1875,7 +1877,6 @@
       <a class="lb-btn lb-link" id="lbDownload" href="#" target="_blank" rel="noopener" download>下载原图</a>
       <button type="button" class="lb-btn lb-close" id="lbClose" title="关闭（Esc）">✕</button>
     </div>
-    <div class="lb-themes" id="lbThemes" hidden></div>
     <div class="lb-hint" id="lbHint">滚轮缩放 · 拖拽平移 · 点击空白处关闭</div>
   </div>
 
