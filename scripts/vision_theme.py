@@ -612,33 +612,60 @@ def main() -> None:
     def run_one(idx: int, seed: str, row: dict):
         """单条处理：下载封面 -> 压缩 -> 调模型 -> 解析。返回 (seed, theme|None, err, label, tin, tout)。"""
         label = f"[{idx}/{len(targets)}] {seed}"
-        try:
-            if args.dry_run:
-                theme = dry_themes(row)
-                theme["status"] = "ok"
-                return seed, theme, None, label, 0, 0
-            raw = fetch_bytes(cover_url(row))
-            jpeg = shrink_jpeg(raw)
-            b64 = base64.b64encode(jpeg).decode("ascii")
+
+        def analyze(image_bytes: bytes):
+            """把一张图丢给模型并解析成 theme 字典。"""
+            b64 = base64.b64encode(image_bytes).decode("ascii")
             reply = call_vision(key, b64)
             choices = reply.get("choices") or []
             content = (choices[0].get("message") or {}).get("content") if choices else ""
             if isinstance(content, list):
                 content = "".join(str(p.get("text", "")) for p in content if isinstance(p, dict))
-            theme = parse_json_reply(str(content or ""))
-            theme["status"] = "ok"
-            theme["imageBytes"] = len(raw)
-            theme["sentBytes"] = len(jpeg)
+            parsed = parse_json_reply(str(content or ""))
             usage = reply.get("usage") or {}
-            theme["usage"] = {
+            parsed["usage"] = {
                 "prompt": usage.get("prompt_tokens"),
                 "completion": usage.get("completion_tokens"),
             }
+            return parsed, int(usage.get("prompt_tokens") or 0), int(usage.get("completion_tokens") or 0)
+
+        try:
+            if args.dry_run:
+                theme = dry_themes(row)
+                theme["status"] = "ok"
+                return seed, theme, None, label, 0, 0
+            cover = cover_url(row)
+            raw = fetch_bytes(cover)
+            jpeg = shrink_jpeg(raw)
+            first_err = None
+            try:
+                theme, tin, tout = analyze(jpeg)
+            except Exception as exc:  # noqa: BLE001  首帧没读出东西时先记下，换帧再试
+                theme, first_err, tin, tout = None, exc, 0, 0
+            sent, image_bytes = len(jpeg), len(raw)
+            # 视频只取了一帧：这一帧没有文案/卖点时换另一个时间点再试一次
+            if (theme is None or not (theme.get("sell") or theme.get("copy"))) and row.get("isVideo"):
+                alt = re.sub(r"t_\d+", "t_3600", cover)
+                if alt != cover:
+                    try:
+                        raw2 = fetch_bytes(alt)
+                        jpeg2 = shrink_jpeg(raw2)
+                        theme2, tin2, tout2 = analyze(jpeg2)
+                        if theme2.get("sell") or theme2.get("copy"):
+                            theme, tin, tout = theme2, tin + tin2, tout + tout2
+                            cover, sent, image_bytes = alt, len(jpeg2), len(raw2)
+                    except Exception:  # noqa: BLE001
+                        pass
+            if theme is None:
+                raise first_err or RuntimeError("模型没有返回 sell / copy")
+            theme["status"] = "ok"
+            theme["imageBytes"] = image_bytes
+            theme["sentBytes"] = sent
             theme["analyzedAt"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             theme["model"] = MODEL
             theme["materialName"] = row.get("materialName", "")
-            theme["cover"] = cover_url(row)
-            return seed, theme, None, label, int(usage.get("prompt_tokens") or 0), int(usage.get("completion_tokens") or 0)
+            theme["cover"] = cover
+            return seed, theme, None, label, tin, tout
         except Exception as exc:  # noqa: BLE001
             return seed, None, exc, label, 0, 0
 

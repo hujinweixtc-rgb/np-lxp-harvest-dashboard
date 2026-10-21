@@ -624,6 +624,16 @@ def collect(combo):
             spend, gmv = round(ad_spend, 4), round(ad_gmv, 4)
 
         mtype = meta.get("materialType")
+        # 素材库缺失 / 详情 stats 里没带图时，回退到广告记录上的 ossFiles：
+        # 有些素材（如 2026-10-13 新建的 SC2610130055~60）只在广告记录里挂了图片，
+        # 详情 stats[0].ossFiles 是空数组，不回退就会既没快照、也没法跑视觉主题词。
+        if not (meta.get("ossFiles") or []):
+            # 依次回退：广告记录 ads.json → 素材分析页 advertisedPage（后者覆盖新建素材）
+            for _cand in list(ad_list) + [adv_row]:
+                if isinstance(_cand, dict) and _cand.get("ossFiles"):
+                    meta = dict(meta)
+                    meta["ossFiles"] = _cand["ossFiles"]
+                    break
         preview, download, poster, is_video = media_urls(meta)
         # 类型 3 实际也是视频文件；以 OSS 文件为准，避免误判
         type_label = "视频" if is_video else MATERIAL_TYPE.get(mtype) or "图文"
