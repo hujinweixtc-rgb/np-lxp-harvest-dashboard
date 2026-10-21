@@ -78,10 +78,53 @@ PROMPT = """你是印尼 / 马来西亚 Shopee 电商广告素材分析助手。
 - copy 是**文案主题关键词**，给 2~4 个，是这条广告在讲什么（如：限时折扣、买三更划算、告别油光、男士专属、夏日轻薄、真实测评）。
 - 严禁输出：品牌名（NEXT PRIME、Lumi Xpert、Shopee 等）、产品品类名（洗面奶、洁面乳、香皂、精华、洗发水、护肤品、面膜）、包装规格（6pcs、130K、50ribu）、
   以及没有信息量的泛词（护肤、面部护理、产品展示、效果、男士）。这些看图就知道，不需要标签。
-- src 用画面文字的原始语言（印尼语 / 马来语）；画面确实没有文字时，用该语言对卖点的自然表达。zh 必须是对应的准确中文。
+- src 必须是**画面上真实出现的拉丁字母原文**（原样照抄，不改写、不翻译）；画面确实没有可读文字时，
+  src 一律留空字符串 ""，只给 zh。**严禁把中文写进 src**，也禁止把英文原词改写成别的语言。
+- zh 必须是对应的准确中文。
 - 同一个词不要重复出现；文案整句不要直接抄，提炼成 2~6 个字的关键词。
 - 整个 JSON 控制在 200 字以内，每个中文词不超过 8 个字，避免超长被截断。
 - 严格合法 JSON，字符串内不要出现换行符。"""
+
+# 市场口径：马来语与印尼语在护肤文案上高度重合，不点明市场模型会混用
+# （2026-10-21 实测：MY 素材 6% 的 src 直接写成中文，部分写成印尼语说法）。
+# 这里按素材实际投放市场追加约束。
+MARKET_PROMPT = {
+    "MY": """
+
+【本条素材投放市场：马来西亚（MY）】
+- 画面文字通常是马来语或英语。src 用马来语原词，禁止印尼语特有说法：
+  wajah→muka、bisa→boleh、diskon→diskaun、gratis→percuma、bikin→buat、banget→sangat、
+  udah→dah、kualitas→kualiti、ongkir→penghantaran、memudarkan→pudarkan。
+- lang 只能是 ms / en / zh / none；马来语请写 ms，不要写 id。""",
+    "ID": """
+
+【本条素材投放市场：印度尼西亚（ID）】
+- 画面文字通常是印尼语或英语。src 用印尼语原词，不要写成马来语说法：
+  muka→wajah、boleh→bisa、diskaun→diskon、percuma→gratis、kualiti→kualitas、pudarkan→memudarkan。
+- lang 只能是 id / en / zh / none。""",
+}
+
+
+def build_prompt(country: str) -> str:
+    """基础提示词 + 该素材投放市场的语言口径。"""
+    return PROMPT + MARKET_PROMPT.get(str(country or "").strip().upper(), "")
+
+
+CJK_RE = re.compile(r"[\u4e00-\u9fff]")
+
+
+def normalize_theme(theme: dict, country: str) -> dict:
+    """兜底纠正模型输出：MY 不出 lang=id；src 不出现中文（清空 src，只留中文标签）。"""
+    if not isinstance(theme, dict):
+        return theme
+    if str(country or "").strip().upper() == "MY" and str(theme.get("lang") or "").strip().lower() == "id":
+        theme["lang"] = "ms"
+    for group in ("sell", "copy"):
+        for tag in theme.get(group) or []:
+            if isinstance(tag, dict) and CJK_RE.search(str(tag.get("src") or "")):
+                tag["src"] = ""
+    return theme
+
 
 TRANSLATE_PROMPT = """你是印尼语 / 马来语 / 英语到简体中文的电商广告翻译。
 输入是若干条编号的广告文案（可能用 | 分隔多条），请逐条翻译成自然、口语化的简体中文。
@@ -179,7 +222,7 @@ def shrink_jpeg(raw: bytes) -> bytes:
     return buf.getvalue()
 
 
-def call_vision(key: str, b64: str, retries: int = 7) -> dict:
+def call_vision(key: str, b64: str, prompt: str = PROMPT, retries: int = 7) -> dict:
     payload = {
         "model": MODEL,
         "messages": [
@@ -187,7 +230,7 @@ def call_vision(key: str, b64: str, retries: int = 7) -> dict:
                 "role": "user",
                 "content": [
                     {"type": "image_url", "image_url": {"url": b64}},
-                    {"type": "text", "text": PROMPT},
+                    {"type": "text", "text": prompt},
                 ],
             }
         ],
@@ -547,6 +590,52 @@ def pick_rows(rows: list[dict], args) -> list[dict]:
     return picked[: args.limit]
 
 
+def fix_existing() -> None:
+    """不调模型，按市场口径清洗已有缓存：MY 的 lang=id 改成 ms、src 里的中文清空。"""
+    cache = load_cache()
+    items = cache["items"]
+    country_of: dict[str, str] = {}
+    if SRC.exists():
+        try:
+            doc = json.loads(SRC.read_text(encoding="utf-8"))
+            for row in doc.get("rows") or []:
+                code = seed_of(row)
+                if code:
+                    country_of[code] = str(row.get("country") or "")
+        except Exception as exc:  # noqa: BLE001
+            log(f"读取素材市场失败（继续，仅按空市场清洗）：{exc}")
+    lang_fixed = src_cleared = touched = 0
+    for code, item in items.items():
+        if not isinstance(item, dict) or item.get("status") != "ok":
+            continue
+        lang_before = str(item.get("lang") or "").strip().lower()
+        src_before = sum(
+            1 for group in ("sell", "copy")
+            for tag in (item.get(group) or [])
+            if isinstance(tag, dict) and CJK_RE.search(str(tag.get("src") or ""))
+        )
+        if not src_before and not (lang_before == "id" and country_of.get(code, "").upper() == "MY"):
+            continue
+        normalize_theme(item, country_of.get(code, ""))
+        lang_after = str(item.get("lang") or "").strip().lower()
+        src_after = sum(
+            1 for group in ("sell", "copy")
+            for tag in (item.get(group) or [])
+            if isinstance(tag, dict) and CJK_RE.search(str(tag.get("src") or ""))
+        )
+        if lang_after != lang_before:
+            lang_fixed += 1
+        src_cleared += max(0, src_before - src_after)
+        touched += 1
+    save_cache(cache)
+    log(f"清洗完成：{touched} 条素材受影响（lang 修正 {lang_fixed} 条，清空中文 src {src_cleared} 个）")
+    try:
+        import subprocess
+        subprocess.run([sys.executable, str(ROOT / "scripts" / "export_themes.py")], check=False)
+    except Exception as exc:  # noqa: BLE001
+        log(f"底稿导出跳过：{exc}")
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--limit", type=int, default=300, help="按花费降序取前 N 条（默认 300）")
@@ -554,11 +643,17 @@ def main() -> None:
     ap.add_argument("--brand", default="", help="只跑某品牌，如 NP / LXP")
     ap.add_argument("--country", default="", help="只跑某国家，如 ID / MY")
     ap.add_argument("--dry-run", action="store_true", help="不调模型，仅用规则兜底")
+    ap.add_argument("--normalize", action="store_true",
+                    help="不调模型，只按市场口径清洗已有缓存（MY 的 lang=id→ms、清空中文 src）")
     ap.add_argument("--force", action="store_true", help="已有结果也重跑")
     ap.add_argument("--sleep", type=float, default=0.4, help="每次请求间隔秒数（单线程模式）")
     ap.add_argument("--workers", type=int, default=1, help="并发线程数（免费档建议 3~4）")
     ap.add_argument("--translate-onimage", action="store_true", help="只给已有图上文案补中文翻译")
     args = ap.parse_args()
+
+    if args.normalize:
+        fix_existing()
+        return
 
     key = api_key()
     if args.translate_onimage:
@@ -612,11 +707,12 @@ def main() -> None:
     def run_one(idx: int, seed: str, row: dict):
         """单条处理：下载封面 -> 压缩 -> 调模型 -> 解析。返回 (seed, theme|None, err, label, tin, tout)。"""
         label = f"[{idx}/{len(targets)}] {seed}"
+        prompt = build_prompt(row.get("country"))
 
         def analyze(image_bytes: bytes):
             """把一张图丢给模型并解析成 theme 字典。"""
             b64 = base64.b64encode(image_bytes).decode("ascii")
-            reply = call_vision(key, b64)
+            reply = call_vision(key, b64, prompt)
             choices = reply.get("choices") or []
             content = (choices[0].get("message") or {}).get("content") if choices else ""
             if isinstance(content, list):
@@ -658,6 +754,7 @@ def main() -> None:
                         pass
             if theme is None:
                 raise first_err or RuntimeError("模型没有返回 sell / copy")
+            normalize_theme(theme, row.get("country"))
             theme["status"] = "ok"
             theme["imageBytes"] = image_bytes
             theme["sentBytes"] = sent
