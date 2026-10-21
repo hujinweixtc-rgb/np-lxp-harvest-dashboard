@@ -2998,16 +2998,18 @@
       const isVideo = dmsIsVideoUrl(url) || dmsIsVideoUrl(hiRes) || row.materialType === '视频';
       // 点击封面 → 高清大图预览；视频则弹出播放器
       const lb = lightboxAttrs(isVideo ? hiRes : hiRes, url, row, isVideo);
+      // 图片/视频加载成功后移除兜底文字，避免 contain 留白或透明区域把文字透出来
+      const dropFallback = `this.previousElementSibling&&this.previousElementSibling.classList.contains('dms-fallback-cover')&&this.previousElementSibling.remove()`;
       if (dmsIsVideoUrl(url)) {
         const poster = dmsVideoPosterUrl(url);
         const playUrl = dmsProxyUrl(url);
         if (poster) {
           const fallbackPoster = dmsVideoPosterUrl(url, 3500);
-          return `<a class="dms-video-wrap" href="${safe(playUrl)}" target="_blank" rel="noopener"${lb}>${fallback}<img src="${safe(dmsProxyUrl(poster))}" data-fallback="${safe(dmsProxyUrl(fallbackPoster))}" alt="" loading="lazy" onerror="if(this.dataset.fallback){this.src=this.dataset.fallback;this.dataset.fallback=''}else{this.remove()}"><span class="dms-play-badge">播放</span></a>`;
+          return `<a class="dms-video-wrap" href="${safe(playUrl)}" target="_blank" rel="noopener"${lb}>${fallback}<img src="${safe(dmsProxyUrl(poster))}" data-fallback="${safe(dmsProxyUrl(fallbackPoster))}" alt="" loading="lazy" onload="${dropFallback}" onerror="if(this.dataset.fallback){this.src=this.dataset.fallback;this.dataset.fallback=''}else{this.remove()}"><span class="dms-play-badge">播放</span></a>`;
         }
-        return `<a class="dms-video-wrap" href="${safe(playUrl)}" target="_blank" rel="noopener"${lb}>${fallback}<video src="${safe(playUrl)}" muted playsinline preload="metadata" controls></video><span class="dms-play-badge">播放</span></a>`;
+        return `<a class="dms-video-wrap" href="${safe(playUrl)}" target="_blank" rel="noopener"${lb}>${fallback}<video src="${safe(playUrl)}" muted playsinline preload="metadata" controls onloadeddata="${dropFallback}"></video><span class="dms-play-badge">播放</span></a>`;
       }
-      return `<span class="dms-media-shell"${lb}>${fallback}<img src="${safe(dmsProxyUrl(url))}" alt="" loading="lazy" onerror="this.remove()"></span>`;
+      return `<span class="dms-media-shell"${lb}>${fallback}<img src="${safe(dmsProxyUrl(url))}" alt="" loading="lazy" onload="${dropFallback}" onerror="this.remove()"></span>`;
     }
 
     function dmsCardRows(rows) {
