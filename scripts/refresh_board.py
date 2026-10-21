@@ -47,14 +47,24 @@ def refresh_combo(combo, brand, host, brand_id, country, tenant, token, rng, log
     out_dir = os.path.join(RAW, combo)
     client = Dms(host, brand_id, country, tenant, token)
     ok = failed = 0
-    for tag, api_path in BOARD_APIS:
+
+    def pull(tag_api):
+        tag, api_path = tag_api
         try:
             resp = client.post(api_path, {"statisticDate": rng})
             dump(os.path.join(out_dir, f"{tag}.json"), resp.get("data"))
-            ok += 1
+            return True
         except Exception as exc:  # noqa: BLE001
-            failed += 1
             log(f"  [{combo}] !! {tag} failed: {exc}")
+            return False
+
+    # 单个 combo 的 10 个接口并行拉（同一 token，5 并发足够安全）
+    with ThreadPoolExecutor(max_workers=5) as pool:
+        for good in pool.map(pull, BOARD_APIS):
+            if good:
+                ok += 1
+            else:
+                failed += 1
     log(f"  [{combo}] board done: ok={ok} failed={failed}")
     return {"combo": combo, "ok": ok, "failed": failed}
 

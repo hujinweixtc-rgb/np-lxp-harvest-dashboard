@@ -158,19 +158,26 @@ def backfill_trend(client, codes, trend_dir, detail_dir, rng, log):
 def run_combo(combo, brand, host, brand_id, country, tenant, token, buckets, today, log):
     """单个 combo：按月桶拉素材窗口 + 回补 trend/detail。返回结果 dict。"""
     client = Dms(host, brand_id, country, tenant, token)
-    out = []
-    all_codes = set()
-    for rng in buckets:
+
+    def pull_bucket(idx_rng):
+        idx, rng = idx_rng
         tag = f"{rng['start']}~{rng['end']}"
         rows = pull_window(client, rng, log, tag)
         spend = sum(float(r.get("spend") or 0) for r in rows)
         orders = sum(float(r.get("orderCount") or 0) for r in rows)
         log(f"      {tag}: rows={len(rows)} spend={spend:.2f} orders={orders:.0f}")
-        out.append({"window": rng, "rows": rows})
-        for r in rows:
-            c = (r.get("materialCode") or "").strip()
-            if c and (float(r.get("spend") or 0) > 0 or float(r.get("orderCount") or 0) > 0):
-                all_codes.add(c)
+        return idx, {"window": rng, "rows": rows}, rows
+
+    out: list = [None] * len(buckets)
+    all_codes = set()
+    # 月桶之间相互独立，并行拉取
+    with ThreadPoolExecutor(max_workers=min(4, max(1, len(buckets)))) as pool:
+        for idx, item, rows in pool.map(pull_bucket, list(enumerate(buckets))):
+            out[idx] = item
+            for r in rows:
+                c = (r.get("materialCode") or "").strip()
+                if c and (float(r.get("spend") or 0) > 0 or float(r.get("orderCount") or 0) > 0):
+                    all_codes.add(c)
     payload = {"fetchedAt": time.strftime("%Y-%m-%d %H:%M:%S"), "buckets": out}
     path = os.path.join(RAW, combo, "advertised.json")
     os.makedirs(os.path.dirname(path), exist_ok=True)
