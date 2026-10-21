@@ -94,6 +94,20 @@ def pull_combo(key, brand, host, brand_id, country, tenant, token, buckets, log)
         out.append({"window": rng, "rows": rows})
     payload = {"fetchedAt": time.strftime("%Y-%m-%d %H:%M:%S"), "buckets": out}
     path = os.path.join(RAW, key, "advertised.json")
+    total_rows = sum(len(b["rows"]) for b in out)
+    # 鉴权失败 / 接口异常时全部桶都是空的：不要覆盖旧缓存，
+    # 否则一次 token 过期就把素材窗口校准数据清空，每日趋势会整体断档
+    # （2026-10-16 LXP 就是这样把 10 月桶刷空的）。
+    if total_rows == 0:
+        old = 0
+        try:
+            with open(path, encoding="utf-8") as fh:
+                old = sum(len(b.get("rows") or []) for b in (json.load(fh) or {}).get("buckets") or [])
+        except Exception:  # noqa: BLE001
+            pass
+        if old > 0:
+            log(f"  [{key}] !! advertisedPage 全部桶为空（疑似鉴权失败），保留现有缓存 {old} 行")
+            return {"combo": key, "buckets": [], "skipped": True}
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, "w", encoding="utf-8") as fh:
         json.dump(payload, fh, ensure_ascii=False)
