@@ -770,6 +770,7 @@ def collect(combo):
                 "gmv": gmv,
                 "impressions": impressions,
                 "clicks": clicks,
+                "linkClick": link_clicks,
                 "roi": round(gmv / spend, 4) if spend else 0,
                 "createdAt": created_at,
                 "uploadTime": str(meta.get("uploadTime") or "")[:10],

@@ -1945,6 +1945,7 @@
     const safe = (value) => String(value ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
     const fmt = (n, d = 0) => Number(n || 0).toLocaleString('en-US', { maximumFractionDigits: d, minimumFractionDigits: d });
     const money = (n) => Number(n || 0).toLocaleString('en-US', { maximumFractionDigits: 0 });
+    const money2 = (n) => Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     const pct = (n) => `${((Number(n) || 0) * 100).toFixed(2)}%`;
     const roi = (n) => (Number(n) || 0).toFixed(2);
     const short = (text, len = 88) => {
@@ -2729,6 +2730,16 @@
       return true;
     }
 
+    // 卡片快照的链接点击率：链接点击 / 曝光（没有 linkClick 时退化用 clicks）
+    function cardCtr(row) {
+      const imp = Number(row.impressions || 0);
+      if (!imp) return 0;
+      const clicks = row.linkClick !== undefined && row.linkClick !== null
+        ? Number(row.linkClick || 0)
+        : Number(row.clicks || 0);
+      return clicks / imp;
+    }
+
     function dmsWindowRow(row) {
       // DMS 素材行原本是全量投放区间的终身指标；这里按「统计时间」用 post 的逐日
       // 数据重新求和，口径与顶部素材列表（collectFilteredRows）完全一致。
@@ -2743,6 +2754,7 @@
         orders: metrics.conversions,
         roi: metrics.roi,
         impressions: metrics.impressions,
+        linkClick: metrics.linkClick,
         clicks: metrics.allClick,
       };
     }
@@ -2791,7 +2803,7 @@
             <div class="dms-meta">
               <span>花费<b>${money(row.spend)}</b></span>
               <span>订单<b>${fmt(row.orders)}</b></span>
-              <span>GMV<b>${money(row.gmv)}</b></span>
+              <span>CTR<b>${pct(cardCtr(row))}</b></span>
               <span class="${roiClass}">ROI<b>${roi(row.roi)}</b></span>
             </div>
           </div>
@@ -3084,7 +3096,7 @@
             <div class="dms-meta">
               <span>花费<b>${money(row.spend)}</b></span>
               <span>订单<b>${fmt(row.orders)}</b></span>
-              <span>GMV<b>${money(row.gmv)}</b></span>
+              <span>CTR<b>${pct(cardCtr(row))}</b></span>
               <span class="${roiClass}">ROI<b>${roi(row.roi)}</b></span>
             </div>
           </div>
@@ -3362,8 +3374,8 @@
           <td class="num">${pct(m.ctr)}</td>
           <td class="num">${fmt(m.orderCount)}</td>
           <td class="num">${money(m.aov)}</td>
-          <td class="num">${money(m.cpa)}</td>
-          <td class="num">${money(m.cpm)}</td>
+          <td class="num">${money2(m.cpa)}</td>
+          <td class="num">${money2(m.cpm)}</td>
         </tr>`;
       }).join('');
       const totalRow = combos.length > 1 ? `<tr class="board-total">
