@@ -722,6 +722,19 @@
     }
     .table-wrap { overflow: auto; max-height: 720px; border-top: 1px solid var(--line); }
     table { width: 100%; min-width: 1480px; border-collapse: collapse; background: #fff; }
+    .board-stale {
+      display: inline-block;
+      margin-left: 6px;
+      padding: 1px 6px;
+      border-radius: 999px;
+      background: #fdeccd;
+      border: 1px solid #e3c07a;
+      color: #8a5a12;
+      font-size: 10px;
+      font-weight: 700;
+      white-space: nowrap;
+      cursor: help;
+    }
     .product-dim-wrap { max-height: 460px; }
     .product-dim-wrap table { min-width: 920px; }
     th, td { border-bottom: 1px solid var(--line); padding: 9px 10px; text-align: left; vertical-align: top; }
@@ -3335,8 +3348,11 @@
         totals.linkClicks += Number(m.linkClicks || 0);
         totals.orderCount += Number(m.orderCount || 0);
         const roiClass = Number(m.roi || 0) >= 1 ? 'roi-high' : 'roi-low';
+        const staleTag = combo.stale
+          ? `<span class="board-stale" title="本轮没拉到最新数据（DMS token 失效等），展示 ${safe(combo.staleAt || '上次')} 的结果">未更新${combo.staleAt ? ' · ' + safe(String(combo.staleAt).slice(5, 10)) : ''}</span>`
+          : '';
         return `<tr>
-          <td><span class="chip image">${safe(combo.brand || '-')}</span></td>
+          <td><span class="chip image">${safe(combo.brand || '-')}</span>${staleTag}</td>
           <td>${safe(combo.countryLabel || combo.country || '-')}</td>
           <td class="num">${money(m.spend)}</td>
           <td class="num">${money(m.gmv)}</td>
@@ -3368,7 +3384,11 @@
       const note = $('boardNote');
       if (note) {
         const range = state.board?.range || {};
-        note.textContent = `品牌 × 市场口径（DMS 官方大盘，含全部投放内容，不受素材口径 / 产品 / 标签筛选影响）· 全量区间 ${range.start || '-'} ~ ${range.end || '-'}${state.from || state.to ? ` · 当前展示 ${state.from || '-'} ~ ${state.to || '-'}` : ''}`;
+        const staleCombos = combos.filter(c => c.stale);
+        const staleText = staleCombos.length
+          ? ` · ${staleCombos.map(c => c.brand + ' ' + c.country).join(' / ')} 本轮未取到最新数据，展示 ${staleCombos[0].staleAt || '上次'} 的结果`
+          : '';
+        note.textContent = `品牌 × 市场口径（DMS 官方大盘，含全部投放内容，不受素材口径 / 产品 / 标签筛选影响）· 全量区间 ${range.start || '-'} ~ ${range.end || '-'}${state.from || state.to ? ` · 当前展示 ${state.from || '-'} ~ ${state.to || '-'}` : ''}${staleText}`;
       }
     }
 

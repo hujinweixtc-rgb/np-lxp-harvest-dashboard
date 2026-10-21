@@ -50,9 +50,17 @@ def refresh_combo(combo, brand, host, brand_id, country, tenant, token, rng, log
 
     def pull(tag_api):
         tag, api_path = tag_api
+        target = os.path.join(out_dir, f"{tag}.json")
         try:
             resp = client.post(api_path, {"statisticDate": rng})
-            dump(os.path.join(out_dir, f"{tag}.json"), resp.get("data"))
+            data = resp.get("data")
+            # 401 / 空结果不覆盖已有缓存：否则一次 token 过期就把历史数据刷成 null，
+            # 看板会整体变 0（2026-10-16 LXP 大盘就是这么没的）。
+            if data is None or (isinstance(data, (list, dict)) and not data):
+                code = resp.get("code")
+                log(f"  [{combo}] !! {tag} 返回空数据（code={code}），保留现有缓存")
+                return False
+            dump(target, data)
             return True
         except Exception as exc:  # noqa: BLE001
             log(f"  [{combo}] !! {tag} failed: {exc}")

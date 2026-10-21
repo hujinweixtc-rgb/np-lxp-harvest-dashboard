@@ -838,6 +838,18 @@ def as_list(payload):
 def build_board():
     combos = []
     days_all = []
+    # 上次的 board.json：某个品牌市场这轮拉不到数据（token 过期 / 接口 401）时，
+    # 沿用上次结果并标 stale，避免把看板上的真实数字刷成 0。
+    prev_path = os.path.join(DATA, "board.json")
+    prev_combos = {}
+    prev_at = ""
+    if os.path.exists(prev_path):
+        try:
+            prev_doc = load(prev_path, {}) or {}
+            prev_at = str(prev_doc.get("generatedAt") or "")
+            prev_combos = {c.get("key"): c for c in prev_doc.get("combos") or []}
+        except Exception:  # noqa: BLE001
+            prev_combos = {}
     for combo in COMBO_KEYS:
         brand, country = combo.split("-")
         base = os.path.join(RAW, combo)
@@ -899,6 +911,20 @@ def build_board():
             })
         products.sort(key=lambda x: x["spend"], reverse=True)
 
+        # 本轮没拉到任何日数据 → 沿用上次结果，并标记数据未更新（不清零）
+        # staleAt 要指向上一次真正拿到数据的时刻：若上次本身就是 stale，则继承它的 staleAt，
+        # 否则会把「10-16 的数据」误标成今天。
+        stale, stale_at = False, ""
+        if not daily:
+            prev = prev_combos.get(combo) or {}
+            if prev.get("daily"):
+                daily = prev.get("daily") or []
+                summary = prev.get("summary") or summary
+                products = prev.get("products") or products
+                stale = True
+                stale_at = (prev.get("staleAt") if prev.get("stale") else "") or prev_at
+                print(f"board {combo}: 本轮无数据，沿用 {stale_at or '上次'} 的结果", flush=True)
+
         days_all.extend(item["date"] for item in daily)
         combos.append({
             "key": combo,
@@ -908,6 +934,8 @@ def build_board():
             "summary": summary,
             "daily": daily,
             "products": products,
+            "stale": stale,
+            "staleAt": stale_at,
         })
 
     days_all = sorted(set(days_all))

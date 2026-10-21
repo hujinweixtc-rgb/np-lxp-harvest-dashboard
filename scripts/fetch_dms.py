@@ -94,10 +94,14 @@ def fetch_combo(key, brand, host, brand_id, country, tenant, token, log):
     ]:
         try:
             resp = client.post(api_path, {"statisticDate": RANGE})
-            dump(os.path.join(out_dir, f"{tag}.json"), resp.get("data"))
+            data = resp.get("data")
+            # 空结果 / 鉴权失败不要覆盖旧缓存（否则一次 token 过期就把历史刷成 null）
+            if data is None or (isinstance(data, (list, dict)) and not data):
+                log(f"    !! {tag} 返回空数据（code={resp.get('code')}），保留现有缓存")
+                continue
+            dump(os.path.join(out_dir, f"{tag}.json"), data)
         except Exception as exc:  # noqa: BLE001
             log(f"    !! {tag} failed: {exc}")
-            dump(os.path.join(out_dir, f"{tag}.json"), None)
 
     # per-material daily trend + detail.
     # NOTE: igad/ads/page/all is NOT country-scoped (brand-wide, mixes TH/US/MY/...
