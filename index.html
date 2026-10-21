@@ -3634,7 +3634,7 @@
     }
 
     // ---- 实时刷新（仅在 Cloud Run 后端可用时启用）--------------------------
-    const REFRESH = { available: false, busy: false, timer: 0 };
+    const REFRESH = { available: false, busy: false, timer: 0, autoTimer: 0, dataVersion: '', autoHours: 0, lastSync: 0 };
     // 静态渠道（GitHub Pages）没有后端，刷新一律引导到实时版
     const LIVE_BASE = 'https://np-lxp-harvest-dashboard-a2vd6kqlpq-as.a.run.app/';
 
@@ -3661,9 +3661,16 @@
         const info = await res.json();
         if (!info || info.ok !== true) throw new Error('bad payload');
         REFRESH.available = true;
+        REFRESH.dataVersion = info.dataVersion || '';
+        REFRESH.autoHours = Number(info.autoRefreshHours || 0);
         if (el) { el.textContent = 'live'; el.classList.add('live'); }
         const wrap = document.getElementById('refreshWrap');
         if (wrap) wrap.hidden = false;
+        const btn = document.getElementById('refreshData');
+        if (btn && REFRESH.autoHours > 0) {
+          btn.title = `数据超过 ${REFRESH.autoHours} 小时未更新时会自动刷新，无需手动点击。`
+            + '\n仍可手动触发：单击快速刷新（约 1-2 分钟），Shift + 单击完整刷新（约 4-5 分钟）';
+        }
       } catch {
         // 静态托管（GitHub Pages）：页面本身无后端，但接口和数据一律走实时后端，
         // 所以刷新按钮在原地依然可用，不需要跳转。
@@ -3688,23 +3695,25 @@
       return (REFRESH.available ? './api/' : LIVE_BASE + 'api/') + path;
     }
 
-    // 数据过期提示：静态快照或长时间未刷新时，在顶栏给出明确提示
+    // 数据过期提示：数据超过自动刷新阈值时，后端会自己起刷新，这里只负责说明状态
     function flagDataFreshness() {
       const stamp = state.raw?.generatedAt;
       if (!stamp) return;
       const age = (Date.now() - new Date(stamp.replace(/-/g, '/')).getTime()) / 3600000;
       if (!Number.isFinite(age)) return;
-      if (!REFRESH.available) {
-        setRefreshProgress(age >= 24
-          ? `数据更新于 ${stamp}，已 ${Math.floor(age / 24)} 天未刷新，点「刷新数据」即时更新`
-          : `数据更新于 ${stamp}`, age >= 24 ? 'warn' : 'ok');
+      const autoOn = REFRESH.autoHours > 0;
+      const hours = Math.floor(age);
+      if (autoOn && age >= REFRESH.autoHours) {
+        setRefreshProgress(`数据更新于 ${stamp}（已 ${hours} 小时），正在自动更新…`, 'warn');
         return;
       }
-      if (age >= 24) {
-        setRefreshProgress(`数据更新于 ${stamp}，已 ${Math.floor(age / 24)} 天未刷新，建议点左侧刷新`, 'warn');
-      } else {
-        setRefreshProgress(`数据更新于 ${stamp}`, 'ok');
+      if (!autoOn && age >= 24) {
+        setRefreshProgress(`数据更新于 ${stamp}，已 ${Math.floor(age / 24)} 天未刷新，点「刷新数据」即时更新`, 'warn');
+        return;
       }
+      setRefreshProgress(autoOn
+        ? `数据更新于 ${stamp} · 超过 ${REFRESH.autoHours} 小时自动更新`
+        : `数据更新于 ${stamp}`, 'ok');
     }
 
     async function pollRefresh() {
@@ -3767,6 +3776,59 @@
         if (btn) btn.disabled = false;
         REFRESH.busy = false;
       }
+    }
+
+    // 静默重载：版本变了才刷新，保留筛选与滚动位置，正在看大图时跳过
+    async function softReload(version) {
+      const box = $('lightbox');
+      if (box && !box.hidden) return false;
+      const y = window.scrollY;
+      try {
+        await init(false);
+        if (version) REFRESH.dataVersion = version;
+        window.scrollTo(0, y);
+        setRefreshProgress(`数据已自动更新 · ${state.raw?.generatedAt || ''}`, 'ok');
+        setTimeout(() => flagDataFreshness(), 6000);
+        return true;
+      } catch (err) {
+        setRefreshProgress('数据重载失败：' + err.message, 'error');
+        return false;
+      }
+    }
+
+    // 自动同步：不点按钮也能保持最新
+    //  * 数据过期 → 服务端在 /api/status 里就会自己起刷新，这里展示进度
+    //  * 刷新结束 → 版本号变了就静默重载数据
+    async function autoSync() {
+      clearTimeout(REFRESH.autoTimer);
+      const next = ms => { REFRESH.autoTimer = setTimeout(autoSync, ms); };
+      if (REFRESH.busy) return next(15000);        // 手动刷新中，交给 pollRefresh
+      if (document.hidden) return next(60000);     // 后台标签页降频
+      REFRESH.lastSync = Date.now();
+      let info = null;
+      try {
+        const res = await fetch(apiUrl('status'), { cache: 'no-store' });
+        if (!res.ok) throw new Error(`api ${res.status}`);
+        info = await res.json();
+      } catch {
+        return next(60000);
+      }
+      REFRESH.autoHours = Number(info.autoRefreshHours || 0);
+      const job = info.refresh || {};
+      if (job.running) {
+        const sec = job.startedAt
+          ? Math.max(0, Math.round((Date.now() - new Date(job.startedAt.replace(/-/g, '/')).getTime()) / 1000))
+          : 0;
+        const label = String(job.mode || '').startsWith('auto') ? '数据过期，正在自动更新' : '正在更新数据';
+        setRefreshProgress(`${label} [${job.index}/${job.total}] ${job.stage || '处理中'}…（已 ${sec} 秒）`, 'warn');
+        return next(3000);
+      }
+      if (info.dataVersion && info.dataVersion !== REFRESH.dataVersion) {
+        const done = await softReload(info.dataVersion);
+        return next(done ? 90000 : 20000);
+      }
+      if (!REFRESH.busy) flagDataFreshness();
+      next(90000);
     }
 
     function copyShareLink() {
@@ -4423,11 +4485,19 @@
 
     initLightbox();
 
-    init().catch(err => {
+    init().then(() => {
+      // 首屏就位后开始自动同步：数据过期会自动拉起刷新，无需点按钮
+      autoSync();
+    }).catch(err => {
       $('status').textContent = err.message;
       $('kpis').innerHTML = `<div class="empty">${safe(err.message)}</div>`;
+      autoSync();
     });
-    setInterval(() => init(false).catch(() => {}), 300000);
+
+    // 切回标签页时立刻补一次检查（后台期间降频了）
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden && Date.now() - REFRESH.lastSync > 60000) autoSync();
+    });
   </script>
 </body>
 </html>

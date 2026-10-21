@@ -25,6 +25,8 @@
   DASH_DATA_DIR     看板数据输出目录（默认 <root>/data）
   DMS_TOKEN_NP      NP 的 DMS token（来自 Secret Manager）
   DMS_TOKEN_LXP     LXP 的 DMS token（来自 Secret Manager）
+  DASH_AUTO_REFRESH_HOURS  数据超过多少小时自动刷新（默认 6，0=关闭）
+  DASH_AUTO_RETRY_GAP      两次自动刷新最小间隔秒数（默认 1800）
 """
 from __future__ import annotations
 
@@ -61,6 +63,16 @@ RAW_READY_MARK = os.path.join(RAW_DIR, ".ready")
 GCS_BUCKET = (os.environ.get("DASH_GCS_BUCKET") or "").strip()
 GCS_PREFIX = (os.environ.get("DASH_GCS_PREFIX") or "np-lxp-harvest/data").strip("/")
 DATA_FILES = ("materials.json", "dms_materials.json", "board.json")
+
+# 自动刷新：数据超过 N 小时未更新时，任意一次状态探测（打开/停留页面）都会在
+# 后台起一次快速刷新，不需要人工点按钮，也不需要额外配 Cloud Scheduler。
+# 设为 0 即关闭，退回纯手动。
+AUTO_REFRESH_HOURS = float(os.environ.get("DASH_AUTO_REFRESH_HOURS") or 6)
+# 两次自动触发之间的最小间隔（秒）：避免刷新失败时反复重试打爆 DMS 接口
+AUTO_RETRY_GAP = int(os.environ.get("DASH_AUTO_RETRY_GAP") or 1800)
+# 自动刷新里「完整刷新」（含广告表 + 新素材）的最小间隔小时数；其余走快速刷新
+AUTO_FULL_HOURS = float(os.environ.get("DASH_AUTO_FULL_HOURS") or 24)
+AUTO_STATE_NAME = ".auto_refresh.json"
 
 LOG_TAIL = 120
 
@@ -212,6 +224,7 @@ def _worker(stages):
     env["DASH_DATA_DIR"] = DATA_DIR
     env["PYTHONUNBUFFERED"] = "1"
     total = len(stages)
+    auto = False
     try:
         for idx, (label, script) in enumerate(stages, 1):
             with _job_lock:
@@ -235,16 +248,24 @@ def _worker(stages):
         with _job_lock:
             _job["running"] = False
             _job["finishedAt"] = time.strftime("%Y-%m-%d %H:%M:%S")
+            mode = str(_job.get("mode") or "")
+            ok_flag = _job.get("ok")
+        if mode.startswith("auto"):
+            # 记录自动刷新的结果，供下一次冷却判断（失败也要冷却，别连环重试）
+            patch = {"lastFinish": time.time(), "lastOk": bool(ok_flag)}
+            if mode == "auto-full" and ok_flag:
+                patch["lastFull"] = time.time()
+            _write_auto_state(patch)
 
 
-def start_refresh(quick):
+def start_refresh(quick, mode=""):
     stages = STAGES_QUICK if quick else STAGES_FULL
     with _job_lock:
         if _job["running"]:
             return False, "已有刷新任务在进行中"
         _job.update({
             "running": True,
-            "mode": "quick" if quick else "full",
+            "mode": mode or ("quick" if quick else "full"),
             "stage": "启动中",
             "index": 0,
             "total": len(stages),
@@ -277,6 +298,76 @@ def _generated_at(path):
 
 def data_version():
     return _generated_at(os.path.join(DATA_DIR, "materials.json"))
+
+
+# --------------------------------------------------------------------------- #
+# 自动刷新（过期即补，无需人工点按钮）
+# --------------------------------------------------------------------------- #
+def _stamp_to_ts(text):
+    try:
+        return time.mktime(time.strptime(str(text).strip(), "%Y-%m-%d %H:%M:%S"))
+    except (ValueError, TypeError, OverflowError):
+        return 0.0
+
+
+def data_age_hours():
+    """当前数据距现在多少小时（按 materials.json 的 generatedAt）。"""
+    ts = _stamp_to_ts(data_version())
+    if not ts:
+        return None
+    return max(0.0, (time.time() - ts) / 3600.0)
+
+
+def _auto_state_path():
+    return os.path.join(DATA_DIR, AUTO_STATE_NAME)
+
+
+def _read_auto_state():
+    try:
+        with open(_auto_state_path(), encoding="utf-8") as fh:
+            return json.load(fh)
+    except Exception:  # noqa: BLE001
+        return {}
+
+
+def _write_auto_state(patch):
+    state = _read_auto_state()
+    state.update(patch)
+    try:
+        os.makedirs(DATA_DIR, exist_ok=True)
+        with open(_auto_state_path(), "w", encoding="utf-8") as fh:
+            json.dump(state, fh)
+    except Exception:  # noqa: BLE001
+        pass
+
+
+def maybe_auto_refresh(reason="status"):
+    """数据过期就在后台起一次快速刷新；返回触发原因，便于日志排查。"""
+    if AUTO_REFRESH_HOURS <= 0:
+        return "disabled"
+    with _job_lock:
+        if _job["running"]:
+            return "busy"
+    age = data_age_hours()
+    if age is None:
+        return "no-stamp"
+    if age < AUTO_REFRESH_HOURS:
+        return "fresh"
+    state = _read_auto_state()
+    gap = time.time() - float(state.get("lastAttempt") or 0)
+    if gap < AUTO_RETRY_GAP:
+        return f"cooling({int(gap)}s)"
+    # 快速刷新不拉广告表 / 新素材，所以每天至少安排一次完整刷新兜底
+    last_full = float(state.get("lastFull") or 0)
+    want_full = AUTO_FULL_HOURS > 0 and (time.time() - last_full) >= AUTO_FULL_HOURS * 3600
+    _write_auto_state({
+        "lastAttempt": time.time(),
+        "reason": reason,
+        "ageHours": round(age, 2),
+    })
+    ok, message = start_refresh(not want_full, mode="auto-full" if want_full else "auto")
+    _log(f"自动刷新触发（数据已 {age:.1f} 小时未更新，{'完整' if want_full else '快速'}刷新，来源 {reason}）：{message}")
+    return "started" if ok else message
 
 
 # --------------------------------------------------------------------------- #
@@ -493,12 +584,18 @@ class Handler(BaseHTTPRequestHandler):
         if route == "/media-proxy":
             return self._proxy_media(parse_qs(parsed.query))
         if route == "/api/status":
+            # 页面每次探测状态时顺带检查数据是否过期，过期就自己补一次刷新
+            auto = maybe_auto_refresh("status")
             with _job_lock:
                 job = dict(_job)
                 job.pop("log", None)
+            age = data_age_hours()
             return self._json({
                 "ok": True,
                 "dataVersion": data_version(),
+                "dataAgeHours": None if age is None else round(age, 2),
+                "autoRefreshHours": AUTO_REFRESH_HOURS,
+                "autoRefresh": auto,
                 "boot": _meta,
                 "refresh": job,
             })
@@ -550,6 +647,12 @@ def main():
     print(f"[boot] raw={_meta['raw']} data={_meta['data']} gcs={_meta['gcs']}", flush=True)
     httpd = ThreadingHTTPServer(("0.0.0.0", PORT), Handler)
     print(f"[boot] listening on 0.0.0.0:{PORT}", flush=True)
+    if AUTO_REFRESH_HOURS > 0:
+        # 冷启动（通常是当天第一个人打开页面）也让过期数据自己补上
+        def _boot_auto():
+            time.sleep(5)
+            print(f"[auto] boot check: {maybe_auto_refresh('boot')}", flush=True)
+        threading.Thread(target=_boot_auto, daemon=True).start()
     httpd.serve_forever()
 
 
