@@ -70,8 +70,9 @@ DATA_FILES = ("materials.json", "dms_materials.json", "board.json")
 AUTO_REFRESH_HOURS = float(os.environ.get("DASH_AUTO_REFRESH_HOURS") or 6)
 # 两次自动触发之间的最小间隔（秒）：避免刷新失败时反复重试打爆 DMS 接口
 AUTO_RETRY_GAP = int(os.environ.get("DASH_AUTO_RETRY_GAP") or 1800)
-# 自动刷新里「完整刷新」（含广告表 + 新素材）的最小间隔小时数；其余走快速刷新
-AUTO_FULL_HOURS = float(os.environ.get("DASH_AUTO_FULL_HOURS") or 24)
+# 自动刷新里「完整刷新」（含广告表 + 新素材）的门槛：数据超过这么多小时没更新，
+# 就顺便把广告表和新素材一起拉一遍（典型的隔夜空档触发），其余时候只跑快速刷新。
+AUTO_FULL_HOURS = float(os.environ.get("DASH_AUTO_FULL_HOURS") or 12)
 AUTO_STATE_NAME = ".auto_refresh.json"
 
 LOG_TAIL = 120
@@ -252,10 +253,7 @@ def _worker(stages):
             ok_flag = _job.get("ok")
         if mode.startswith("auto"):
             # 记录自动刷新的结果，供下一次冷却判断（失败也要冷却，别连环重试）
-            patch = {"lastFinish": time.time(), "lastOk": bool(ok_flag)}
-            if mode == "auto-full" and ok_flag:
-                patch["lastFull"] = time.time()
-            _write_auto_state(patch)
+            _write_auto_state({"lastFinish": time.time(), "lastOk": bool(ok_flag)})
 
 
 def start_refresh(quick, mode=""):
@@ -357,13 +355,13 @@ def maybe_auto_refresh(reason="status"):
     gap = time.time() - float(state.get("lastAttempt") or 0)
     if gap < AUTO_RETRY_GAP:
         return f"cooling({int(gap)}s)"
-    # 快速刷新不拉广告表 / 新素材，所以每天至少安排一次完整刷新兜底
-    last_full = float(state.get("lastFull") or 0)
-    want_full = AUTO_FULL_HOURS > 0 and (time.time() - last_full) >= AUTO_FULL_HOURS * 3600
+    # 快速刷新不拉广告表 / 新素材，所以数据积压得比较久时顺手做一次完整刷新
+    want_full = AUTO_FULL_HOURS > 0 and age >= AUTO_FULL_HOURS
     _write_auto_state({
         "lastAttempt": time.time(),
         "reason": reason,
         "ageHours": round(age, 2),
+        "mode": "full" if want_full else "quick",
     })
     ok, message = start_refresh(not want_full, mode="auto-full" if want_full else "auto")
     _log(f"自动刷新触发（数据已 {age:.1f} 小时未更新，{'完整' if want_full else '快速'}刷新，来源 {reason}）：{message}")
