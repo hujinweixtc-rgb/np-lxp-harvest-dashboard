@@ -2447,6 +2447,8 @@
         const spend = Number(row.spend || 0);
         const gmv = Number(row.purchaseValue || 0);
         const orders = Number(row.conversions || 0);
+        const impressions = Number(row.impressions || 0);
+        const clicks = Number(row.linkClick || 0);
         for (const [kind, list] of [['sell', sell], ['copy', copy]]) {
           const seen = new Set();
           for (const tag of list) {
@@ -2455,24 +2457,26 @@
             seen.add(zh);
             let bucket = groups[kind].get(zh);
             if (!bucket) {
-              bucket = { zh, src: String(tag.src || '').trim(), posts: 0, spend: 0, gmv: 0, orders: 0 };
+              bucket = { zh, src: String(tag.src || '').trim(), posts: 0, spend: 0, gmv: 0, orders: 0, impressions: 0, clicks: 0 };
               groups[kind].set(zh, bucket);
             }
             bucket.posts += 1;
             bucket.spend += spend;
             bucket.gmv += gmv;
             bucket.orders += orders;
+            bucket.impressions += impressions;
+            bucket.clicks += clicks;
           }
         }
       }
-      const headers = ['关键词', '素材数', '花费', 'GMV', '订单', 'ROI'];
+      const headers = ['关键词', '素材数', '花费', 'CTR', '订单', 'ROI'];
       const draw = (table, map) => {
         const list = [...map.values()].sort((a, b) => b.spend - a.spend).slice(0, 40);
         const body = list.map(item => `<tr>
           <td><div class="ai-kw"><b>${safe(item.zh)}</b>${item.src && item.src !== item.zh ? `<i>${safe(item.src)}</i>` : ''}</div></td>
           <td class="num">${fmt(item.posts)}</td>
           <td class="num">${money(item.spend)}</td>
-          <td class="num">${money(item.gmv)}</td>
+          <td class="num">${pct(item.impressions ? item.clicks / item.impressions : 0)}</td>
           <td class="num">${fmt(item.orders)}</td>
           <td class="num">${roi(item.spend ? item.gmv / item.spend : 0)}</td>
         </tr>`).join('');
