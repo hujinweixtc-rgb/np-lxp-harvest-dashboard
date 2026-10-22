@@ -36,7 +36,8 @@ except Exception:  # noqa: BLE001
     pass
 
 ROOT = Path(__file__).resolve().parent.parent
-DATA = ROOT / "data"
+# 本地默认 <root>/data；Cloud Run 上由 app.py 注入 DASH_DATA_DIR（可写目录）
+DATA = Path(os.environ.get("DASH_DATA_DIR") or (ROOT / "data"))
 SRC = DATA / "dms_materials.json"
 OUT = DATA / "image_themes.json"
 

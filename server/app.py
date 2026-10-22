@@ -62,7 +62,7 @@ RAW_READY_MARK = os.path.join(RAW_DIR, ".ready")
 # 只能退回镜像内的旧快照。留空 DASH_GCS_BUCKET 即关闭该能力。
 GCS_BUCKET = (os.environ.get("DASH_GCS_BUCKET") or "").strip()
 GCS_PREFIX = (os.environ.get("DASH_GCS_PREFIX") or "np-lxp-harvest/data").strip("/")
-DATA_FILES = ("materials.json", "dms_materials.json", "board.json")
+DATA_FILES = ("materials.json", "dms_materials.json", "board.json", "image_themes.json")
 
 # 自动刷新：数据超过 N 小时未更新时，任意一次状态探测（打开/停留页面）都会在
 # 后台起一次快速刷新，不需要人工点按钮，也不需要额外配 Cloud Scheduler。
@@ -89,6 +89,7 @@ STAGES_QUICK = (
     ("大盘聚合", "refresh_board.py"),
     ("素材投放窗口（含趋势明细回补）", "refresh_adv.py"),
     ("组装看板数据", "build_data.py"),
+    ("素材卖点关键词（增量）", "refresh_themes.py"),
 )
 STAGES_FULL = (
     ("标签字典（DMS 官方一二三级）", "refresh_labels.py"),
@@ -97,6 +98,7 @@ STAGES_FULL = (
     ("素材投放窗口（含趋势明细回补）", "refresh_adv.py"),
     ("近期趋势明细", "refresh_recent.py"),
     ("组装看板数据", "build_data.py"),
+    ("素材卖点关键词（增量）", "refresh_themes.py"),
 )
 
 _meta = {"boot": time.strftime("%Y-%m-%d %H:%M:%S"), "raw": "pending", "data": "pending"}

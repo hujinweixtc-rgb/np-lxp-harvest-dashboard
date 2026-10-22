@@ -1,7 +1,7 @@
 {
  "version": 1,
  "model": "glm-4v-flash",
- "generatedAt": "2026-10-21 17:28:23",
+ "generatedAt": "2026-10-22 17:14:01",
  "items": {
   "SC2604150553": {
    "lang": "ms",
@@ -254780,9 +254780,62 @@
    "cover": "https://cdn-prod.feimeidms.com/uploadfile/20260227/808abcac-e2e0-49e1-ab5e-ce015463ca82.png"
   },
   "SC2604100361": {
-   "status": "error",
-   "error": "模型没有返回 sell / copy",
-   "analyzedAt": "2026-10-21 17:28:14"
+   "lang": "ms",
+   "scene": "户外自拍",
+   "onimage": "Kulit Kusam?",
+   "onimageZh": "皮肤油腻吗？",
+   "sell": [
+    {
+     "src": "",
+     "zh": "控油祛痘"
+    },
+    {
+     "src": "",
+     "zh": "改善肤质"
+    }
+   ],
+   "copy": [
+    {
+     "src": "",
+     "zh": "告别油腻"
+    },
+    {
+     "src": "",
+     "zh": "清爽一整天"
+    }
+   ],
+   "themes": [
+    {
+     "src": "",
+     "zh": "控油祛痘"
+    },
+    {
+     "src": "",
+     "zh": "改善肤质"
+    },
+    {
+     "src": "",
+     "zh": "告别油腻"
+    },
+    {
+     "src": "",
+     "zh": "清爽一整天"
+    }
+   ],
+   "subject": "",
+   "style": "",
+   "hook": "",
+   "usage": {
+    "prompt": 1512,
+    "completion": 113
+   },
+   "status": "ok",
+   "imageBytes": 210999,
+   "sentBytes": 66235,
+   "analyzedAt": "2026-10-22 17:14:01",
+   "model": "glm-4v-flash",
+   "materialName": "brightening fw_Malay_DC_MYSource_awa_USP_01_0410",
+   "cover": "https://dms-upload-prod-sg.oss-ap-southeast-1.aliyuncs.com/uploadfile/20260410/f8056359-2c7f-484f-bb6a-57a03d5d033c.mp4?x-oss-process=video/snapshot,t_1000,f_jpg,w_800,m_fast"
   },
   "SC2606090346": {
    "lang": "en",
@@ -293922,6 +293975,594 @@
    "model": "glm-4v-flash",
    "materialName": "Murphy-NBM-P11-092902-IGF-早晚组合-促销-MY",
    "cover": "https://cdn-prod.feimeidms.com/uploadfile/20260930/11853fa4-102d-425f-ac78-3e845e5059d6.jpg"
+  },
+  "SC2610130057": {
+   "lang": "id",
+   "scene": "产品展示",
+   "onimage": "Murah, Tapi Hasil Pencerahananya Ketara!",
+   "onimageZh": "便宜，但美白效果显著！",
+   "sell": [
+    {
+     "src": "Mencerahkan kulit dengan lembut",
+     "zh": "温和美白"
+    },
+    {
+     "src": "Meratakan tonal kulit",
+     "zh": "均匀肤色"
+    },
+    {
+     "src": "Memudarkan bintik hitam",
+     "zh": "淡斑"
+    },
+    {
+     "src": "Mesra kulit sensitif",
+     "zh": "适合敏感肌肤"
+    }
+   ],
+   "copy": [
+    {
+     "src": "BELI 2 LEbih Berbaloi!",
+     "zh": "买二更划算！"
+    },
+    {
+     "src": "1PC=37K",
+     "zh": "每瓶37千"
+    }
+   ],
+   "themes": [
+    {
+     "src": "Mencerahkan kulit dengan lembut",
+     "zh": "温和美白"
+    },
+    {
+     "src": "Meratakan tonal kulit",
+     "zh": "均匀肤色"
+    },
+    {
+     "src": "Memudarkan bintik hitam",
+     "zh": "淡斑"
+    },
+    {
+     "src": "Mesra kulit sensitif",
+     "zh": "适合敏感肌肤"
+    },
+    {
+     "src": "BELI 2 LEbih Berbaloi!",
+     "zh": "买二更划算！"
+    },
+    {
+     "src": "1PC=37K",
+     "zh": "每瓶37千"
+    }
+   ],
+   "subject": "",
+   "style": "",
+   "hook": "",
+   "usage": {
+    "prompt": 2065,
+    "completion": 199
+   },
+   "status": "ok",
+   "imageBytes": 700904,
+   "sentBytes": 128665,
+   "analyzedAt": "2026-10-22 17:13:49",
+   "model": "glm-4v-flash",
+   "materialName": "Murphy-NBS-P11-101204-IGS-功效-BA-价格",
+   "cover": "https://cdn-prod.feimeidms.com/uploadfile/20261013/33a1f008-bcde-4da4-a5f6-0a83960b379b.jpg"
+  },
+  "SC2610130060": {
+   "lang": "id",
+   "scene": "产品展示",
+   "onimage": "MURAH, TAPI HASIL PENCERAHANNYA KETARA!|10% NIACINAMIDE + GLUTATHIONE BRIGHTENING SERUM",
+   "onimageZh": "便宜，但美白效果显著！|10% 烟酰胺 + 还原 glutathione 美白精华液",
+   "sell": [
+    {
+     "src": "10% Niacinamide",
+     "zh": "10% 烟酰胺"
+    },
+    {
+     "src": "+ Glutathione",
+     "zh": "+ 还原 glutathione"
+    },
+    {
+     "src": "Brightens Skin",
+     "zh": "提亮肤色"
+    },
+    {
+     "src": "Even Skin Tone",
+     "zh": "均匀肤色"
+    },
+    {
+     "src": "Fades Dark Spot",
+     "zh": "淡化色斑"
+    }
+   ],
+   "copy": [
+    {
+     "src": "",
+     "zh": "便宜"
+    },
+    {
+     "src": "",
+     "zh": "但美白效果显著！"
+    },
+    {
+     "src": "Mencairkan kulit dengan lembut",
+     "zh": "温和融化肌肤"
+    },
+    {
+     "src": "Meratakan tonal kulit",
+     "zh": "平衡肤色"
+    }
+   ],
+   "themes": [
+    {
+     "src": "10% Niacinamide",
+     "zh": "10% 烟酰胺"
+    },
+    {
+     "src": "+ Glutathione",
+     "zh": "+ 还原 glutathione"
+    },
+    {
+     "src": "Brightens Skin",
+     "zh": "提亮肤色"
+    },
+    {
+     "src": "Even Skin Tone",
+     "zh": "均匀肤色"
+    },
+    {
+     "src": "Fades Dark Spot",
+     "zh": "淡化色斑"
+    },
+    {
+     "src": "",
+     "zh": "便宜"
+    },
+    {
+     "src": "",
+     "zh": "但美白效果显著！"
+    },
+    {
+     "src": "Mencairkan kulit dengan lembut",
+     "zh": "温和融化肌肤"
+    }
+   ],
+   "subject": "",
+   "style": "",
+   "hook": "",
+   "usage": {
+    "prompt": 2065,
+    "completion": 334
+   },
+   "status": "ok",
+   "imageBytes": 732698,
+   "sentBytes": 136923,
+   "analyzedAt": "2026-10-22 17:13:51",
+   "model": "glm-4v-flash",
+   "materialName": "Murphy-NBS-P11-101201-IGF-功效-BA",
+   "cover": "https://cdn-prod.feimeidms.com/uploadfile/20261013/edd95b27-670f-46c1-9866-e8de5a0c4720.jpg"
+  },
+  "SC2610130055": {
+   "lang": "id",
+   "scene": "产品展示",
+   "onimage": "LUMIXPERT TOP 3 SERUM GUIDE | Pilih Sesuai Masalah Kulitmu!",
+   "onimageZh": "LUMIXPERT 前 3 名血清指南 | 根据皮肤问题选择！",
+   "sell": [
+    {
+     "src": "Niacinamide Brightening Combo",
+     "zh": "烟酰胺亮肤组合"
+    }
+   ],
+   "copy": [
+    {
+     "src": "Pilih Sesuai Masalah Kulitmu!",
+     "zh": "根据皮肤问题选择"
+    },
+    {
+     "src": "",
+     "zh": "对比效果"
+    }
+   ],
+   "themes": [
+    {
+     "src": "Niacinamide Brightening Combo",
+     "zh": "烟酰胺亮肤组合"
+    },
+    {
+     "src": "Pilih Sesuai Masalah Kulitmu!",
+     "zh": "根据皮肤问题选择"
+    },
+    {
+     "src": "",
+     "zh": "对比效果"
+    }
+   ],
+   "subject": "",
+   "style": "",
+   "hook": "",
+   "usage": {
+    "prompt": 2065,
+    "completion": 203
+   },
+   "status": "ok",
+   "imageBytes": 853283,
+   "sentBytes": 145688,
+   "analyzedAt": "2026-10-22 17:13:51",
+   "model": "glm-4v-flash",
+   "materialName": "Murphy-NBS-P11-101206-IGS-合集-价格",
+   "cover": "https://cdn-prod.feimeidms.com/uploadfile/20261013/ae558c09-4dc8-4131-a818-06e6a5f3f434.jpg"
+  },
+  "SC2610130058": {
+   "lang": "en",
+   "scene": "美容护肤",
+   "onimage": "MY DAILY GLOW ROUTINE Cukup 2 Produk!|STEP 1 Brightening Serum|STEP 2 Brightening Moisturizer|10% Niacinamide|Menghaluskan & meratakan tekstur kulit|Glutathione|Antiksidan untuk kulit glowing bercahaya|Portulaca Oleracea|Menguncikan kelembapan, kulit lembut & dewy|2PCS=74K",
+   "onimageZh": "我的日常发光程序只需要两件产品！|第1步 美白精华液|第2步 美白保湿霜|10% 烟酰胺|使皮肤光滑并均匀肤色|谷胱甘肽|抗氧化剂，让皮肤焕发光彩|马齿苋|保湿，柔软且光泽的皮肤|2件=74K",
+   "sell": [
+    {
+     "src": "10% Niacinamide",
+     "zh": "烟酰胺"
+    },
+    {
+     "src": "Glutathione",
+     "zh": "谷胱甘肽"
+    },
+    {
+     "src": "Portulaca Oleracea",
+     "zh": "马齿苋"
+    },
+    {
+     "src": "2PCS=74K",
+     "zh": "优惠价"
+    }
+   ],
+   "copy": [
+    {
+     "src": "MY DAILY GLOW ROUTINE",
+     "zh": "日常发光程序"
+    },
+    {
+     "src": "2PCS=74K",
+     "zh": "优惠价"
+    }
+   ],
+   "themes": [
+    {
+     "src": "10% Niacinamide",
+     "zh": "烟酰胺"
+    },
+    {
+     "src": "Glutathione",
+     "zh": "谷胱甘肽"
+    },
+    {
+     "src": "Portulaca Oleracea",
+     "zh": "马齿苋"
+    },
+    {
+     "src": "2PCS=74K",
+     "zh": "优惠价"
+    },
+    {
+     "src": "MY DAILY GLOW ROUTINE",
+     "zh": "日常发光程序"
+    },
+    {
+     "src": "2PCS=74K",
+     "zh": "优惠价"
+    }
+   ],
+   "subject": "",
+   "style": "",
+   "hook": "",
+   "usage": {
+    "prompt": 2065,
+    "completion": 362
+   },
+   "status": "ok",
+   "imageBytes": 559026,
+   "sentBytes": 119363,
+   "analyzedAt": "2026-10-22 17:13:52",
+   "model": "glm-4v-flash",
+   "materialName": "Murphy-NBS-P11-101203-IGF-组合-成分",
+   "cover": "https://cdn-prod.feimeidms.com/uploadfile/20261013/5e56e755-c6ad-4dd5-8d0e-543a7dec38f6.jpg"
+  },
+  "SC2609300429": {
+   "lang": "id",
+   "scene": "产品展示",
+   "onimage": "2 SIMPLE STEPS TO GLOW|STEP1: BOOST|STEP2: LOCK|BIG SALE $71K/2PCS",
+   "onimageZh": "两步焕发光彩|第一步：提升|第二步：锁定|大促$71K/2件",
+   "sell": [
+    {
+     "src": "NIACINAMIDE + GLUTATHIONE",
+     "zh": "烟酰胺+谷胱甘肽"
+    },
+    {
+     "src": "",
+     "zh": "提亮肤色"
+    },
+    {
+     "src": "",
+     "zh": "均匀肤质"
+    },
+    {
+     "src": "",
+     "zh": "淡化斑点"
+    }
+   ],
+   "copy": [
+    {
+     "src": "2 SIMPLE STEPS TO GLOW",
+     "zh": "两步焕发光彩"
+    },
+    {
+     "src": "",
+     "zh": "大促$71K"
+    }
+   ],
+   "themes": [
+    {
+     "src": "NIACINAMIDE + GLUTATHIONE",
+     "zh": "烟酰胺+谷胱甘肽"
+    },
+    {
+     "src": "",
+     "zh": "提亮肤色"
+    },
+    {
+     "src": "",
+     "zh": "均匀肤质"
+    },
+    {
+     "src": "",
+     "zh": "淡化斑点"
+    },
+    {
+     "src": "2 SIMPLE STEPS TO GLOW",
+     "zh": "两步焕发光彩"
+    },
+    {
+     "src": "",
+     "zh": "大促$71K"
+    }
+   ],
+   "subject": "",
+   "style": "",
+   "hook": "",
+   "usage": {
+    "prompt": 2065,
+    "completion": 215
+   },
+   "status": "ok",
+   "imageBytes": 904488,
+   "sentBytes": 151106,
+   "analyzedAt": "2026-10-22 17:13:54",
+   "model": "glm-4v-flash",
+   "materialName": "Murphy-2PCS-P11-093003-IGF-迭代-价格",
+   "cover": "https://cdn-prod.feimeidms.com/uploadfile/20260930/fdfdc3f3-8b60-4f02-be3e-83681b409cdc.jpg"
+  },
+  "SC2610130059": {
+   "lang": "id",
+   "scene": "美容产品展示",
+   "onimage": "10% Niacinamide + Glutathione Brightening Serum | COOK UNTUK: Kulit kusam, Bekas jerawat, Noda hitam",
+   "onimageZh": "10% 烟酰胺 + 谷胱甘肽美白精华液 | 适用于：皮肤暗沉，痘印，黑色素沉淀",
+   "sell": [
+    {
+     "src": "Niacinamide",
+     "zh": "烟酰胺"
+    },
+    {
+     "src": "Glutathione",
+     "zh": "谷胱甘肽"
+    }
+   ],
+   "copy": [
+    {
+     "src": "",
+     "zh": "使肌肤更加明亮"
+    },
+    {
+     "src": "",
+     "zh": "肤色更加均匀"
+    },
+    {
+     "src": "SAMARKAN NODA HITAM & BEKAS JERAWAT",
+     "zh": "淡化黑色斑点和痘印"
+    },
+    {
+     "src": "",
+     "zh": "轻盈不粘腻"
+    }
+   ],
+   "themes": [
+    {
+     "src": "Niacinamide",
+     "zh": "烟酰胺"
+    },
+    {
+     "src": "Glutathione",
+     "zh": "谷胱甘肽"
+    },
+    {
+     "src": "",
+     "zh": "使肌肤更加明亮"
+    },
+    {
+     "src": "",
+     "zh": "肤色更加均匀"
+    },
+    {
+     "src": "SAMARKAN NODA HITAM & BEKAS JERAWAT",
+     "zh": "淡化黑色斑点和痘印"
+    },
+    {
+     "src": "",
+     "zh": "轻盈不粘腻"
+    }
+   ],
+   "subject": "",
+   "style": "",
+   "hook": "",
+   "usage": {
+    "prompt": 2065,
+    "completion": 280
+   },
+   "status": "ok",
+   "imageBytes": 491996,
+   "sentBytes": 106828,
+   "analyzedAt": "2026-10-22 17:13:57",
+   "model": "glm-4v-flash",
+   "materialName": "Murphy-NBS-P11-101202-IGF-功效-痛点",
+   "cover": "https://cdn-prod.feimeidms.com/uploadfile/20261013/ce571f9c-4fb2-4405-890f-15a455dc8797.jpg"
+  },
+  "SC2610200061": {
+   "lang": "en",
+   "scene": "对比效果展示",
+   "onimage": "3-IN-1 BRIGHTENING MOIST|12H OIL CONTROL & BRIGHTENING",
+   "onimageZh": "三合一提亮保湿|12小时控油提亮",
+   "sell": [
+    {
+     "src": "Instant tone-up effect",
+     "zh": "即时提亮效果"
+    },
+    {
+     "src": "Natural coverage like base makeup",
+     "zh": "自然遮瑕如底妆"
+    },
+    {
+     "src": "",
+     "zh": "日常保湿"
+    },
+    {
+     "src": "",
+     "zh": "肌肤水润发光"
+    }
+   ],
+   "copy": [
+    {
+     "src": "3-IN-1 BRIGHTENING MOIST",
+     "zh": "三合一提亮保湿"
+    },
+    {
+     "src": "12H OIL CONTROL & BRIGHTENING",
+     "zh": "12小时控油提亮"
+    }
+   ],
+   "themes": [
+    {
+     "src": "Instant tone-up effect",
+     "zh": "即时提亮效果"
+    },
+    {
+     "src": "Natural coverage like base makeup",
+     "zh": "自然遮瑕如底妆"
+    },
+    {
+     "src": "",
+     "zh": "日常保湿"
+    },
+    {
+     "src": "",
+     "zh": "肌肤水润发光"
+    },
+    {
+     "src": "3-IN-1 BRIGHTENING MOIST",
+     "zh": "三合一提亮保湿"
+    },
+    {
+     "src": "12H OIL CONTROL & BRIGHTENING",
+     "zh": "12小时控油提亮"
+    }
+   ],
+   "subject": "",
+   "style": "",
+   "hook": "",
+   "usage": {
+    "prompt": 2065,
+    "completion": 204
+   },
+   "status": "ok",
+   "imageBytes": 1118130,
+   "sentBytes": 202089,
+   "analyzedAt": "2026-10-22 17:13:58",
+   "model": "glm-4v-flash",
+   "materialName": "Murphy-GBDC-P11-101905-IGF-功效-BA",
+   "cover": "https://cdn-prod.feimeidms.com/uploadfile/20261020/78fa39ab-4192-4b16-b3b0-47f62f9a16bb.jpg"
+  },
+  "SC2610130056": {
+   "lang": "id",
+   "scene": "美容产品展示",
+   "onimage": "SERING TERPAPAR SINAR MATAHARI, KULIT JADI KUSAM?| ONLY 3 LANGKAH, KULIT AUTO CERAH!| 7 HARI KEMUDIAN!! Kulit menjadi lebih halus & glowing",
+   "onimageZh": "阳光暴晒频繁，皮肤变得暗沉？| 只需3步，皮肤自动变亮！| 7天后！！皮肤变得更光滑和发光",
+   "sell": [
+    {
+     "src": "Niacinamide + Glutathione",
+     "zh": "烟酰胺+谷胱甘肽"
+    },
+    {
+     "src": "Brightening Moist",
+     "zh": "提亮保湿"
+    },
+    {
+     "src": "Low pH 5.5",
+     "zh": "弱酸性pH 5.5"
+    }
+   ],
+   "copy": [
+    {
+     "src": "BIG SALE",
+     "zh": "大促"
+    },
+    {
+     "src": "3PC=103K",
+     "zh": "买三更划算"
+    },
+    {
+     "src": "7 Hari Kemudian",
+     "zh": "7天后"
+    }
+   ],
+   "themes": [
+    {
+     "src": "Niacinamide + Glutathione",
+     "zh": "烟酰胺+谷胱甘肽"
+    },
+    {
+     "src": "Brightening Moist",
+     "zh": "提亮保湿"
+    },
+    {
+     "src": "Low pH 5.5",
+     "zh": "弱酸性pH 5.5"
+    },
+    {
+     "src": "BIG SALE",
+     "zh": "大促"
+    },
+    {
+     "src": "3PC=103K",
+     "zh": "买三更划算"
+    },
+    {
+     "src": "7 Hari Kemudian",
+     "zh": "7天后"
+    }
+   ],
+   "subject": "",
+   "style": "",
+   "hook": "",
+   "usage": {
+    "prompt": 2065,
+    "completion": 259
+   },
+   "status": "ok",
+   "imageBytes": 636219,
+   "sentBytes": 132804,
+   "analyzedAt": "2026-10-22 17:13:59",
+   "model": "glm-4v-flash",
+   "materialName": "Murphy-NBS-P11-101205-IGS-组合-价格",
+   "cover": "https://cdn-prod.feimeidms.com/uploadfile/20261013/af47d5ac-da1f-4f43-9ce1-437ec102c659.jpg"
   }
  }
 }

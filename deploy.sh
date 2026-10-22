@@ -49,7 +49,7 @@ gcloud run deploy "$SERVICE" \
   --no-cpu-throttling \
   --timeout 3600 \
   --set-env-vars "DASH_GCS_BUCKET=${GCS_BUCKET},DASH_GCS_PREFIX=${GCS_PREFIX}" \
-  --set-secrets "DMS_TOKEN_NP=np-lxp-harvest-dms-token-np:latest,DMS_TOKEN_LXP=np-lxp-harvest-dms-token-lxp:latest"
+  --set-secrets "DMS_TOKEN_NP=np-lxp-harvest-dms-token-np:latest,DMS_TOKEN_LXP=np-lxp-harvest-dms-token-lxp:latest,ZHIPU_API_KEY=np-lxp-harvest-zhipu-key:latest"
 
 echo "==> 3/3 完成"
 gcloud run services describe "$SERVICE" --project "$PROJECT" --region "$REGION" \

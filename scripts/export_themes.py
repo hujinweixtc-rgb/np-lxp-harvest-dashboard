@@ -17,13 +17,16 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import os
 from collections import defaultdict
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-THEMES = ROOT / "data" / "image_themes.json"
-DMS = ROOT / "data" / "dms_materials.json"
-OUT_DEFAULT = ROOT / "data" / "theme_dataset"
+# 本地默认 <root>/data；Cloud Run 上由 app.py 注入 DASH_DATA_DIR（可写目录）
+DATA = Path(os.environ.get("DASH_DATA_DIR") or (ROOT / "data"))
+THEMES = DATA / "image_themes.json"
+DMS = DATA / "dms_materials.json"
+OUT_DEFAULT = DATA / "theme_dataset"
 
 FIELDS = [
     "materialCode", "brand", "country", "product", "materialName", "adName",
