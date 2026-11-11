@@ -1,4 +1,4 @@
-"""Pull raw NP / LXP DMS (igad) data for the harvest material dashboard.
+"""Pull raw NP / LXP / FR DMS (igad) data for the harvest material dashboard.
 
 Raw responses are cached under raw/<combo>/ so build_data.py can be re-run
 without hitting the API again.
@@ -9,6 +9,7 @@ import json
 import os
 import sys
 import time
+from datetime import date
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -19,7 +20,7 @@ RAW = os.environ.get("DASH_RAW_DIR") or os.path.join(ROOT, "raw")
 PAGE_MATERIALS = 500
 PAGE_ADS = 2000
 TREND_WORKERS = 12
-RANGE = {"start": "2025-06-01", "end": "2026-10-12"}
+RANGE = {"start": "2025-06-01", "end": date.today().isoformat()}
 
 
 def dump(path, payload):

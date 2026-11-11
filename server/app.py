@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""NP / LXP 素材看板 —— Cloud Run 单服务（静态页 + 实时刷新 API）。
+"""NP / LXP / FR 素材看板 —— Cloud Run 单服务（静态页 + 实时刷新 API）。
 
 架构
 ----
@@ -25,6 +25,7 @@
   DASH_DATA_DIR     看板数据输出目录（默认 <root>/data）
   DMS_TOKEN_NP      NP 的 DMS token（来自 Secret Manager）
   DMS_TOKEN_LXP     LXP 的 DMS token（来自 Secret Manager）
+  DMS_TOKEN_FR      FR 的 DMS token（来自 Secret Manager）
   DASH_AUTO_REFRESH_HOURS  数据超过多少小时自动刷新（默认 6，0=关闭）
   DASH_AUTO_RETRY_GAP      两次自动刷新最小间隔秒数（默认 1800）
 """
@@ -84,6 +85,9 @@ MEDIA_PROXY_HOSTS = {
 }
 
 # 快速刷新：只补素材投放窗口 + 大盘，跳过整张广告表与全量趋势重拉。
+# 关键词分析是「锦上添花」：它失败（限流 / 缺依赖）不该让整次刷新判失败，
+# 否则其余数据明明已更新，前端却提示刷新失败。
+OPTIONAL_SCRIPTS = {"refresh_themes.py"}
 STAGES_QUICK = (
     ("标签字典（DMS 官方一二三级）", "refresh_labels.py"),
     ("大盘聚合", "refresh_board.py"),
@@ -234,7 +238,13 @@ def _worker(stages):
                 _job["index"] = idx
                 _job["stage"] = label
             _log(f"[{idx}/{total}] {label}  ({script})")
-            _run_script(script, env)
+            try:
+                _run_script(script, env)
+            except Exception as exc:  # noqa: BLE001
+                if script in OPTIONAL_SCRIPTS:
+                    _log(f"    !! {label} 失败（不影响其余数据）：{exc}")
+                    continue
+                raise
         with _job_lock:
             _job["ok"] = True
             _job["stage"] = "完成"

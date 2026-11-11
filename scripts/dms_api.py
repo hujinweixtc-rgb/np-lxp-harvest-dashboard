@@ -1,8 +1,8 @@
-"""DMS API client for NP / LXP (feimei DMS igad module).
+"""DMS API client for NP / LXP / FR (feimei DMS igad module).
 
 凭据来源（按优先级）：
-  1. 环境变量  DMS_TOKEN_NP / DMS_TOKEN_LXP
-  2. 本地文件  config/dms_tokens.json  -> {"NP": "...", "LXP": "..."}
+  1. 环境变量  DMS_TOKEN_NP / DMS_TOKEN_LXP / DMS_TOKEN_FR
+  2. 本地文件  config/dms_tokens.json  -> {"NP": "...", "LXP": "...", "FR": "..."}
      （config/ 已加入 .gitignore，切勿提交）
 
 不要把 token 写进源码——本仓库是公开仓库，曾因此泄露过一次。
@@ -21,7 +21,7 @@ CTX.verify_mode = ssl.CERT_NONE
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CONFIG_PATH = os.environ.get("DMS_TOKENS_FILE") or os.path.join(ROOT, "config", "dms_tokens.json")
 
-BRANDS = ("NP", "LXP")
+BRANDS = ("NP", "LXP", "FR")
 
 
 def load_tokens():
@@ -61,9 +61,10 @@ COMBOS = [
     ("NP-MY",   "NP",  "web.npdms.com",   6, "my", "206", token_for("NP")),
     ("LXP-ID",  "LXP", "web.lxpdms.com",  8, "id", "209", token_for("LXP")),
     ("LXP-MY",  "LXP", "web.lxpdms.com",  8, "my", "209", token_for("LXP")),
+    ("FR-MY",   "FR",  "web.bersamadms.com", 4, "my", "202", token_for("FR")),
 ]
 
-brand_label = {"NP": "NP（NextPrime）", "LXP": "LXP"}
+brand_label = {"NP": "NP（NextPrime）", "LXP": "LXP", "FR": "FR"}
 
 
 class Dms:

@@ -208,8 +208,23 @@ def fetch_bytes(url: str, retries: int = 3) -> bytes:
     raise RuntimeError(f"下载失败: {last}")
 
 
+_PIL_WARNED = False
+
+
 def shrink_jpeg(raw: bytes) -> bytes:
-    from PIL import Image
+    """压到 MAX_SIDE 以内再送模型。
+
+    没有 Pillow（例如容器镜像漏装）时退化为「原图直传」，
+    宁可多花点 token 也不能把这批素材整体标成失败。
+    """
+    global _PIL_WARNED
+    try:
+        from PIL import Image
+    except Exception:  # noqa: BLE001
+        if not _PIL_WARNED:
+            _PIL_WARNED = True
+            print("!! 未安装 Pillow，封面不做压缩直接上传（建议镜像内安装 Pillow）", flush=True)
+        return raw
 
     im = Image.open(io.BytesIO(raw))
     if im.mode != "RGB":
@@ -570,7 +585,13 @@ def save_cache(doc: dict) -> None:
     doc["model"] = MODEL
     tmp = OUT.with_suffix(".json.tmp")
     tmp.write_text(json.dumps(doc, ensure_ascii=False, indent=1), encoding="utf-8")
-    tmp.replace(OUT)
+    try:
+        tmp.replace(OUT)
+    except OSError:
+        # Windows 上目标文件偶发被占用（编辑器 / 索引进程），os.replace 会拒绝访问；
+        # 退回直接覆盖写，避免整批分析结果丢失。
+        import shutil
+        shutil.copyfile(tmp, OUT)
 
 
 def pick_rows(rows: list[dict], args) -> list[dict]:
@@ -641,6 +662,8 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--limit", type=int, default=300, help="按花费降序取前 N 条（默认 300）")
     ap.add_argument("--all", action="store_true", help="跑全部素材")
+    ap.add_argument("--pending-limit", type=int, default=0,
+                    help="只跑尚未成功的素材，按花费降序最多 N 条（0=不限；云端分批用）")
     ap.add_argument("--brand", default="", help="只跑某品牌，如 NP / LXP")
     ap.add_argument("--country", default="", help="只跑某国家，如 ID / MY")
     ap.add_argument("--dry-run", action="store_true", help="不调模型，仅用规则兜底")
@@ -704,6 +727,9 @@ def main() -> None:
             skip += 1
             continue
         todo.append((idx, seed, row))
+    if args.pending_limit > 0 and len(todo) > args.pending_limit:
+        log(f"单批上限 {args.pending_limit} 条：本批先跑花费最高的，剩余留待下次刷新")
+        todo = todo[: args.pending_limit]
 
     def run_one(idx: int, seed: str, row: dict):
         """单条处理：下载封面 -> 压缩 -> 调模型 -> 解析。返回 (seed, theme|None, err, label, tin, tout)。"""
@@ -821,7 +847,11 @@ def main() -> None:
     log(f"完成：成功 {ok} / 跳过 {skip} / 失败 {fail}，耗时 {elapsed / 60:.1f} 分钟")
     if tok_in or tok_out:
         log(f"本次 token：输入 {tok_in:,} / 输出 {tok_out:,}（免费档，不计费）")
-    log(f"结果写入 {OUT.relative_to(ROOT)}（累计 {len(items)} 条）")
+    try:
+        shown = OUT.relative_to(ROOT)
+    except ValueError:  # Cloud Run 上 OUT 在 /tmp/data，不在 /app 之内
+        shown = OUT
+    log(f"结果写入 {shown}（累计 {len(items)} 条）")
     # 顺手刷新给其他 AI / BI 用的底稿数据集（data/theme_dataset/）
     try:
         import subprocess

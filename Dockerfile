@@ -8,6 +8,9 @@ RUN apt-get update \
  && printf 'Asia/Shanghai\n' > /etc/timezone \
  && rm -rf /var/lib/apt/lists/*
 
+# Pillow：素材封面压缩（vision_theme.shrink_jpeg）需要；缺失时关键词分析会整体失败
+RUN pip install --no-cache-dir "Pillow>=11,<12"
+
 WORKDIR /app
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \

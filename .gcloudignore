@@ -9,6 +9,7 @@ config/
 raw/
 
 _user_imgs/
+tmp_test/
 **/__pycache__/
 **/*.pyc
 scripts/_*.py

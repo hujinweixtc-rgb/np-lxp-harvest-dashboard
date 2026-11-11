@@ -10,7 +10,7 @@
 
 字典变化很慢，默认 7 天内复用缓存（DASH_LABEL_DICT_TTL_HOURS 可调，0 表示每次都拉）。
 
-用法：python scripts/refresh_labels.py [NP-ID NP-MY ...] [--force]
+用法：python scripts/refresh_labels.py [NP-ID NP-MY ... FR-MY] [--force]
 输出：raw/<combo>/label_dict.json
 """
 import json
@@ -26,7 +26,7 @@ RAW = os.environ.get("DASH_RAW_DIR") or os.path.join(ROOT, "raw")
 
 CATEGORIES = ["design_igad", "test_direction"]
 LEVELS = (1, 2, 3)
-ALL_COMBOS = ("NP-ID", "NP-MY", "LXP-ID", "LXP-MY")
+ALL_COMBOS = ("NP-ID", "NP-MY", "LXP-ID", "LXP-MY", "FR-MY")
 
 try:
     TTL_HOURS = float(os.environ.get("DASH_LABEL_DICT_TTL_HOURS") or 168)

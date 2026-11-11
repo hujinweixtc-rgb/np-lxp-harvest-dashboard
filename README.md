@@ -1,6 +1,6 @@
-# NP / LXP 收割素材看板
+# NP / LXP / FR 收割素材看板
 
-复刻「Facerinna 收割广告看板」的 UI 与数据分析逻辑，数据源改为 **NP / LXP 两个品牌在 DMS 的 IG 投放数据**（印尼 ID + 马来 MY）。
+复刻「Facerinna 收割广告看板」的 UI 与数据分析逻辑，数据源为 **NP / LXP / FR 三个品牌在 DMS 的 IG 投放数据**：NP、LXP 覆盖印尼 ID + 马来 MY，FR 覆盖马来 MY（共 5 个品牌×市场组合）。
 
 提供两种形态：
 
@@ -17,7 +17,7 @@
 
 - **数据概览**：花费 / GMV / ROI / 曝光 / 点击 / 订单 / CTR / CVR / CPA 等 KPI，支持环比对比（上一周期 / 上月 / 自定义区间）
 - **每日趋势**：花费、订单、ROI 三条曲线，支持图例点击开关
-- **品牌 × 市场大盘**：NP / LXP × 印尼 / 马来 的花费、GMV、ROI、CTR、客单价、CPA 汇总
+- **品牌 × 市场大盘**：NP / LXP × 印尼 / 马来、FR × 马来 的花费、GMV、ROI、CTR、客单价、CPA 汇总
 - **图文 vs 视频**：素材类型分布
 - **产品排序**：按花费 / ROI / 单量 / CTR / GMV / CVR 排序
 - **标签分析**：采用 DMS 官方一二三级标签字典（`refresh_labels.py` 拉 `kol/material/label/listByLevelAndParentId`，含 `category` 与 `parentId`），素材标签按 id 取官方标准名（Tab / 多空格排版归一），缺失层级沿 `parentId` 自动回溯补全。一级 → 二级 → 三级三层的花费、订单、ROI 分布，以及树状图与层级汇总表（达标线按收割三大类 awa / consi / conv 分档，仅该分档字段参与判定）
@@ -95,12 +95,12 @@ DMS 里素材标签分两套体系（`category` 字段区分）：
 index.html                 看板单文件（原生 JS + Canvas，无框架）
 data/                      看板数据快照（镜像内置 + 本地输出）
 raw/                       DMS 原始缓存（~550MB，已 gitignore）
-raw.tar.gz                 raw/ 的精简压缩包（~42MB，部署时生成，已 gitignore）
+raw.tar.gz                 raw/ 的精简压缩包（含 FR-MY 后约 62MB，部署时生成，已 gitignore）
 Dockerfile                 Cloud Run 镜像（python:3.13-slim + TZ=Asia/Shanghai）
 deploy.sh                  打包缓存 + 部署到 Cloud Run
 .gcloudignore              Cloud Run 构建上下文过滤（排除 raw/、config/）
 server/app.py              Cloud Run 服务：静态托管 + 刷新 API + GCS 持久化
-scripts/dms_api.py         DMS API 客户端（四组合配置；token 从环境变量读取）
+scripts/dms_api.py         DMS API 客户端（NP / LXP / FR 共五组合配置；token 从环境变量读取）
 scripts/fetch_dms.py       首次全量抓取（带本地缓存）
 scripts/refresh_board.py   大盘聚合增量刷新
 scripts/refresh_adv.py     素材投放窗口（advertisedPage）按月分桶抓取 + 趋势明细回补
@@ -121,8 +121,8 @@ scripts/setup_secrets.sh   把 token 写入 Secret Manager 并授权
 
 ```bash
 export ZHIPU_API_KEY=你的key                       # bigmodel.cn → API Keys
-python scripts/vision_theme.py --limit 300         # 按花费降序取前 300（覆盖 69% 花费）
-python scripts/vision_theme.py --all               # 全量 4220 张
+python scripts/vision_theme.py --limit 300         # 按花费降序取前 300 条新素材
+python scripts/vision_theme.py --all               # 全量素材（当前 9502 条，已成功的会跳过）
 python scripts/vision_theme.py --brand NP --country ID --limit 100
 python scripts/vision_theme.py --dry-run --limit 20  # 不调模型，仅用素材名规则兜底
 ```
@@ -154,20 +154,21 @@ python scripts/vision_theme.py --dry-run --limit 20  # 不调模型，仅用素�
 
 DMS token **不写入源码**（本仓库公开，曾因此泄露过一次）。按优先级读取：
 
-1. 环境变量 `DMS_TOKEN_NP` / `DMS_TOKEN_LXP`（Cloud Run 从 Secret Manager 注入）
-2. 本地文件 `config/dms_tokens.json`（已 gitignore），格式 `{"NP": "...", "LXP": "..."}`
+1. 环境变量 `DMS_TOKEN_NP` / `DMS_TOKEN_LXP` / `DMS_TOKEN_FR`（Cloud Run 从 Secret Manager 注入）
+2. 本地文件 `config/dms_tokens.json`（已 gitignore），格式 `{"NP": "...", "LXP": "...", "FR": "..."}`
 
 > ⚠️ 若 token 曾出现在提交历史中，请在 DMS 后台重新生成，然后执行
-> `bash scripts/setup_secrets.sh` 更新 Secret Manager（无需重新部署服务）。
+> `bash scripts/setup_secrets.sh` 更新 Secret Manager，并**重新部署服务**——
+> `--set-secrets ...:latest` 在部署时会固定到当时的 secret 版本，只换 secret 不会自动生效。
 
 ## 本地复现
 
 ```bash
 # 0. 配置凭据
-mkdir -p config && echo '{"NP":"<token>","LXP":"<token>"}' > config/dms_tokens.json
+mkdir -p config && echo '{"NP":"<token>","LXP":"<token>","FR":"<token>"}' > config/dms_tokens.json
 
 # 1. 首次全量抓取（结果缓存在 raw/，已 gitignore）
-python scripts/fetch_dms.py            # 全部四个组合
+python scripts/fetch_dms.py            # 全部五个组合
 python scripts/fetch_dms.py NP-ID      # 只抓某一个组合
 
 # 2. 生成看板数据
@@ -184,9 +185,33 @@ python scripts/refresh_board.py && python scripts/refresh_adv.py && python scrip
 ## 部署 / 更新
 
 ```bash
-# Cloud Run 实时版（每次改代码后执行）
+# Cloud Run 实时版（每次改代码或 data/ 后执行）
 bash deploy.sh
+
+# raw/ 没变化时跳过全量压缩，复用现有 raw.tar.gz（也避开 Windows 下文件占用）
+SKIP_PACK=1 bash deploy.sh
 
 # 静态版：把新的 data/ 与 index.html 推到 GitHub Pages
 git push origin main
 ```
+
+- Cloud Run 内存固定 `4Gi`：FR-MY 全量 raw 加入后，2Gi 会在组装阶段 OOM 导致实例反复重启。
+- 镜像内置 `data/`（含 `image_themes.json`）；冷启动 `gcs_restore` 只在 GCS 的 `generatedAt`
+  比镜像更新时才覆盖。要上线一份本地合并的新缓存，确保它的 `generatedAt` 更新即可。
+- 刷新成功后服务端会把 `materials.json` / `dms_materials.json` / `board.json` /
+  `image_themes.json` 回写 GCS，供后续冷启动复用。
+
+## FR 马来（FR-MY）
+
+- DMS 域名 `web.bersamadms.com`，`fm-brandid=4` / `fm-country=my` / `tenant-id=202`，token 存于
+  Secret Manager `np-lxp-harvest-dms-token-fr`（部署时以 `:latest` 固定版本，换 token 需重新部署）。
+- 首次接入按全量历史（2025-06-01 起）拉取：素材库 5079 条、广告表 78450 行、逐素材趋势 10949 份、
+  明细 6535 份、`advertisedPage` 4 个月桶；组装后进入看板的 FR-MY 素材 4808 条、大盘 452 天。
+- FR 素材编号同样为 `SC*` / `JJ*`，图片域名与 NP / LXP 一致，媒体代理白名单无需改动。
+- 卖点 / 文案关键词由免费视觉模型增量补跑：`DASH_THEME_BATCH`（默认 300）控制每次云端刷新最多分析
+  多少条新素材，避免一次新增几千条素材把刷新任务拖到数小时；未跑完的下次刷新按花费降序继续。
+- 2026-11-11 首次接入时，先在本地按花费降序预跑 FR 高花费素材，再只把 `status=ok` 的条目合并进
+  `data/image_themes.json`，让合并缓存随镜像一起上线（冷启动 GCS 恢复只认更新的 `generatedAt`，
+  所以合并后要把 `generatedAt` 调到比 GCS 快照新）。合并结果 5493 条 / FR 799 条 / 覆盖
+  FR 花费 79.1%；之后每次云端刷新再按花费补 300 条并回写 GCS。截至 2026-11-11 晚间已累计
+  6093 条全部 `status=ok`、FR 1399 条、覆盖 FR 花费 88.1%，其余继续由后续刷新分批补齐。

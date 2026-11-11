@@ -20,7 +20,15 @@ def main() -> None:
         return
     vision_theme.assert_free_model(vision_theme.MODEL)
     print(f"关键词分析：模型 {vision_theme.MODEL}（免费档，仅新增素材）", flush=True)
-    sys.argv = ["vision_theme.py", "--all", "--workers", "4"]
+    # 单批上限：一次刷新只补一批新素材，避免新增几千条时把刷新任务拖到数小时。
+    # 每批按花费降序取，未跑完的下次刷新继续（缓存里 status=ok 的会跳过）。
+    try:
+        batch = max(1, int(os.environ.get("DASH_THEME_BATCH") or 300))
+    except ValueError:
+        batch = 300
+    sys.argv = ["vision_theme.py", "--all", "--workers", "4",
+             "--pending-limit", str(batch)]
+    print(f"关键词分析：单批上限 {batch} 条（其余下次刷新继续）", flush=True)
     vision_theme.main()
 
 

@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>NP / LXP 收割素材看板</title>
+  <title>NP / LXP / FR 收割素材看板</title>
   <link rel="icon" href="data:," />
   <style>
     :root {
@@ -537,6 +537,11 @@
       color: var(--muted);
     }
     .sort-indicator.active { color: var(--deep); }
+    /* AI 关键词表：表头排序（参考品牌看板 Domestic Creative Tags 样式） */
+    .ai-kw-wrap th.sortable { cursor: pointer; user-select: none; white-space: nowrap; }
+    .ai-kw-wrap th.sortable:hover { color: var(--deep); }
+    .ai-kw-wrap th.active-sort { color: var(--green); }
+    .ai-kw-wrap th.active-sort .sort-indicator { color: var(--green); font-weight: 700; }
     .tag-groups {
       display: grid;
       gap: 10px;
@@ -1574,7 +1579,7 @@
     <div class="shell">
       <div class="topline">
         <div>
-          <h1>NP / LXP 收割素材看板</h1>
+          <h1>NP / LXP / FR 收割素材看板</h1>
           <div class="sub" id="sourceLine">DMS · 素材类型=图文/视频 · loading</div>
         </div>
         <div class="top-actions">
@@ -1763,7 +1768,7 @@
         <div class="head">
           <div>
             <h2>文案关键词</h2>
-            <div class="small">文案主题词 · 按花费降序 Top 40 · ROI = GMV / 花费</div>
+            <div class="small">文案主题词 · 点表头切换排序 · 默认花费降序 Top 40 · ROI = GMV / 花费</div>
           </div>
         </div>
         <div class="table-wrap ai-kw-wrap">
@@ -1936,6 +1941,10 @@
       sortDir: -1,
       productSortKey: 'spend',
       productSortDir: -1,
+      aiKwSort: {
+        sell: { key: 'spend', dir: -1 },
+        copy: { key: 'spend', dir: -1 }
+      },
       options: { brand: [], country: [], product: [], tag1: [], tag2: [] },
       multiSearch: { brand: '', country: '', product: '', tag1: '', tag2: '' },
       multiMode: { brand: 'default', country: 'default', product: 'default', tag1: 'default', tag2: 'default' },
@@ -2171,6 +2180,7 @@
 
     function applyFilters(pushUrl = true) {
       readFilterControls();
+      syncProductScope();
       updateCompareControls();
       state.filtered = collectFilteredRows(state.from, state.to);
       state.compareAppliedRange = compareRange();
@@ -2469,9 +2479,33 @@
           }
         }
       }
-      const headers = ['关键词', '素材数', '花费', 'CTR', '订单', 'ROI'];
-      const draw = (table, map) => {
-        const list = [...map.values()].sort((a, b) => b.spend - a.spend).slice(0, 40);
+      const headers = [
+        ['关键词', 'zh', ''],
+        ['素材数', 'posts', 'num'],
+        ['花费', 'spend', 'num'],
+        ['CTR', 'ctr', 'num'],
+        ['订单', 'orders', 'num'],
+        ['ROI', 'roi', 'num']
+      ];
+      const aiKwLabel = { zh: '关键词', posts: '素材数', spend: '花费', ctr: 'CTR', orders: '订单', roi: 'ROI' };
+      const aiKwValue = (item, key) => {
+        if (key === 'posts') return Number(item.posts || 0);
+        if (key === 'spend') return Number(item.spend || 0);
+        if (key === 'ctr') return Number(item.impressions ? item.clicks / item.impressions : 0);
+        if (key === 'orders') return Number(item.orders || 0);
+        if (key === 'roi') return Number(item.spend ? item.gmv / item.spend : 0);
+        return 0;
+      };
+      const aiKwArrow = (sort, key) => {
+        const active = sort.key === key;
+        const dir = active ? sort.dir : -1;
+        return `<span class="sort-indicator${active ? ' active' : ''}">${dir > 0 ? '↑' : '↓'}</span>`;
+      };
+      const draw = (table, map, kind) => {
+        const sort = state.aiKwSort[kind];
+        const list = [...map.values()]
+          .sort((a, b) => (aiKwValue(a, sort.key) - aiKwValue(b, sort.key)) * sort.dir)
+          .slice(0, 40);
         const body = list.map(item => `<tr>
           <td><div class="ai-kw"><b>${safe(item.zh)}</b>${item.src && item.src !== item.zh ? `<i>${safe(item.src)}</i>` : ''}</div></td>
           <td class="num">${fmt(item.posts)}</td>
@@ -2480,12 +2514,34 @@
           <td class="num">${fmt(item.orders)}</td>
           <td class="num">${roi(item.spend ? item.gmv / item.spend : 0)}</td>
         </tr>`).join('');
-        table.innerHTML = `<thead><tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr></thead>`
+        table.innerHTML = `<thead><tr>${headers.map(([label, key, cls]) => key === 'zh'
+          ? `<th>${label}</th>`
+          : `<th class="${cls} sortable${sort.key === key ? ' active-sort' : ''}" data-ai-sort="${key}" title="点击按${label}排序">${label}${aiKwArrow(sort, key)}</th>`).join('')}</tr></thead>`
           + `<tbody>${body || `<tr><td colspan="${headers.length}" class="empty">当前筛选下暂无已分析素材</td></tr>`}</tbody>`;
       };
-      draw(sellTable, groups.sell);
-      draw(copyTable, groups.copy);
-      $('aiKwNote').textContent = `视觉模型从素材快照提取 · 当前筛选内已分析 ${fmt(analyzed)} 条素材 · 按花费降序 Top 40`;
+      draw(sellTable, groups.sell, 'sell');
+      draw(copyTable, groups.copy, 'copy');
+      const bindAiKwSort = (table, kind) => {
+        if (table.dataset.aiSortBound) return;
+        table.dataset.aiSortBound = '1';
+        table.addEventListener('click', e => {
+          const th = e.target.closest('[data-ai-sort]');
+          if (!th) return;
+          const key = th.dataset.aiSort;
+          const sort = state.aiKwSort[kind];
+          if (sort.key === key) sort.dir *= -1;
+          else {
+            sort.key = key;
+            sort.dir = -1;
+          }
+          renderAiKeywords();
+        });
+      };
+      bindAiKwSort(sellTable, 'sell');
+      bindAiKwSort(copyTable, 'copy');
+      const sorts = state.aiKwSort;
+      const sortText = (k) => `${aiKwLabel[sorts[k].key]}${sorts[k].dir > 0 ? '升序' : '降序'}`;
+      $('aiKwNote').textContent = `视觉模型从素材快照提取 · 当前筛选内已分析 ${fmt(analyzed)} 条素材 · 卖点按${sortText('sell')} / 文案按${sortText('copy')}，各取 Top 40`;
     }
 
     function deltaChip(current, base) {
@@ -2918,7 +2974,7 @@
       const sub = [row.product, row.country].filter(Boolean).join(' · ') || (isVideo ? '视频素材' : '图文素材');
       const code = row.materialId || row.materialCode || row.key || 'DMS';
       return `<div class="dms-fallback-cover ${isVideo ? 'video' : 'image'}">
-        <div class="dms-fallback-brand">${safe(row.brand || 'NP / LXP')}</div>
+        <div class="dms-fallback-brand">${safe(row.brand || 'NP / LXP / FR')}</div>
         <div class="dms-fallback-kind">${isVideo ? 'VIDEO' : 'IMAGE'}</div>
         <div class="dms-fallback-title">${safe(title)}</div>
         <div class="dms-fallback-sub">${safe(short(sub, 30))}</div>
@@ -3480,8 +3536,34 @@
       if (empty) empty.classList.toggle('search-hidden', matches > 0);
     }
 
+    // 产品下拉跟随国家 / 品牌筛选：只列出当前口径下有素材的产品
+    function multiOptions(key) {
+      if (key !== 'product') return state.options[key];
+      if (!state.brand.length && !state.country.length) return state.options.product;
+      const set = new Set();
+      for (const row of state.rows) {
+        if (state.brand.length && !state.brand.includes(row.brand || '未标注')) continue;
+        if (state.country.length && !state.country.includes(row.country || '未标注')) continue;
+        set.add(row.product || '未标注');
+      }
+      return [...set].sort((a, b) => a.localeCompare(b, 'zh-Hans-CN'));
+    }
+
+    // 国家 / 品牌变化后，已选产品若不在当前口径内则自动剔除
+    function syncProductScope() {
+      const scope = multiOptions('product');
+      if (state.multiMode.product === 'custom' && state.product.length) {
+        const kept = state.product.filter(v => scope.includes(v));
+        if (kept.length !== state.product.length) {
+          state.product = kept;
+          state.multiMode.product = kept.length ? 'custom' : 'default';
+        }
+      }
+      renderMulti('product', '全部产品');
+    }
+
     function renderMulti(key, fallback) {
-      const options = state.options[key];
+      const options = multiOptions(key);
       const selected = state.multiMode[key] === 'custom' ? new Set(state[key]) : state.multiMode[key] === 'cleared' ? new Set() : new Set(options);
       $(`${key}Label`).textContent = optionText(key, fallback);
       $(`${key}Panel`).innerHTML = `<div class="multi-actions">
@@ -3512,7 +3594,7 @@
     }
 
     function toggleMulti(key, value) {
-      const options = state.options[key];
+      const options = multiOptions(key);
       let selected;
       if (state.multiMode[key] === 'cleared') selected = [];
       else if (state.multiMode[key] === 'custom') selected = [...state[key]];
@@ -4065,8 +4147,7 @@
       if (!tab) return;
       state.currentView = tab.dataset.view;
       if (state.currentView === 'overview') {
-        state.country = [];
-        renderMulti('country', '全部国家');
+        // 从 DMS素材 跳回数据概览：保留现有筛选（国家 / 品牌 / 产品等），按当前筛选重新渲染
         applyFilters();
       } else {
         updateView();
