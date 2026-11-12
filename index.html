@@ -2923,8 +2923,11 @@
       'dms-upload-prod-sg.oss-ap-southeast-1.aliyuncs.com',
       'cdn-prod.feimeidms.com'
     ]);
-    // 静态托管（GitHub Pages）没有自带后端，回退到既有代理服务
-    const MEDIA_PROXY_FALLBACK = 'https://np-post-dashboard-a2vd6kqlpq-as.a.run.app/media-proxy';
+    // 实时后端地址：静态版（GitHub Pages）没有自己的后端，数据 / 接口 / 素材代理都走它
+    const LIVE_BASE = 'https://np-lxp-harvest-dashboard-1002667285186.asia-southeast1.run.app/';
+    // 静态托管（GitHub Pages）回退到实时后端自己的代理。
+    // 旧的 np-post-dashboard 代理会把 >32MiB 视频整段转发，被 Cloud Run 500 掐断，已弃用。
+    const MEDIA_PROXY_FALLBACK = LIVE_BASE + 'media-proxy';
 
     function mediaProxyBase() {
       return REFRESH.available ? './media-proxy' : MEDIA_PROXY_FALLBACK;
@@ -2994,7 +2997,7 @@
     function renderPostThumb(row = {}) {
       const photo = dmsPreviewUrl(row);
       if (!photo || !/^https?:\/\//.test(String(photo))) return '';
-      const big = dmsDownloadUrl(row) || photo;
+      const big = dmsOriginalVideoUrl(dmsDownloadUrl(row) || photo);
       const isVideo = row.isVideo === true || row.materialType === '视频' || dmsIsVideoUrl(big);
       const title = short(String(row.materialName || row.materialCode || row.adName || '素材快照').trim(), 90);
       return `<a class="post-thumb${isVideo ? ' video' : ''}" href="${safe(dmsProxyUrl(big))}"
@@ -3102,18 +3105,32 @@
       box.hidden = false;
     }
 
+    // previewUrl 常是 OSS 抽帧快照（xxx.mp4?x-oss-process=video/snapshot...），
+    // 播放/下载必须还原成原始视频地址，否则打开的是一张 JPG。
+    function dmsOriginalVideoUrl(url) {
+      const raw = String(url || '');
+      if (!/x-oss-process=/i.test(raw)) return raw;
+      try {
+        const parsed = new URL(raw);
+        parsed.searchParams.delete('x-oss-process');
+        return parsed.toString();
+      } catch {
+        return raw.split('?')[0];
+      }
+    }
+
     function renderDmsMedia(url, fallbackText, row = {}) {
       const fallback = renderDmsFallbackCover(row, fallbackText);
       if (!url || !/^https?:\/\//.test(url)) return fallback;
-      const hiRes = dmsDownloadUrl(row) || url;
+      const hiRes = dmsOriginalVideoUrl(dmsDownloadUrl(row) || url);
       const isVideo = dmsIsVideoUrl(url) || dmsIsVideoUrl(hiRes) || row.materialType === '视频';
       // 点击封面 → 高清大图预览；视频则弹出播放器
-      const lb = lightboxAttrs(isVideo ? hiRes : hiRes, url, row, isVideo);
+      const lb = lightboxAttrs(hiRes, url, row, isVideo);
       // 图片/视频加载成功后移除兜底文字，避免 contain 留白或透明区域把文字透出来
       const dropFallback = `this.previousElementSibling&&this.previousElementSibling.classList.contains('dms-fallback-cover')&&this.previousElementSibling.remove()`;
       if (dmsIsVideoUrl(url)) {
         const poster = dmsVideoPosterUrl(url);
-        const playUrl = dmsProxyUrl(url);
+        const playUrl = dmsProxyUrl(hiRes);
         if (poster) {
           const fallbackPoster = dmsVideoPosterUrl(url, 3500);
           return `<a class="dms-video-wrap" href="${safe(playUrl)}" target="_blank" rel="noopener"${lb}>${fallback}<img src="${safe(dmsProxyUrl(poster))}" data-fallback="${safe(dmsProxyUrl(fallbackPoster))}" alt="" loading="lazy" onload="${dropFallback}" onerror="if(this.dataset.fallback){this.src=this.dataset.fallback;this.dataset.fallback=''}else{this.remove()}"><span class="dms-play-badge">播放</span></a>`;
@@ -3784,8 +3801,7 @@
 
     // ---- 实时刷新（仅在 Cloud Run 后端可用时启用）--------------------------
     const REFRESH = { available: false, busy: false, timer: 0, autoTimer: 0, dataVersion: '', autoHours: 0, lastSync: 0 };
-    // 静态渠道（GitHub Pages）没有后端，刷新一律引导到实时版
-    const LIVE_BASE = 'https://np-lxp-harvest-dashboard-a2vd6kqlpq-as.a.run.app/';
+    // 静态渠道（GitHub Pages）没有后端，数据/接口/素材代理统一走 LIVE_BASE（定义在素材代理区）
 
     function setRefreshProgress(text, tone) {
       const el = document.getElementById('refreshProgress');
@@ -4401,9 +4417,15 @@
       if (dl) {
         dl.href = dmsProxyUrl(dlUrl, true) || '#';
         dl.style.display = dlUrl ? '' : 'none';
+        dl.textContent = LB.video ? '下载视频' : '下载原图';
       }
       const hint = $('lbHint');
-      if (hint) hint.style.display = '';
+      if (hint) {
+        hint.style.display = '';
+        hint.textContent = LB.video
+          ? '视频加载中… 点击播放器可暂停/继续；若无法播放，可点「下载」保存查看'
+          : '滚轮缩放 · 拖拽平移 · 点击空白处关闭';
+      }
 
       const zoomCtrls = ['lbZoomOut', 'lbZoomIn', 'lbFit', 'lbActual'];
       zoomCtrls.forEach(id => { const el = $(id); if (el) el.style.display = LB.video ? 'none' : ''; });
@@ -4413,6 +4435,7 @@
         img.removeAttribute('src');
         video.hidden = false;
         video.src = dmsProxyUrl(videoUrl);
+        video.load();
         stage.classList.remove('loading');
         video.play().catch(() => {});
         LB.natW = 0;
@@ -4480,6 +4503,19 @@
 
       // 阻止图片/视频被原生拖拽（拖拽用于平移画布）
       [img, video].forEach(el => el.addEventListener('dragstart', event => event.preventDefault()));
+
+      // 视频：src 刚设置时 play() 可能被 AbortError / 自动播放策略拒绝，
+      // 加载出首帧后再试一次；加载失败则给出可读提示与下载兜底。
+      video.addEventListener('loadeddata', () => {
+        if (LB.open && LB.video) video.play().catch(() => {});
+      });
+      video.addEventListener('error', () => {
+        if (!LB.open || !LB.video) return;
+        const t = $('lbTitle');
+        if (t) t.textContent = '视频加载失败（源文件可能不可用）';
+        const h = $('lbHint');
+        if (h) h.textContent = '视频加载失败：可点右上角「下载」保存后查看，或稍后重试';
+      });
 
       // 2) 高清图加载完成 → 计算适应比例
       img.addEventListener('load', () => {

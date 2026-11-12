@@ -13,7 +13,10 @@
 
 - **素材快照**：素材明细与 DMS 素材页直接显示素材封面（视频显示 OSS 抽帧 + ▶ 角标，点击打开原素材）。
   DMS 素材卡片指标条为 花费 / 订单 / CTR / ROI + **CPC**（第 5 项跨整行显示，悬停可见口径提示）。
-  DMS/OSS 域名有 Referer 防盗链，图片统一走 `/media-proxy` 代理（live 同源自建；static 回退 np-post-dashboard 代理服务）。
+  DMS/OSS 域名有 Referer 防盗链，图片/视频统一走 `/media-proxy` 代理（live 同源；static 回退到同一个实时后端）。
+  视频按 Range 分片转发（默认 8 MiB/片）：Cloud Run 单次响应上限 32 MiB，DMS 视频常见 20~60 MiB，
+  整段转发会被平台掐断成 500，浏览器表现为「视频播不了 / 不支持的源」；分片后进度条拖动也正常。
+  播放地址一律还原成原始 mp4（`?x-oss-process=video/snapshot` 只是封面 JPG，不能拿来播）。
 
 
 - **数据概览**：花费 / GMV / ROI / 曝光 / 点击 / 订单 / CTR / CVR / CPA / CPC 等 KPI，支持环比对比（上一周期 / 上月 / 自定义区间）
@@ -199,6 +202,8 @@ git push origin main
 ```
 
 - Cloud Run 内存固定 `4Gi`：FR-MY 全量 raw 加入后，2Gi 会在组装阶段 OOM 导致实例反复重启。
+- 素材代理分片大小由 `DASH_MEDIA_CHUNK_MB` 控制（默认 8，单位 MiB，上限须低于 Cloud Run 的 32 MiB
+  响应限制）。改 `server/app.py` 的代理逻辑后必须重新部署 Cloud Run；静态版页面由 `git push` 更新。
 - 镜像内置 `data/`（含 `image_themes.json`）；冷启动 `gcs_restore` 只在 GCS 的 `generatedAt`
   比镜像更新时才覆盖。要上线一份本地合并的新缓存，确保它的 `generatedAt` 更新即可。
 - 刷新成功后服务端会把 `materials.json` / `dms_materials.json` / `board.json` /

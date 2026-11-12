@@ -13,7 +13,7 @@
 ----
   GET  /                     首页 index.html
   GET  /data/*               data 文件（优先 /tmp 下的最新结果，回退镜像内快照）
-  GET  /media-proxy?url=...  代理 DMS/OSS 素材（绕 Referer 防盗链，白名单域名）
+  GET  /media-proxy?url=...  代理 DMS/OSS 素材（绕 Referer 防盗链，白名单域名；视频分片）
   GET  /api/status           当前数据版本 + 刷新任务状态
   POST /api/refresh[?quick=1] 触发刷新（立即返回 202）
   GET  /api/refresh/status   刷新进度（前端轮询）
@@ -28,6 +28,7 @@
   DMS_TOKEN_FR      FR 的 DMS token（来自 Secret Manager）
   DASH_AUTO_REFRESH_HOURS  数据超过多少小时自动刷新（默认 6，0=关闭）
   DASH_AUTO_RETRY_GAP      两次自动刷新最小间隔秒数（默认 1800）
+  DASH_MEDIA_CHUNK_MB      素材代理视频单片大小 MiB（默认 8，须 < Cloud Run 32 MiB 上限）
 """
 from __future__ import annotations
 
@@ -37,6 +38,7 @@ import json
 import mimetypes
 import os
 import posixpath
+import re
 import shutil
 import subprocess
 import sys
@@ -83,6 +85,34 @@ MEDIA_PROXY_HOSTS = {
     "dms-upload-prod-sg.oss-ap-southeast-1.aliyuncs.com",
     "cdn-prod.feimeidms.com",
 }
+
+# Cloud Run 单次响应上限 32 MiB；DMS 视频常见 20~60 MiB，整段转发会被平台
+# 截断成 500，浏览器随即报「不支持的源」。视频统一按 Range 分片转发，
+# 让浏览器逐段取（同时保证拖拽进度条仍能工作）。
+# 仅对「原始视频」生效：带 x-oss-process=video/snapshot 的 URL 其实是一张封面 JPG。
+MEDIA_CHUNK_BYTES = max(1, int(os.environ.get("DASH_MEDIA_CHUNK_MB") or 8)) * 1024 * 1024
+VIDEO_URL_RE = re.compile(r"\.(mp4|mov|m4v|webm)(?:\?|$)", re.I)
+OSS_SNAPSHOT_RE = re.compile(r"x-oss-process=[^&]*video/snapshot", re.I)
+
+
+def _bounded_range(header, chunk):
+    """把浏览器的开放 Range（bytes=0-）/过长 Range 收敛到一片 <= chunk 的范围。
+
+    返回 (发给上游的 Range 头, 是否截断)。后缀 Range / 多段 Range 等无法安全
+    改写的头原样透传（体积通常很小）。
+    """
+    if not header:
+        return f"bytes=0-{chunk - 1}", True
+    match = re.match(r"^bytes=(\d+)-(\d*)$", header.strip(), re.I)
+    if not match:
+        return header, False
+    start = int(match.group(1))
+    end_text = match.group(2)
+    if end_text:
+        end = int(end_text)
+        if start <= end and end - start + 1 <= chunk:
+            return f"bytes={start}-{end}", False
+    return f"bytes={start}-{start + chunk - 1}", True
 
 # 快速刷新：只补素材投放窗口 + 大盘，跳过整张广告表与全量趋势重拉。
 # 关键词分析是「锦上添花」：它失败（限流 / 缺依赖）不该让整次刷新判失败，
@@ -546,11 +576,13 @@ class Handler(BaseHTTPRequestHandler):
         return target
 
     def _proxy_media(self, params):
-        """代理 DMS / OSS 素材（图片快照、视频封面）。
+        """代理 DMS / OSS 素材（图片封面、视频）。
 
         这些域名开了 Referer 防盗链：浏览器带着 run.app / github.io 的 Referer
         直接请求会 403，所以必须由服务端转发（服务端请求不带 Referer）。
         只允许白名单域名，避免被当成任意 URL 的开放代理（SSRF）。
+        视频按 Range 分片转发，单次响应不超过 MEDIA_CHUNK_BYTES，绕开 Cloud Run
+        32 MiB 响应上限；图片 / OSS 抽帧封面保持整段转发。
         """
         raw = (params.get("url") or [""])[0].strip()
         if not raw:
@@ -559,27 +591,61 @@ class Handler(BaseHTTPRequestHandler):
         host = (parts.hostname or "").lower()
         if parts.scheme not in ("http", "https") or host not in MEDIA_PROXY_HOSTS:
             return self._send(403, "host not allowed", "text/plain; charset=utf-8")
+
+        head_only = self.command == "HEAD"
+        # 封面快照 URL 形如 xxx.mp4?x-oss-process=video/snapshot...，实际返回 JPG
+        is_video = bool(VIDEO_URL_RE.search(raw)) and not OSS_SNAPSHOT_RE.search(raw)
+        client_range = self.headers.get("range")
+        if is_video and not head_only:
+            upstream_range, _ = _bounded_range(client_range, MEDIA_CHUNK_BYTES)
+        else:
+            upstream_range = client_range
+
         req = urllib.request.Request(raw, method="GET")
         # 刻意不转发 Referer —— 这是绕开防盗链的关键
         req.add_header("User-Agent", "np-lxp-dashboard-media-proxy/1.0")
-        client_range = self.headers.get("range")
-        if client_range:
-            req.add_header("Range", client_range)
+        if upstream_range:
+            req.add_header("Range", upstream_range)
         try:
             with urllib.request.urlopen(req, timeout=120) as resp:
                 upstream = resp.status
-                self.send_response(206 if upstream == 206 else 200)
-                for key in ("content-type", "content-length", "content-range",
-                            "accept-ranges", "last-modified", "etag"):
-                    value = resp.headers.get(key)
-                    if value:
-                        self.send_header(key, value)
+                ctype = resp.headers.get("content-type") or "application/octet-stream"
+                total = int(resp.headers.get("content-length") or 0)
+                # 上游万一忽略 Range：自己截第一段并伪造 206，避免整段 >32 MiB 被平台 500
+                force_first_chunk = (
+                    is_video and not head_only and upstream == 200
+                    and total > MEDIA_CHUNK_BYTES
+                )
+                self.send_response(206 if (upstream == 206 or force_first_chunk) else 200)
+                if force_first_chunk:
+                    self.send_header("content-type", ctype)
+                    self.send_header("content-length", str(MEDIA_CHUNK_BYTES))
+                    self.send_header("content-range",
+                                     f"bytes 0-{MEDIA_CHUNK_BYTES - 1}/{total}")
+                else:
+                    for key in ("content-type", "content-length", "content-range",
+                                "last-modified", "etag"):
+                        value = resp.headers.get(key)
+                        if value:
+                            self.send_header(key, value)
+                self.send_header("accept-ranges", "bytes")
                 self.send_header("cache-control", "public, max-age=86400")
                 self.send_header("access-control-allow-origin", "*")
                 self.send_header("cross-origin-resource-policy", "cross-origin")
                 self.end_headers()
-                if self.command != "HEAD":
-                    shutil.copyfileobj(resp, self.wfile)
+                if head_only:
+                    return
+                remaining = MEDIA_CHUNK_BYTES if force_first_chunk else None
+                while True:
+                    size = 65536 if remaining is None else min(65536, remaining)
+                    if size <= 0:
+                        break
+                    buf = resp.read(size)
+                    if not buf:
+                        break
+                    self.wfile.write(buf)
+                    if remaining is not None:
+                        remaining -= len(buf)
         except urllib.error.HTTPError as exc:
             return self._send(exc.code, f"upstream {exc.code}", "text/plain; charset=utf-8")
         except (BrokenPipeError, ConnectionResetError):
