@@ -12,6 +12,7 @@
 ## 功能
 
 - **素材快照**：素材明细与 DMS 素材页直接显示素材封面（视频显示 OSS 抽帧 + ▶ 角标，点击打开原素材）。
+  DMS 素材卡片指标条为 花费 / 订单 / CTR / ROI + **CPC**（第 5 项跨整行显示，悬停可见口径提示）。
   DMS/OSS 域名有 Referer 防盗链，图片统一走 `/media-proxy` 代理（live 同源自建；static 回退 np-post-dashboard 代理服务）。
 
 
@@ -23,7 +24,7 @@
 - **标签分析**：采用 DMS 官方一二三级标签字典（`refresh_labels.py` 拉 `kol/material/label/listByLevelAndParentId`，含 `category` 与 `parentId`），素材标签按 id 取官方标准名（Tab / 多空格排版归一），缺失层级沿 `parentId` 自动回溯补全。一级 → 二级 → 三级三层的花费、订单、ROI 分布，以及树状图与层级汇总表（达标线按收割三大类 awa / consi / conv 分档，仅该分档字段参与判定）
 - **素材明细**：逐素材的 Ad name、国家、产品、类型、标签、花费、曝光、链接点击、订单、GMV、ROI、CPM、CTR、CVR、CPA、CPC
 - **卖点 / 文案关键词交叉表**：视觉模型从素材快照提取的卖点词 / 文案词，按花费 / CTR / CPC / 订单 / ROI 点表头切换排序，各取 Top 40
-- **CPC 口径**：统一为 `花费 / 链接点击`（素材行用 `linkClick`，大盘行用 `linkClicks`，0 点击记 0，两位小数），筛选栏「指标区间」可按 CPC 区间过滤，6 张表表头、DMS 素材排序、CSV 导出与分享链接 URL 均含 CPC
+- **CPC 口径**：统一为 `花费 / 链接点击`（素材行用 `linkClick`，大盘行用 `linkClicks`，0 点击记 0，两位小数），筛选栏「指标区间」可按 CPC 区间过滤，6 张表表头、**DMS 素材快照卡片**、DMS 素材排序、CSV 导出与分享链接 URL 均含 CPC
 - **DMS 素材库**：包含封面预览、视频快照、下载链接（直连 OSS）
 - **导出**：一键导出当前视图的所有表格为 Excel / CSV，支持「分享链接」（筛选条件写入 URL）
 

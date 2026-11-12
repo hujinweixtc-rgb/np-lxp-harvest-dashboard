@@ -1043,6 +1043,17 @@
     }
     .dms-meta .roi-high b { color: var(--red); }
     .dms-meta .roi-low b { color: var(--teal); }
+    /* 第 5 个指标（CPC）单独占一整行，避免 2 列网格留下右下空格 */
+    .dms-meta .dms-meta-wide {
+      grid-column: 1 / -1;
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 6px;
+      border-top: 1px dashed var(--line);
+      padding-top: 5px;
+    }
+    .dms-meta .dms-meta-wide b { display: inline; margin-top: 0; }
     .dms-actions {
       display: flex;
       gap: 6px;
@@ -2891,6 +2902,7 @@
               <span>订单<b>${fmt(row.orders)}</b></span>
               <span>CTR<b>${pct(cardCtr(row))}</b></span>
               <span class="${roiClass}">ROI<b>${roi(row.roi)}</b></span>
+              <span class="dms-meta-wide" title="CPC = 花费 / 链接点击（USD）">CPC<b>${money2(row.cpc ?? cpcOf(row))}</b></span>
             </div>
           </div>
         </article>`;
@@ -3185,6 +3197,7 @@
               <span>订单<b>${fmt(row.orders)}</b></span>
               <span>CTR<b>${pct(cardCtr(row))}</b></span>
               <span class="${roiClass}">ROI<b>${roi(row.roi)}</b></span>
+              <span class="dms-meta-wide" title="CPC = 花费 / 链接点击（USD）">CPC<b>${money2(row.cpc ?? cpcOf(row))}</b></span>
             </div>
           </div>
         </article>`;
