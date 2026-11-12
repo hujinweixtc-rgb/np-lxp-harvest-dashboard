@@ -629,7 +629,11 @@ class Handler(BaseHTTPRequestHandler):
                         if value:
                             self.send_header(key, value)
                 self.send_header("accept-ranges", "bytes")
-                self.send_header("cache-control", "public, max-age=86400")
+                # 206 分片必须按 Range 区分缓存：否则浏览器媒体缓存 / 中间缓存会把
+                # 某一片（或部署前的整段响应）复用给别的 Range，出现整段 >32MiB 的响应。
+                self.send_header("vary", "Range")
+                self.send_header("cache-control",
+                                 "private, max-age=3600" if is_video else "public, max-age=86400")
                 self.send_header("access-control-allow-origin", "*")
                 self.send_header("cross-origin-resource-policy", "cross-origin")
                 self.end_headers()
