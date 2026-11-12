@@ -1435,7 +1435,7 @@
     .ai-kw-wrap { max-height: 620px; }
     .ai-kw-wrap table { min-width: 0; table-layout: fixed; }
     .ai-kw-wrap th, .ai-kw-wrap td { padding: 5px 8px; font-size: 11.5px; }
-    .ai-kw-wrap th:nth-child(1), .ai-kw-wrap td:nth-child(1) { width: 42%; }
+    .ai-kw-wrap th:nth-child(1), .ai-kw-wrap td:nth-child(1) { width: 36%; }
     .ai-kw-wrap th:not(:first-child), .ai-kw-wrap td.num { text-align: right; white-space: nowrap; }
     .ai-kw {
       display: flex;
@@ -1684,6 +1684,11 @@
               <input id="roiMin" type="number" min="0" step="0.01" placeholder="最小值">
               <input id="roiMax" type="number" min="0" step="0.01" placeholder="最大值">
             </div>
+            <div class="metric-range">
+              <span class="mr-name">CPC</span><span class="mr-between">介于</span>
+              <input id="cpcMin" type="number" min="0" step="0.01" placeholder="最小值">
+              <input id="cpcMax" type="number" min="0" step="0.01" placeholder="最大值">
+            </div>
           </div>
         </div>
         <details class="advanced-filters" id="advancedFilters" open>
@@ -1851,6 +1856,7 @@
           <div class="creative-count" id="dmsCount">命中素材 <b>0</b> 个</div>
           <div class="sort-pills" id="dmsSort">
             <button type="button" class="active" data-dms-sort="spend">花费</button>
+            <button type="button" data-dms-sort="cpc">CPC</button>
             <button type="button" data-dms-sort="orders">订单</button>
             <button type="button" data-dms-sort="gmv">GMV</button>
             <button type="button" data-dms-sort="roi">ROI</button>
@@ -1922,6 +1928,7 @@
       spendMin: null, spendMax: null,
       ordersMin: null, ordersMax: null,
       roiMin: null, roiMax: null,
+      cpcMin: null, cpcMax: null,
       compareEnabled: true,
       compareMode: 'previous',
       compareFrom: '',
@@ -2048,6 +2055,12 @@
       return true;
     }
 
+    // CPC 统一口径：花费 / 链接点击（素材行用 linkClick，大盘行用 linkClicks）
+    function cpcOf(row) {
+      const clicks = Number(row?.linkClick ?? row?.linkClicks ?? 0);
+      return clicks ? Number(row?.spend || 0) / clicks : 0;
+    }
+
     function matchesMulti(key, value) {
       return !state[key].length || state[key].includes(value || '未标注');
     }
@@ -2100,6 +2113,8 @@
       state.ordersMax = numOrNull($('ordersMax').value);
       state.roiMin = numOrNull($('roiMin').value);
       state.roiMax = numOrNull($('roiMax').value);
+      state.cpcMin = numOrNull($('cpcMin').value);
+      state.cpcMax = numOrNull($('cpcMax').value);
       state.query = $('search').value.trim().toLowerCase();
       state.compareEnabled = $('compareEnabled').checked;
       state.compareMode = document.querySelector('.compare-mode.active')?.dataset.mode || state.compareMode;
@@ -2173,6 +2188,7 @@
         if (!withinRange(metrics.spend, state.spendMin, state.spendMax)) continue;
         if (!withinRange(metrics.conversions, state.ordersMin, state.ordersMax)) continue;
         if (!withinRange(metrics.roi, state.roiMin, state.roiMax)) continue;
+        if (!withinRange(metrics.cpc, state.cpcMin, state.cpcMax)) continue;
         rows.push({ ...row, ...metrics });
       }
       return rows;
@@ -2324,6 +2340,7 @@
         node.ctr = metrics.ctr;
         node.cvr = metrics.cvr;
         node.cpa = metrics.cpa;
+        node.cpc = metrics.cpc;
         node.orderMaterials = metrics.orderMaterials;
         node.harvestTag = dominantHarvestTag(node.rows);
         // 达标线按每行自身的三大类判定（同一 DMS 一级标签下可能混有 awa/consi/conv）
@@ -2421,7 +2438,7 @@
           </div>`).join('')
         : `<div class="empty">当前筛选下暂无树状图数据</div>`;
 
-      const headers = ['标签', '素材数', '花费', 'GMV', '订单', 'ROI', '达标素材', '成功率'];
+      const headers = ['标签', '素材数', '花费', 'GMV', '订单', 'ROI', 'CPC', '达标素材', '成功率'];
       $('tagHierarchyTable').innerHTML = `<thead><tr>${headers.map(label => `<th>${safe(label)}</th>`).join('')}</tr></thead><tbody>${
         flat.length ? flat.map(node => {
           const compare = compareMap.get(node.path.join(' / ')) || {};
@@ -2434,6 +2451,7 @@
             <td class="num">${metricCell(node.purchaseValue, compare.purchaseValue, money)}</td>
             <td class="num">${metricCell(node.conversions, compare.conversions, v => fmt(v))}</td>
             <td class="num">${metricCell(node.roi, compare.roi, roi)}</td>
+            <td class="num">${metricCell(node.cpc, compare.cpc, money2)}</td>
             <td class="num">${metricCell(node.successCount, compare.successCount, v => fmt(v))}</td>
             <td class="num">${metricCell(node.successRate, compare.successRate, pct)}</td>
           </tr>`;
@@ -2484,14 +2502,16 @@
         ['素材数', 'posts', 'num'],
         ['花费', 'spend', 'num'],
         ['CTR', 'ctr', 'num'],
+        ['CPC', 'cpc', 'num'],
         ['订单', 'orders', 'num'],
         ['ROI', 'roi', 'num']
       ];
-      const aiKwLabel = { zh: '关键词', posts: '素材数', spend: '花费', ctr: 'CTR', orders: '订单', roi: 'ROI' };
+      const aiKwLabel = { zh: '关键词', posts: '素材数', spend: '花费', ctr: 'CTR', cpc: 'CPC', orders: '订单', roi: 'ROI' };
       const aiKwValue = (item, key) => {
         if (key === 'posts') return Number(item.posts || 0);
         if (key === 'spend') return Number(item.spend || 0);
         if (key === 'ctr') return Number(item.impressions ? item.clicks / item.impressions : 0);
+        if (key === 'cpc') return Number(item.clicks ? item.spend / item.clicks : 0);
         if (key === 'orders') return Number(item.orders || 0);
         if (key === 'roi') return Number(item.spend ? item.gmv / item.spend : 0);
         return 0;
@@ -2511,6 +2531,7 @@
           <td class="num">${fmt(item.posts)}</td>
           <td class="num">${money(item.spend)}</td>
           <td class="num">${pct(item.impressions ? item.clicks / item.impressions : 0)}</td>
+          <td class="num">${money2(item.clicks ? item.spend / item.clicks : 0)}</td>
           <td class="num">${fmt(item.orders)}</td>
           <td class="num">${roi(item.spend ? item.gmv / item.spend : 0)}</td>
         </tr>`).join('');
@@ -2650,6 +2671,7 @@
       if (key === 'conversions') return Number(row.conversions || 0);
       if (key === 'posts') return Number(row.posts || 0);
       if (key === 'ctr') return Number(row.ctr || 0);
+      if (key === 'cpc') return Number(row.cpc || 0);
       if (key === 'purchaseValue') return Number(row.purchaseValue || 0);
       if (key === 'cvr') return Number(row.cvr || 0);
       return Number(row.spend || 0);
@@ -2677,6 +2699,7 @@
         ['单量', 'conversions', 'num'],
         ['出单的素材量', 'orderMaterials', 'num'],
         ['CTR', 'ctr', 'num'],
+        ['CPC', 'cpc', 'num'],
         ['GMV', 'purchaseValue', 'num'],
         ['CVR', 'cvr', 'num']
       ];
@@ -2690,6 +2713,7 @@
             <td class="num">${metricCell(row.conversions, compare.conversions, v => fmt(v))}</td>
             <td class="num">${metricCell(row.orderMaterials, compare.orderMaterials, v => fmt(v))}</td>
             <td class="num">${metricCell(row.ctr, compare.ctr, pct)}</td>
+            <td class="num">${metricCell(row.cpc, compare.cpc, money2)}</td>
             <td class="num">${metricCell(row.purchaseValue, compare.purchaseValue, money)}</td>
             <td class="num">${metricCell(row.cvr, compare.cvr, pct)}</td>
           </tr>`;
@@ -2770,6 +2794,7 @@
       if (!withinRange(Number(row.spend || 0), state.spendMin, state.spendMax)) return false;
       if (!withinRange(Number(row.orders || 0), state.ordersMin, state.ordersMax)) return false;
       if (!withinRange(Number(row.roi || 0), state.roiMin, state.roiMax)) return false;
+      if (!withinRange(cpcOf(row), state.cpcMin, state.cpcMax)) return false;
       if (!matchesMulti('brand', row.brand)) return false;
       if (!matchesMulti('country', row.country)) return false;
       if (!matchesMulti('product', row.product)) return false;
@@ -2822,6 +2847,7 @@
     function dmsRows() {
       const rows = (state.dms?.rows || [])
         .map(dmsWindowRow)
+        .map(row => ({ ...row, cpc: cpcOf(row) }))
         // 统计时间内没有任何投放（花费/订单/GMV 全为 0）的素材不展示
         .filter(row => Number(row.spend || 0) > 0 || Number(row.gmv || 0) > 0 || Number(row.orders || 0) > 0)
         .filter(dmsMatchesFilters);
@@ -3098,7 +3124,7 @@
     }
 
     function renderDmsTable(rows, avgRoi = 0) {
-      const headers = ['预览','素材编号','素材名称','国家','产品','类型','花费','订单','GMV','ROI','创建时间','尺寸','投放状态','下载'];
+      const headers = ['预览','素材编号','素材名称','国家','产品','类型','花费','CPC','订单','GMV','ROI','创建时间','尺寸','投放状态','下载'];
       const thead = `<thead><tr>${headers.map(h => `<th>${safe(h)}</th>`).join('')}</tr></thead>`;
       const body = rows.slice(0, TABLE_LIMIT).map(row => {
         const previewUrl = dmsPreviewUrl(row);
@@ -3118,6 +3144,7 @@
           <td>${safe(row.product || '-')}</td>
           <td><span class="chip ${row.materialType === '视频' || row.materialType === '��Ƶ' ? 'video' : 'image'}">${safe(row.materialType || '-')}</span><div class="small">${safe(row.materialKind || row.graphicType || '')}</div></td>
           <td class="num">${money(row.spend)}</td>
+          <td class="num">${money2(cpcOf(row))}</td>
           <td class="num">${fmt(row.orders)}</td>
           <td class="num">${money(row.gmv)}</td>
           <td class="num ${roiClass}">${roi(row.roi)}</td>
@@ -3326,6 +3353,7 @@
         ['CTR', 'ctr', true],
         ['CVR', 'cvr', true],
         ['CPA', 'cpa', true],
+        ['CPC', 'cpc', true],
         ['广告细分', 'adDetail']
       ];
       const rows = [...state.filtered].sort((a, b) => {
@@ -3362,6 +3390,7 @@
           <td class="num">${pct(row.ctr)}</td>
           <td class="num">${pct(row.cvr)}</td>
           <td class="num">${fmt(row.cpa, 2)}</td>
+          <td class="num">${money2(row.cpc)}</td>
           <td>${safe(short(row.adDetail || '-', 42))}</td>
         </tr>`;
       }).join('');
@@ -3381,7 +3410,7 @@
 
     function boardMetrics(combo) {
       const daily = combo.daily || [];
-      if (!state.from && !state.to) return { ...(combo.summary || {}) };
+      if (!state.from && !state.to) return { ...(combo.summary || {}), cpc: cpcOf(combo.summary || {}) };
       const agg = { spend: 0, gmv: 0, impressions: 0, clicks: 0, linkClicks: 0, orderCount: 0, cartGmv: 0, reach: 0 };
       daily.forEach(item => {
         const day = String(item.date || '');
@@ -3402,6 +3431,7 @@
       agg.ctr = agg.impressions ? agg.linkClicks / agg.impressions : 0;
       agg.cpa = agg.orderCount ? agg.spend / agg.orderCount : 0;
       agg.aov = agg.orderCount ? agg.gmv / agg.orderCount : 0;
+      agg.cpc = cpcOf(agg);
       return agg;
     }
 
@@ -3409,7 +3439,7 @@
       const table = $('boardTable');
       if (!table) return;
       const combos = boardCombos();
-      const headers = ['品牌', '市场', '花费', 'GMV', 'ROI', '曝光', '链接点击', 'CTR', '订单', '客单价', 'CPA', 'CPM'];
+      const headers = ['品牌', '市场', '花费', 'GMV', 'ROI', '曝光', '链接点击', 'CTR', 'CPC', '订单', '客单价', 'CPA', 'CPM'];
       const thead = `<thead><tr>${headers.map(h => `<th>${safe(h)}</th>`).join('')}</tr></thead>`;
       const totals = { spend: 0, gmv: 0, impressions: 0, linkClicks: 0, orderCount: 0 };
       const body = combos.map(combo => {
@@ -3432,6 +3462,7 @@
           <td class="num">${fmt(m.impressions)}</td>
           <td class="num">${fmt(m.linkClicks)}</td>
           <td class="num">${pct(m.ctr)}</td>
+          <td class="num">${money2(m.cpc)}</td>
           <td class="num">${fmt(m.orderCount)}</td>
           <td class="num">${money(m.aov)}</td>
           <td class="num">${money2(m.cpa)}</td>
@@ -3447,6 +3478,7 @@
           <td class="num">${fmt(totals.impressions)}</td>
           <td class="num">${fmt(totals.linkClicks)}</td>
           <td class="num">${pct(totals.impressions ? totals.linkClicks / totals.impressions : 0)}</td>
+          <td class="num">${money2(totals.linkClicks ? totals.spend / totals.linkClicks : 0)}</td>
           <td class="num">${fmt(totals.orderCount)}</td>
           <td class="num">-</td>
           <td class="num">-</td>
@@ -3494,7 +3526,7 @@
       const s = sumRows(state.filtered);
       const compareText = state.compareAppliedRange ? ` · 环比 ${state.compareAppliedRange.from} ~ ${state.compareAppliedRange.to}` : '';
       $('productCount').textContent = `${fmt(groupRows(state.filtered, 'product').length)} 个产品`;
-      $('status').textContent = `${countryText()} · ${state.from || '-'} ~ ${state.to || '-'} · ${fmt(state.filtered.length)} 个素材 · 花费 USD ${money(s.spend)} · ROI ${roi(s.roi)}${compareText}`;
+      $('status').textContent = `${countryText()} · ${state.from || '-'} ~ ${state.to || '-'} · ${fmt(state.filtered.length)} 个素材 · 花费 USD ${money(s.spend)} · CPC ${money2(s.cpc)} · ROI ${roi(s.roi)}${compareText}`;
     }
 
     function optionText(key, fallback) {
@@ -3627,10 +3659,11 @@
       $('to').value = state.raw?.filters?.performanceTo || '';
       $('materialFrom').value = '';
       $('materialTo').value = '';
-      ['spendMin', 'spendMax', 'ordersMin', 'ordersMax', 'roiMin', 'roiMax'].forEach(id => { $(id).value = ''; });
+      ['spendMin', 'spendMax', 'ordersMin', 'ordersMax', 'roiMin', 'roiMax', 'cpcMin', 'cpcMax'].forEach(id => { $(id).value = ''; });
       state.spendMin = state.spendMax = null;
       state.ordersMin = state.ordersMax = null;
       state.roiMin = state.roiMax = null;
+      state.cpcMin = state.cpcMax = null;
       state.compareEnabled = true;
       state.compareMode = 'previous';
       state.compareFrom = '';
@@ -3665,9 +3698,11 @@
       const spendRange = rangeParam(state.spendMin, state.spendMax);
       const ordersRange = rangeParam(state.ordersMin, state.ordersMax);
       const roiRange = rangeParam(state.roiMin, state.roiMax);
+      const cpcRange = rangeParam(state.cpcMin, state.cpcMax);
       if (spendRange) params.set('spend', spendRange);
       if (ordersRange) params.set('orders', ordersRange);
       if (roiRange) params.set('roi', roiRange);
+      if (cpcRange) params.set('cpc', cpcRange);
       if (state.compareEnabled) {
         params.set('compare', '1');
         params.set('compareMode', state.compareMode);
@@ -3701,12 +3736,15 @@
       [state.spendMin, state.spendMax] = parseRange('spend');
       [state.ordersMin, state.ordersMax] = parseRange('orders');
       [state.roiMin, state.roiMax] = parseRange('roi');
+      [state.cpcMin, state.cpcMax] = parseRange('cpc');
       $('spendMin').value = state.spendMin ?? '';
       $('spendMax').value = state.spendMax ?? '';
       $('ordersMin').value = state.ordersMin ?? '';
       $('ordersMax').value = state.ordersMax ?? '';
       $('roiMin').value = state.roiMin ?? '';
       $('roiMax').value = state.roiMax ?? '';
+      $('cpcMin').value = state.cpcMin ?? '';
+      $('cpcMax').value = state.cpcMax ?? '';
       state.multiSearch = { brand: '', country: '', product: '', tag1: '', tag2: '' };
       state.multiMode = {
         brand: state.brand.length ? 'custom' : 'default',
@@ -3971,10 +4009,10 @@
 
     function exportDmsCsv() {
       const rows = dmsRows();
-      const headers = ['素材编号','素材名称','Ad_name','国家','产品','素材类型','素材形态','创建时间','花费','订单','GMV','ROI','尺寸','投放状态','DMS匹配','可下载','下载链接','预览链接','来源文件'];
+      const headers = ['素材编号','素材名称','Ad_name','国家','产品','素材类型','素材形态','创建时间','花费','CPC','订单','GMV','ROI','尺寸','投放状态','DMS匹配','可下载','下载链接','预览链接','来源文件'];
       const body = rows.map(row => [
         row.materialId || row.materialCode || '', row.materialName || '', row.adName || '', row.country || '', row.product || '',
-        row.materialType || '', row.materialKind || row.graphicType || '', row.createdAt || '', row.spend || 0, row.orders || 0,
+        row.materialType || '', row.materialKind || row.graphicType || '', row.createdAt || '', row.spend || 0, cpcOf(row), row.orders || 0,
         row.gmv || 0, row.roi || 0, row.size || '', row.status || '', row.matchedDms ? '是' : '否',
         dmsDownloadUrl(row) ? '是' : '否', dmsDownloadUrl(row), dmsPreviewUrl(row), row.sourceFile || ''
       ]);
@@ -3990,11 +4028,11 @@
 
     function exportCsv() {
       const rows = [...state.filtered].sort((a, b) => b.spend - a.spend);
-      const headers = ['素材编号','Ad_name','国家','产品','素材类型','图文类型','素材创建时间','开始日期','结束日期','DMS一级标签','DMS二级标签','DMS三级标签','收割三大类','花费','曝光','链接点击','订单','GMV','ROI','CPM','CTR','CVR','CPA','广告细分','Campaign'];
+      const headers = ['素材编号','Ad_name','国家','产品','素材类型','图文类型','素材创建时间','开始日期','结束日期','DMS一级标签','DMS二级标签','DMS三级标签','收割三大类','花费','曝光','链接点击','订单','GMV','ROI','CPM','CTR','CVR','CPA','CPC','广告细分','Campaign'];
       const body = rows.map(row => [
         materialLabel(row), row.adName, row.country, row.product, row.materialType, row.graphicType, materialCreatedDay(row), row.firstDate, row.lastDate,
         row.tag1, row.tag2, row.tag3, harvestTagLabel(row.harvestTag), row.spend, row.impressions, row.linkClick, row.conversions, row.purchaseValue,
-        row.roi, row.cpm, row.ctr, row.cvr, row.cpa, row.adDetail, row.campaignName
+        row.roi, row.cpm, row.ctr, row.cvr, row.cpa, cpcOf(row), row.adDetail, row.campaignName
       ]);
       const csv = [headers, ...body].map(row => row.map(value => `"${String(value ?? '').replace(/"/g, '""')}"`).join(',')).join('\n');
       const blob = new Blob([`\ufeff${csv}`], { type: 'text/csv;charset=utf-8;' });
@@ -4116,7 +4154,7 @@
     });
     $('search').addEventListener('input', () => applyFilters());
     ['from', 'to', 'materialFrom', 'materialTo'].forEach(id => $(id).addEventListener('change', () => applyFilters()));
-    ['spendMin', 'spendMax', 'ordersMin', 'ordersMax', 'roiMin', 'roiMax'].forEach(id => $(id).addEventListener('input', () => applyFilters()));
+    ['spendMin', 'spendMax', 'ordersMin', 'ordersMax', 'roiMin', 'roiMax', 'cpcMin', 'cpcMax'].forEach(id => $(id).addEventListener('input', () => applyFilters()));
     $('compareEnabled').addEventListener('change', () => {
       state.compareEnabled = $('compareEnabled').checked;
       applyFilters();
