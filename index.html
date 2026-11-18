@@ -538,6 +538,9 @@
     .barrow.with-share {
       grid-template-columns: minmax(112px, 1fr) 1.4fr 88px 58px 52px 70px;
     }
+    .barrow.with-cpc {
+      grid-template-columns: minmax(112px, 1fr) 1.4fr 88px 58px 52px 56px;
+    }
     .barrow.header {
       margin-top: 0;
       color: var(--muted);
@@ -589,7 +592,7 @@
     }
     .tag-group-head {
       display: grid;
-      grid-template-columns: minmax(120px, 1fr) 62px 52px 52px;
+      grid-template-columns: minmax(120px, 1fr) 62px 52px 52px 52px;
       align-items: center;
       gap: 8px;
       padding: 8px 10px;
@@ -627,7 +630,7 @@
     }
     .tag-row {
       display: grid;
-      grid-template-columns: minmax(120px, 1fr) 62px 52px 52px;
+      grid-template-columns: minmax(120px, 1fr) 62px 52px 52px 52px;
       gap: 8px;
       align-items: center;
       min-height: 20px;
@@ -1214,10 +1217,10 @@
       .filters.collapsed .field[data-keep] { grid-column: 1 / -1; }
       .kpis { grid-template-columns: repeat(2, minmax(118px, 1fr)); }
       .compare-row input[type="date"] { width: 100%; min-width: min(128px, 100%); }
-      .barrow, .barrow.with-share { grid-template-columns: minmax(88px, 1fr) 1fr 78px; }
+      .barrow, .barrow.with-share, .barrow.with-cpc { grid-template-columns: minmax(88px, 1fr) 1fr 78px; }
       .barrow .hide-mobile { display: none; }
       .tag-group-head,
-      .tag-row { grid-template-columns: minmax(100px, 1fr) 46px 42px 42px; gap: 6px; }
+      .tag-row { grid-template-columns: minmax(100px, 1fr) 46px 42px 42px 42px; gap: 6px; }
       .tag-group-title { gap: 6px; }
       .lb-bar { gap: 6px; }
       .lb-title { max-width: 42vw; }
@@ -2675,7 +2678,7 @@
       </div>`).join('');
     }
 
-    function renderBars(id, rows, maxRows = 12, showSpendShare = false) {
+    function renderBars(id, rows, maxRows = 12, showSpendShare = false, showCpc = false) {
       const top = rows.slice(0, maxRows);
       const max = Math.max(1, ...top.map(row => row.spend || 0));
       const totalSpend = rows.reduce((sum, row) => sum + Number(row.spend || 0), 0);
@@ -2684,18 +2687,18 @@
         $(id).innerHTML = `<div class="empty">当前筛选下暂无数据</div>`;
         return;
       }
-      $(id).innerHTML = `<div class="barrow header ${showSpendShare ? 'with-share' : ''}">
-          <div>维度</div><div>花费占比</div><div class="num">花费</div><div class="num hide-mobile">订单</div><div class="num hide-mobile">ROI</div>${showSpendShare ? '<div class="num hide-mobile">花费占比</div>' : ''}
+      $(id).innerHTML = `<div class="barrow header ${showSpendShare ? 'with-share' : ''} ${showCpc ? 'with-cpc' : ''}">
+          <div>维度</div><div>花费占比</div><div class="num">花费</div><div class="num hide-mobile">订单</div><div class="num hide-mobile">ROI</div>${showCpc ? '<div class="num hide-mobile" title="CPC = 花费 / 链接点击（USD）">CPC</div>' : ''}${showSpendShare ? '<div class="num hide-mobile">花费占比</div>' : ''}
         </div>` + top.map(row => {
           const cls = row.name === '视频' ? 'video' : row.name === '图文' ? 'image' : '';
           const roiClass = row.roi > avgRoi ? 'roi-high' : row.roi < avgRoi ? 'roi-low' : 'roi-mid';
           const spendShare = totalSpend ? row.spend / totalSpend : 0;
-          return `<div class="barrow ${showSpendShare ? 'with-share' : ''}">
+          return `<div class="barrow ${showSpendShare ? 'with-share' : ''} ${showCpc ? 'with-cpc' : ''}">
             <div class="name" title="${safe(row.name)}">${safe(short(row.name, 34))}</div>
             <div class="track"><div class="fill ${cls}" style="width:${Math.max(2, row.spend / max * 100)}%"></div></div>
             <div class="num">${money(row.spend)}</div>
             <div class="num hide-mobile">${fmt(row.conversions)}</div>
-            <div class="num hide-mobile ${roiClass}">${roi(row.roi)}</div>${showSpendShare ? `<div class="num hide-mobile">${pct(spendShare)}</div>` : ''}
+            <div class="num hide-mobile ${roiClass}">${roi(row.roi)}</div>${showCpc ? `<div class="num hide-mobile" title="CPC = 花费 / 链接点击（USD）">${money2(row.cpc)}</div>` : ''}${showSpendShare ? `<div class="num hide-mobile">${pct(spendShare)}</div>` : ''}
           </div>`;
         }).join('');
     }
@@ -2780,7 +2783,7 @@
 
     function renderHarvestTags() {
       const scopedRows = harvestTagRows();
-      renderBars('tag1Bars', groupRows(scopedRows, 'tag1'));
+      renderBars('tag1Bars', groupRows(scopedRows, 'tag1'), 12, false, true);
       renderSplitTagPanel('tag2Bars', scopedRows, 'tag2', '主题');
       renderSplitTagPanel('tag3Bars', scopedRows, 'tag3', '测试点');
     }
@@ -2829,6 +2832,7 @@
         </div>
         <span class="tag-column-head">订单</span>
         <span class="tag-column-head">ROI</span>
+        <span class="tag-column-head" title="CPC = 花费 / 链接点击（USD）">CPC</span>
           </div>
           <div class="tag-group-body">${
             items.map(item => {
@@ -2838,6 +2842,7 @@
                 <div class="track"><div class="fill" style="width:${Math.max(2, item.spend / max * 100)}%"></div></div>
                 <div class="num">${fmt(item.conversions)}</div>
                 <div class="num ${roiClass}">${roi(item.roi)}</div>
+                <div class="num" title="CPC = 花费 / 链接点击（USD）">${money2(item.cpc)}</div>
               </div>`;
             }).join('')
           }</div>
