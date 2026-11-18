@@ -418,7 +418,7 @@
     .view[hidden] { display: none; }
     .kpis {
       display: grid;
-      grid-template-columns: repeat(8, minmax(118px, 1fr));
+      grid-template-columns: repeat(9, minmax(112px, 1fr));
       gap: 10px;
       margin-bottom: 14px;
     }
@@ -2613,8 +2613,9 @@
         { label: '订单', value: fmt(s.conversions), note: `CPA ${fmt(s.cpa, 2)}`, metric: s.conversions, base: c.conversions },
         { label: 'GMV(USD)', value: money(s.purchaseValue), note: `ROI ${roi(s.roi)}`, metric: s.purchaseValue, base: c.purchaseValue, primary: true },
         { label: '加购金额', value: money(s.addToCart), note: `CVR ${pct(s.cvr)}`, metric: s.addToCart, base: c.addToCart },
-        { label: '全部点击', value: fmt(s.allClick), note: `CPC ${fmt(s.cpc, 2)}`, metric: s.allClick, base: c.allClick },
-        { label: '在跑素材量', value: typeSplitText(), note: '图文 / 视频', metric: s.posts, base: c.posts }
+        { label: 'CPC', value: money2(s.cpc), note: '花费 / 链接点击', metric: s.cpc, base: c.cpc, lower: true },
+        { label: 'CPA', value: money2(s.cpa), note: '花费 / 订单', metric: s.cpa, base: c.cpa, lower: true },
+        { label: 'CPM', value: money2(s.cpm), note: '花费 / 千次曝光', metric: s.cpm, base: c.cpm, lower: true }
       ];
       $('kpis').innerHTML = items.map(item => `<div class="kpi ${item.primary ? 'primary-kpi' : ''}">
         <div class="label">${safe(item.label)}</div>
@@ -2622,12 +2623,6 @@
         <div class="note">${safe(item.note)}</div>
         ${deltaLine(item.metric, item.base, item.lower)}
       </div>`).join('');
-    }
-
-    function typeSplitText() {
-      const rows = groupRows(state.filtered, 'materialType');
-      const found = new Map(rows.map(row => [row.name, row.posts]));
-      return `${fmt(found.get('图文') || 0)} / ${fmt(found.get('视频') || 0)}`;
     }
 
     function renderBars(id, rows, maxRows = 12, showSpendShare = false) {
