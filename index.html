@@ -791,6 +791,7 @@
       box-shadow: none;
       z-index: 1;
     }
+    .age-matrix-wrap .age-delta { border-left: 1px solid var(--line); }
     .age-label { font-weight: 700; background: #f7fafc; white-space: nowrap; }
     .age-row-l1 > td { background: #f7fafc; font-weight: 700; }
     .age-row-l2 > td:nth-child(2) { padding-left: 22px; }
@@ -3694,7 +3695,15 @@
       { key: 'consi', label: 'Consi' },
       { key: 'conv', label: 'Conv' }
     ];
-    const AGE_MATRIX_COLS = ['数量', '环比', 'ROI', '环比', '费用', '环比', '近7天LTV贡献占比'];
+    const AGE_MATRIX_COLS = [
+      { label: '数量' },
+      { label: 'ROI' },
+      { label: '费用' },
+      { label: '近7天LTV贡献占比' },
+      { label: '数量环比', title: '素材数量环比（涨为好）' },
+      { label: 'ROI环比', title: 'ROI 环比（涨为好）' },
+      { label: '费用环比', title: '花费环比（涨为差）' }
+    ];
     const AGE_DETAIL_HEAD = `<thead><tr>
       <th>一级漏斗</th>
       <th>二级漏斗<br><span class="small">只展现Top5</span></th>
@@ -3773,7 +3782,7 @@
       let head = `<thead><tr><th rowspan="2">素材汇总</th>`
         + HARVEST_GROUPS.map(group => `<th colspan="${AGE_MATRIX_COLS.length}">${safe(group.label)}</th>`).join('')
         + `</tr><tr class="age-subhead">`
-        + HARVEST_GROUPS.map(() => AGE_MATRIX_COLS.map(col => `<th class="num">${safe(col)}</th>`).join('')).join('')
+        + HARVEST_GROUPS.map(() => AGE_MATRIX_COLS.map((col, i) => `<th class="num${i >= 4 ? ' age-delta' : ''}"${col.title ? ` title="${safe(col.title)}"` : ''}>${safe(col.label)}</th>`).join('')).join('')
         + `</tr></thead><tbody>`;
       const body = defs.map(def => {
         const cells = HARVEST_GROUPS.map(group => {
@@ -3781,12 +3790,12 @@
           const p = sumRows(harvestRows(def.prev, group.key));
           const share = total7 ? last7Gmv(harvestRows(def.cur, group.key), winTo) / total7 : 0;
           return `<td class="num">${fmt(c.posts)}</td>`
-            + `<td class="num">${ageDelta(c.posts, p.posts)}</td>`
             + `<td class="num">${roi(c.roi)}</td>`
-            + `<td class="num">${ageDelta(c.roi, p.roi)}</td>`
             + `<td class="num">${money(c.spend)}</td>`
-            + `<td class="num">${ageDelta(c.spend, p.spend, false)}</td>`
-            + `<td class="num">${pct(share)}</td>`;
+            + `<td class="num">${pct(share)}</td>`
+            + `<td class="num age-delta">${ageDelta(c.posts, p.posts)}</td>`
+            + `<td class="num age-delta">${ageDelta(c.roi, p.roi)}</td>`
+            + `<td class="num age-delta">${ageDelta(c.spend, p.spend, false)}</td>`;
         }).join('');
         return `<tr><td class="age-label">${safe(def.label)}</td>${cells}</tr>`;
       }).join('');
