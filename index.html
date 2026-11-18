@@ -783,6 +783,14 @@
     .age-matrix-wrap th, .age-matrix-wrap td,
     .age-detail-wrap th, .age-detail-wrap td { padding: 7px 9px; font-size: 11px; }
     .age-matrix-wrap thead tr:first-child th { background: #dbe7ef; text-align: center; font-size: 12px; }
+    /* 汇总矩阵有两行表头：第二行的首个「数量」不能套用全局首列 sticky，否则横向滚动时会钉在左侧挡住后续列 */
+    .age-matrix-wrap thead tr.age-subhead th:first-child {
+      left: auto;
+      min-width: 0;
+      max-width: none;
+      box-shadow: none;
+      z-index: 1;
+    }
     .age-label { font-weight: 700; background: #f7fafc; white-space: nowrap; }
     .age-row-l1 > td { background: #f7fafc; font-weight: 700; }
     .age-row-l2 > td:nth-child(2) { padding-left: 22px; }
@@ -3764,7 +3772,7 @@
       ];
       let head = `<thead><tr><th rowspan="2">素材汇总</th>`
         + HARVEST_GROUPS.map(group => `<th colspan="${AGE_MATRIX_COLS.length}">${safe(group.label)}</th>`).join('')
-        + `</tr><tr>`
+        + `</tr><tr class="age-subhead">`
         + HARVEST_GROUPS.map(() => AGE_MATRIX_COLS.map(col => `<th class="num">${safe(col)}</th>`).join('')).join('')
         + `</tr></thead><tbody>`;
       const body = defs.map(def => {
