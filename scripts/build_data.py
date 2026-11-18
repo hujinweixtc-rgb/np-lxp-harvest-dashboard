@@ -325,6 +325,31 @@ HARVEST_TAG_RULES = (
 )
 
 
+# 2026-11-18：一级标签展示口径归一。素材名里 CONV 常被写成 CONVE / CONVI，
+# 中文写法（品牌 / 种草 / 促销 / 大促）也会散落成独立标签，统一并入三大类。
+# 用「字母边界」而不是 \b：素材名以 `_` 分段（..._conve_promo_...），\b 在 `_` 前不成立。
+PRIMARY_TAG_ALIASES = (
+    ("conv", re.compile(r"(?<![A-Za-z])(?:conve|convi|conversion|convert|conv)(?![A-Za-z])|转化|促销|大促", re.I)),
+    ("consi", re.compile(r"(?<![A-Za-z])consi(?![A-Za-z])|种草", re.I)),
+    ("awa", re.compile(r"(?<![A-Za-z])awa(?![A-Za-z])|品牌|awareness|brand", re.I)),
+)
+
+
+def canonical_primary_tag(names, material_name="", ad_name=""):
+    """按 DMS 一级标签 → 素材名 → 广告名顺序归一到 awa / consi / conv。
+
+    都不命中返回 ''，调用方沿用原始一级标签（如「功效 Function」）。
+    """
+    for text in [*(names or ()), material_name, ad_name]:
+        value = str(text or "")
+        if not value:
+            continue
+        for key, pattern in PRIMARY_TAG_ALIASES:
+            if pattern.search(value):
+                return key
+    return ""
+
+
 def canonical_harvest_tag(names):
     for key, needles in HARVEST_TAG_RULES:
         for name in names:
@@ -689,6 +714,11 @@ def collect(combo):
         except (TypeError, ValueError):
             dft_int = None
 
+        # 2026-11-18：一级标签归一。原始 DMS 标签留在 tag1Raw，展示/筛选/树根用 tag1。
+        tag1_raw = pick_tag(tag1_names)
+        tag1_key = canonical_primary_tag(tag1_names, meta.get("materialName"), ad_name)
+        tag1_display = tag1_key or tag1_raw
+
         post = {
             "key": f"{brand}|{country}|{code}",
             "materialCode": code,
@@ -703,8 +733,8 @@ def collect(combo):
             "dataFromType": str(dft_int) if dft_int is not None else "",
             # 2026-10-16：标签统一走 DMS 官方字典（id -> 标准名/层级 + parentId 回溯补全），
             # 不再直接使用广告名里手写的裸文本。tag1~tag3 即 DMS 官方一/二/三级标签。
-            "tag1": pick_tag(tag1_names),
-            "tag1Raw": pick_tag(tag1_names),
+            "tag1": tag1_display,
+            "tag1Raw": tag1_raw,
             "tag2": pick_tag(tag2_names),
             "tag3": pick_tag(tag3_names),
             "tagsAll": " / ".join(all_tags),
@@ -715,7 +745,7 @@ def collect(combo):
             "tagCategory": tag_category,
             "tagCategoryLabel": CATEGORY_LABELS.get(tag_category, ""),
             # 三大类（awa / consi / conv），仅此字段参与达标线判定
-            "harvestTag": canonical_harvest_tag(tag1_names) or "未标注",
+            "harvestTag": tag1_key or canonical_harvest_tag(tag1_names) or "未标注",
             "tagBackfilled": "".join(tag_backfilled),
             # 关键词补标的层级（如 "L2L3"）；tagBackfilled 里对应带 K 后缀（L2K）
             "tagInferred": "".join(lvl for lvl in tag_backfilled if lvl.endswith("K")).replace("K", ""),
