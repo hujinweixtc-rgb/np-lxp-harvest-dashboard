@@ -743,6 +743,46 @@
     }
     .tree-table-wrap { max-height: 480px; }
     .tree-table-wrap table { min-width: 1040px; }
+    /* 品类 × 标签子页 */
+    .category-summary { display: flex; flex-wrap: wrap; gap: 8px; padding-bottom: 12px; border-bottom: 1px solid var(--line); }
+    .cat-board { display: grid; gap: 12px; padding-top: 14px; }
+    .cat-group { border: 1px solid var(--line); border-radius: 10px; background: #fff; overflow: hidden; }
+    .cat-head {
+      display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+      padding: 11px 14px; background: #f7fafc; cursor: pointer; user-select: none;
+    }
+    .cat-head:hover { background: #eef4f8; }
+    .cat-caret { display: inline-block; width: 14px; color: var(--muted); font-size: 12px; }
+    .cat-name { font-weight: 800; font-size: 13px; min-width: 110px; }
+    .cat-metric { color: var(--muted); font-size: 11px; white-space: nowrap; }
+    .cat-metric b { color: #344054; font-variant-numeric: tabular-nums; }
+    .cat-products { padding: 12px 14px; border-top: 1px solid var(--line); display: grid; gap: 12px; }
+    .cat-product { border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+    .cat-product-head {
+      display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+      padding: 8px 10px; background: #eef4f8; font-size: 12px; font-weight: 700;
+    }
+    .cat-product-head .small { font-weight: 400; }
+    .cat-tag-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; padding: 10px; }
+    .cat-tag-col { min-width: 0; border: 1px solid var(--line); border-radius: 8px; background: #f8fafc; padding: 8px; }
+    .cat-tag-head { font-size: 11px; font-weight: 800; margin-bottom: 7px; color: #344054; }
+    .cat-tag-card {
+      border-radius: 6px; padding: 7px 8px; margin-bottom: 6px; color: #fff;
+      box-shadow: 0 1px 2px rgba(0,0,0,.08);
+    }
+    .cat-tag-card.roi-high { background: linear-gradient(180deg, #c82b24, #aa2119); }
+    .cat-tag-card.roi-low { background: linear-gradient(180deg, #588845, #4d7b3d); }
+    .cat-tag-card .cat-card-title { font-size: 11px; font-weight: 800; margin-bottom: 4px; }
+    .cat-tag-card .cat-card-meta { display: flex; flex-wrap: wrap; gap: 3px 9px; font-size: 10px; opacity: .95; }
+    .cat-leaves { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+    .cat-leaf {
+      display: inline-block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      padding: 1px 6px; border-radius: 999px; background: rgba(255,255,255,.18); font-size: 10px; font-weight: 700;
+    }
+    .cat-more { color: var(--muted); font-size: 10px; padding: 2px 0; }
+    @media (max-width: 1100px) {
+      .cat-tag-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
     .tree-indent {
       display: inline-flex;
       align-items: center;
@@ -1667,6 +1707,7 @@
       <div class="tabs" id="countryTabs">
         <button class="tab active" data-view="overview" data-country="ALL" type="button">数据概览</button>
         <button class="tab" data-view="dms" type="button">DMS素材</button>
+        <button class="tab" data-view="category" type="button">品类 × 标签</button>
         <button class="filters-toggle" id="filtersToggle" type="button" aria-expanded="true" aria-controls="filtersBar" title="收起筛选，仅保留日期 / 品牌 / 产品">
           <span class="filters-toggle-icon">▾</span><span class="filters-toggle-text">收起筛选</span>
         </button>
@@ -1985,6 +2026,20 @@
     </section>
   </main>
 
+  <!-- 独立子页：品类 → 产品 → 收割标签 → DMS 二/三级标签 -->
+  <main class="shell main view" id="categoryView" hidden>
+    <section class="panel">
+      <div class="head">
+        <div>
+          <h2>品类 × 产品 × 收割标签</h2>
+          <div class="small" id="categoryNote">按当前筛选 · 点品类展开下属产品</div>
+        </div>
+      </div>
+      <div class="pad category-summary" id="categorySummary"></div>
+      <div class="pad cat-board" id="categoryBoard"></div>
+    </section>
+  </main>
+
   <!-- 素材高清预览：点击快照弹出大图，滚轮/按钮缩放，点击空白关闭 -->
   <div class="lightbox" id="lightbox" hidden role="dialog" aria-modal="true" aria-label="素材高清预览">
     <div class="lb-stage" id="lbStage">
@@ -2020,6 +2075,8 @@
       rows: [],
       filtered: [],
       currentView: 'overview',
+      categoryExpanded: new Set(),
+      categoryTouched: false,
       dmsSortKey: 'spend',
       brand: [],
       country: [],
@@ -3681,6 +3738,7 @@
     function updateView() {
       $('overviewView').hidden = state.currentView !== 'overview';
       $('dmsView').hidden = state.currentView !== 'dms';
+      $('categoryView').hidden = state.currentView !== 'category';
       document.querySelectorAll('#countryTabs .tab').forEach(tab => {
         tab.classList.toggle('active', tab.dataset.view === state.currentView);
       });
@@ -3913,6 +3971,149 @@
       bindAgeEvents();
     }
 
+    // ===== 品类 × 产品 × 收割标签子页 =====
+    const CATEGORY_TAGS = [
+      { key: 'consi', label: 'Consi 种草' },
+      { key: 'conv', label: 'Conv 转化' },
+      { key: 'awa', label: 'AWA 认知' },
+      { key: '未标注', label: '未标注' }
+    ];
+    // 品类按产品名关键词归类；顺序即优先级，避免 B5洁面 被 B5 归到面霜。
+    const CATEGORY_RULES = [
+      { name: '套装 / 组合', re: /(pcs|件套|套盒|combo|合集|组合|买\d+得|buy\d+get)/i },
+      { name: '防晒', re: /防晒|sunblock|sunscreen/i },
+      { name: '洁面', re: /洁面|洗面|洁颜|洁皂|low\s*ph|磨砂/i },
+      { name: '面霜 / B5修复', re: /面霜|b5|gel|啫喱|修复|祛痘膏|霜/i },
+      { name: '精华', re: /精华|serum|377/i },
+      { name: '沐浴露', re: /沐浴露|body\s*wash/i },
+      { name: '洗发造型', re: /洗发|发泥|发蜡|定型|蓬松粉|头发|发膜|护发/i },
+      { name: '止汗滚珠', re: /止汗|滚珠|deodorant/i },
+      { name: '唇膏', re: /润唇膏|唇膏|lip\s*balm/i },
+      { name: '底妆', re: /气垫|素颜霜|cushion/i },
+      { name: '其他', re: /.*/ }
+    ];
+    function categoryOf(row) {
+      const text = `${row?.productRaw || ''} ${row?.product || ''}`;
+      const rule = CATEGORY_RULES.find(item => item.re.test(text)) || CATEGORY_RULES[CATEGORY_RULES.length - 1];
+      return rule.name;
+    }
+    function harvestKeyOf(row) {
+      const key = String(row?.harvestTag || '未标注').toLowerCase();
+      return key === 'awa' || key === 'consi' || key === 'conv' ? key : '未标注';
+    }
+    function buildCategoryTree(sourceRows) {
+      const roots = new Map();
+      const makeNode = (name, level, path, tagKey) => ({
+        name, level, path, tagKey, rows: [], children: new Map()
+      });
+      const ensure = (parentMap, name, level, path, tagKey) => {
+        const key = path.join(' / ');
+        if (!parentMap.has(key)) parentMap.set(key, makeNode(name, level, path, tagKey));
+        return parentMap.get(key);
+      };
+      for (const row of sourceRows) {
+        const category = categoryOf(row);
+        const product = String(row.product || row.productRaw || '未命名产品');
+        const tagKey = harvestKeyOf(row);
+        const tagLabel = harvestTagLabel(tagKey);
+        const tag2 = String(row.tag2 || '未标注');
+        const tag3 = String(row.tag3 || '未标注');
+        const root = ensure(roots, category, 1, [category], '');
+        root.rows.push(row);
+        const productNode = ensure(root.children, product, 2, [category, product], '');
+        productNode.rows.push(row);
+        const tagNode = ensure(productNode.children, tagLabel, 3, [category, product, tagLabel], tagKey);
+        tagNode.rows.push(row);
+        if (tag2 === '未标注') continue;
+        const tag2Node = ensure(tagNode.children, tag2, 4, [category, product, tagLabel, tag2], tagKey);
+        tag2Node.rows.push(row);
+        if (tag3 === '未标注') continue;
+        const tag3Node = ensure(tag2Node.children, tag3, 5, [category, product, tagLabel, tag2, tag3], tagKey);
+        tag3Node.rows.push(row);
+      }
+      const finalize = node => {
+        Object.assign(node, sumRows(node.rows));
+        node.successCount = node.rows.filter(row => meetsHarvestStandard(row, row.harvestTag)).length;
+        node.successRate = node.posts ? node.successCount / node.posts : 0;
+        node.children = [...node.children.values()]
+          .sort((a, b) => (b.spend - a.spend) || (b.conversions - a.conversions))
+          .map(finalize);
+        return node;
+      };
+      return [...roots.values()]
+        .sort((a, b) => (b.spend - a.spend) || (b.conversions - a.conversions))
+        .map(finalize);
+    }
+    function renderCategorySummary(rows) {
+      $('categorySummary').innerHTML = CATEGORY_TAGS.map(tag => {
+        const metrics = sumRows(rows.filter(row => harvestKeyOf(row) === tag.key));
+        return `<span class="badge">${safe(tag.label)} · ${fmt(metrics.posts)} 素材 · ${money(metrics.spend)} 花费 · ${roi(metrics.roi)} ROI</span>`;
+      }).join('');
+    }
+    function renderCategoryTagCard(node) {
+      const leaves = (node.children || []).slice(0, 3).map(leaf =>
+        `<span class="cat-leaf" title="${safe(leaf.name)}">${safe(short(leaf.name, 14))} · ${fmt(leaf.posts)} / ${roi(leaf.roi)}</span>`
+      ).join('');
+      return `<div class="cat-tag-card ${treeColorClass(node)}">
+        <div class="cat-card-title" title="${safe(node.name)}">${safe(short(node.name, 20))}</div>
+        <div class="cat-card-meta">
+          <span>素材 ${fmt(node.posts)}</span><span>花费 ${money(node.spend)}</span>
+          <span>ROI ${roi(node.roi)}</span><span>成功率 ${pct(node.successRate)}</span>
+        </div>${leaves ? `<div class="cat-leaves">${leaves}</div>` : ''}
+      </div>`;
+    }
+    function renderCategoryProduct(node) {
+      const tagNodes = new Map((node.children || []).map(child => [child.tagKey, child]));
+      const columns = CATEGORY_TAGS.map(tag => {
+        const tagNode = tagNodes.get(tag.key);
+        const children = tagNode ? (tagNode.children || []) : [];
+        const cards = children.slice(0, 8).map(renderCategoryTagCard).join('');
+        const more = children.length > 8 ? `<div class="cat-more">还有 ${fmt(children.length - 8)} 个二级标签</div>` : '';
+        return `<div class="cat-tag-col">
+          <div class="cat-tag-head">${safe(tag.label)} · ${fmt(tagNode?.posts || 0)} 素材 / ${roi(tagNode?.roi || 0)} ROI</div>
+          ${cards || `<div class="cat-more">暂无带标签素材</div>`}${more}
+        </div>`;
+      }).join('');
+      return `<div class="cat-product">
+        <div class="cat-product-head">
+          <span title="${safe(node.name)}">${safe(short(node.name, 42))}</span>
+          <span class="small">素材 ${fmt(node.posts)} · 花费 ${money(node.spend)} · 订单 ${fmt(node.conversions)} · ROI ${roi(node.roi)} · 成功率 ${pct(node.successRate)}</span>
+        </div>
+        <div class="cat-tag-grid">${columns}</div>
+      </div>`;
+    }
+    function renderCategoryGroup(node) {
+      const key = node.path.join(' / ');
+      const open = state.categoryExpanded.has(key);
+      const products = (node.children || []).map(renderCategoryProduct).join('');
+      return `<div class="cat-group">
+        <div class="cat-head" data-cat-toggle="${safe(key)}" title="点击展开 / 收起产品">
+          <span class="cat-caret">${open ? '▾' : '▸'}</span>
+          <span class="cat-name">${safe(node.name)}</span>
+          <span class="cat-metric">产品 <b>${fmt(node.children.length)}</b></span>
+          <span class="cat-metric">素材 <b>${fmt(node.posts)}</b></span>
+          <span class="cat-metric">花费 <b>${money(node.spend)}</b></span>
+          <span class="cat-metric">订单 <b>${fmt(node.conversions)}</b></span>
+          <span class="cat-metric">ROI <b>${roi(node.roi)}</b></span>
+          <span class="cat-metric">成功率 <b>${pct(node.successRate)}</b></span>
+        </div>
+        <div class="cat-products" ${open ? '' : 'hidden'}>${products}</div>
+      </div>`;
+    }
+    function renderCategoryView() {
+      const rows = treeRows();
+      const tree = buildCategoryTree(rows);
+      if (!state.categoryTouched && tree.length) state.categoryExpanded.add(tree[0].path.join(' / '));
+      renderCategorySummary(rows);
+      const monthNote = state.materialFrom || state.materialTo
+        ? `素材创建 ${state.materialFrom || '最早'} ~ ${state.materialTo || '当前'}`
+        : `素材创建月 ${harvestAnchorMonth()}`;
+      $('categoryNote').textContent = `${monthNote} · 品类按产品名关键词归类 · 点品类展开下属产品 · 卡片=二级标签，胶囊=三级 Top3`;
+      $('categoryBoard').innerHTML = tree.length
+        ? tree.map(renderCategoryGroup).join('')
+        : `<div class="empty">当前筛选下暂无品类数据</div>`;
+    }
+
     function renderAll() {
       renderKpis();
       renderBoardTable();
@@ -3921,6 +4122,7 @@
       renderHarvestTags();
       renderHarvestHierarchy();
       renderAgeSection();
+      renderCategoryView();
       renderAiKeywords();
       renderTable();
       renderDmsMaterials();
@@ -4118,7 +4320,8 @@
 
     function applyUrlParams() {
       const params = new URLSearchParams(location.search);
-      state.currentView = params.get('view') === 'dms' ? 'dms' : 'overview';
+      const viewParam = params.get('view');
+      state.currentView = viewParam === 'dms' || viewParam === 'category' ? viewParam : 'overview';
       const brandParam = params.get('brand');
       state.brand = brandParam && brandParam !== 'ALL' ? brandParam.split('|') : [];
       const countryParam = params.get('country');
@@ -4618,6 +4821,18 @@
         updateView();
         updateUrlParams();
       }
+    });
+    $('categoryBoard').addEventListener('click', e => {
+      const head = e.target.closest('[data-cat-toggle]');
+      if (!head) return;
+      const key = head.dataset.catToggle;
+      const body = head.nextElementSibling;
+      const expanded = body && !body.hidden;
+      if (body) body.hidden = expanded;
+      head.querySelector('.cat-caret').textContent = expanded ? '▸' : '▾';
+      if (expanded) state.categoryExpanded.delete(key);
+      else state.categoryExpanded.add(key);
+      state.categoryTouched = true;
     });
     document.addEventListener('click', e => {
       const multi = e.target.closest('.multi-select');
