@@ -493,6 +493,41 @@
     .small { color: var(--muted); font-size: 11px; }
     .pad { padding: 14px; }
     .chart { width: 100%; height: 280px; display: block; cursor: pointer; }
+    .trend-picker { position: relative; }
+    .trend-picker.open { z-index: 80; }
+    .trend-picker-btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 5px 9px; border: 1px solid var(--line); border-radius: 7px;
+      background: #fff; color: var(--deep); font-size: 11px; font-weight: 700;
+      cursor: pointer; white-space: nowrap;
+    }
+    .trend-picker-btn:hover { border-color: #b9c7d5; }
+    .trend-picker-caret { color: var(--muted); font-size: 9px; }
+    .trend-picker-panel {
+      display: none; position: absolute; right: 0; top: calc(100% + 6px);
+      width: 288px; padding: 10px; background: #fff;
+      border: 1px solid var(--line); border-radius: 10px; box-shadow: var(--shadow);
+    }
+    .trend-picker.open .trend-picker-panel { display: block; }
+    .trend-picker-note { font-size: 10px; color: var(--muted); margin-bottom: 8px; line-height: 1.5; }
+    .trend-picker-list { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 8px; }
+    .trend-picker-opt {
+      display: flex; align-items: center; gap: 6px; padding: 4px 5px;
+      border-radius: 6px; font-size: 11px; color: #344054; cursor: pointer;
+    }
+    .trend-picker-opt:hover { background: #f4f7fa; }
+    .trend-picker-opt.disabled { opacity: .4; cursor: not-allowed; }
+    .trend-picker-opt input { margin: 0; width: 13px; height: 13px; accent-color: var(--blue, #2f6f9f); }
+    .trend-swatch { width: 9px; height: 9px; border-radius: 2px; flex: none; }
+    .trend-picker-foot {
+      display: flex; align-items: center; justify-content: space-between; gap: 8px;
+      margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--line);
+      font-size: 10px; color: var(--muted);
+    }
+    .trend-picker-foot button {
+      border: 1px solid var(--line); background: #fff; color: var(--deep);
+      border-radius: 6px; padding: 3px 7px; font-size: 10px; cursor: pointer; white-space: nowrap;
+    }
     .barrow {
       display: grid;
       grid-template-columns: minmax(112px, 1fr) 1.4fr 88px 58px 52px;
@@ -1731,7 +1766,10 @@
       <div class="panel">
         <div class="head">
           <h2>每日趋势</h2>
-          <div class="small">柱=花费，线=订单/ROI</div>
+          <div class="trend-picker" id="trendPicker">
+            <button type="button" class="trend-picker-btn" id="trendPickerBtn"></button>
+            <div class="trend-picker-panel" id="trendPickerPanel"></div>
+          </div>
         </div>
         <div class="pad">
           <canvas id="trendChart" class="chart"></canvas>
@@ -1946,14 +1984,9 @@
       compareTo: '',
       compareFiltered: [],
       compareAppliedRange: null,
-      trendVisible: {
-        spend: true,
-        orders: true,
-        roi: true,
-        compareSpend: true,
-        compareOrders: true,
-        compareRoi: true
-      },
+      // 趋势图自选指标（注册表见 TREND_METRICS），默认沿用原花费/订单/ROI
+      trendSelected: ['spend', 'conversions', 'roi'],
+      trendVisible: {},
       trendLegendHits: [],
       sortKey: 'spend',
       sortDir: -1,
@@ -1975,6 +2008,23 @@
     const money2 = (n) => Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     const pct = (n) => `${((Number(n) || 0) * 100).toFixed(2)}%`;
     const roi = (n) => (Number(n) || 0).toFixed(2);
+    // 趋势图可画线指标：最多同时选 6 个，每个指标按自身量级独立归一化
+    const TREND_MAX_METRICS = 6;
+    const TREND_METRICS = [
+      { key: 'spend', label: '花费', color: '#2f6f9f', soft: '#7a8da0', marker: 'bar' },
+      { key: 'impressions', label: '曝光', color: '#6b5bd2', soft: '#a89de0' },
+      { key: 'linkClick', label: '链接点击', color: '#2563eb', soft: '#93b4f0' },
+      { key: 'conversions', label: '订单', color: '#b42318', soft: '#d97062' },
+      { key: 'purchaseValue', label: 'GMV', color: '#c2410c', soft: '#eda47f' },
+      { key: 'addToCart', label: '加购金额', color: '#a12a72', soft: '#dd9ac4' },
+      { key: 'roi', label: 'ROI', color: '#0f766e', soft: '#48a195' },
+      { key: 'cpc', label: 'CPC', color: '#4338ca', soft: '#9c95e8' },
+      { key: 'cpa', label: 'CPA', color: '#b45309', soft: '#e0a463' },
+      { key: 'cpm', label: 'CPM', color: '#0e7490', soft: '#6bb3c7' },
+      { key: 'ctr', label: 'CTR', color: '#7c3aed', soft: '#b69bee' },
+      { key: 'cvr', label: 'CVR', color: '#be185d', soft: '#e88bb5' }
+    ];
+    const TREND_METRIC_MAP = new Map(TREND_METRICS.map(m => [m.key, m]));
     const short = (text, len = 88) => {
       const s = String(text || '');
       return s.length > len ? `${s.slice(0, len - 1)}…` : s;
@@ -3245,45 +3295,39 @@
         ? trendRowsFor(state.compareFiltered || [], state.compareAppliedRange.from, state.compareAppliedRange.to)
         : [];
       const hasCompare = !!compareData.length;
-      const pad = { l: 48, r: 28, t: hasCompare ? 46 : 34, b: 32 };
-      const w = rect.width - pad.l - pad.r;
-      const h = rect.height - pad.t - pad.b;
+      const selected = (state.trendSelected || []).filter(k => TREND_METRIC_MAP.has(k));
       const visible = state.trendVisible;
+      const legendItems = [];
+      selected.forEach(key => {
+        const m = TREND_METRIC_MAP.get(key);
+        legendItems.push({ key, label: m.label, color: m.color, marker: m.marker || 'line' });
+        if (hasCompare) legendItems.push({ key: `cmp:${key}`, label: `${m.label}环比`, color: m.soft, marker: 'line', dashed: true });
+      });
       state.trendLegendHits = [];
       ctx.font = '11px Arial';
-      const legendItems = [
-        { key: 'spend', label: 'Spend', color: '#2f6f9f', marker: 'bar' },
-        { key: 'orders', label: 'Orders', color: '#b42318', marker: 'line' },
-        { key: 'roi', label: 'ROI', color: '#0f766e', marker: 'line' },
-        ...(hasCompare ? [
-          { key: 'compareSpend', label: 'Spend环比', color: '#7a8da0', marker: 'line', dashed: true },
-          { key: 'compareOrders', label: 'Orders环比', color: '#d97062', marker: 'line', dashed: true },
-          { key: 'compareRoi', label: 'ROI环比', color: '#48a195', marker: 'line', dashed: true }
-        ] : [])
-      ];
-      let lx = pad.l;
-      let ly = 12;
+      // 先排版图例，按实际行数动态留顶部空间（6 个指标 + 环比时会换行）
+      let lx = 48, ly = 12, legendRows = 1;
+      legendItems.forEach(item => {
+        const itemWidth = ctx.measureText(item.label).width + 28;
+        if (lx + itemWidth > rect.width - 28) { lx = 48; ly += 18; legendRows += 1; }
+        lx += itemWidth + 12;
+      });
+      const pad = { l: 48, r: 28, t: 14 + legendRows * 18 + 6, b: 32 };
+      const w = rect.width - pad.l - pad.r;
+      const h = rect.height - pad.t - pad.b;
+      lx = pad.l; ly = 12;
       for (const item of legendItems) {
         const textWidth = ctx.measureText(item.label).width;
         const itemWidth = textWidth + 28;
-        if (lx + itemWidth > rect.width - pad.r) {
-          lx = pad.l;
-          ly += 18;
-        }
+        if (lx + itemWidth > rect.width - pad.r) { lx = pad.l; ly += 18; }
         const active = visible[item.key] !== false;
         ctx.globalAlpha = active ? 1 : .35;
         ctx.fillStyle = item.color;
         ctx.strokeStyle = item.color;
         ctx.lineWidth = 2;
         ctx.setLineDash(item.dashed ? [5, 4] : []);
-        if (item.marker === 'bar') {
-          ctx.fillRect(lx, ly - 8, 12, 8);
-        } else {
-          ctx.beginPath();
-          ctx.moveTo(lx, ly - 4);
-          ctx.lineTo(lx + 12, ly - 4);
-          ctx.stroke();
-        }
+        if (item.marker === 'bar') ctx.fillRect(lx, ly - 8, 12, 8);
+        else { ctx.beginPath(); ctx.moveTo(lx, ly - 4); ctx.lineTo(lx + 12, ly - 4); ctx.stroke(); }
         ctx.setLineDash([]);
         ctx.fillStyle = item.color;
         ctx.fillText(item.label, lx + 17, ly);
@@ -3295,50 +3339,54 @@
       ctx.lineWidth = 1;
       for (let i = 0; i <= 4; i++) {
         const y = pad.t + h * i / 4;
-        ctx.beginPath();
-        ctx.moveTo(pad.l, y);
-        ctx.lineTo(pad.l + w, y);
-        ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(pad.l + w, y); ctx.stroke();
       }
       if (!data.length) {
         ctx.fillStyle = '#667085';
         ctx.fillText('当前筛选下暂无趋势数据', pad.l, pad.t + 22);
         return;
       }
-      const spendSeries = [...data, ...compareData];
-      const maxSpend = Math.max(1, ...spendSeries.map(d => d.spend));
-      const maxOrders = Math.max(1, ...spendSeries.map(d => d.conversions));
-      const maxRoi = Math.max(1, ...spendSeries.map(d => d.roi));
       const pointCount = Math.max(data.length, compareData.length, 1);
       const x = (i) => pad.l + (pointCount === 1 ? w / 2 : i * w / Math.max(1, pointCount - 1));
-      const ySpend = (v) => pad.t + h - v / maxSpend * h;
-      const yOrders = (v) => pad.t + h - v / maxOrders * h;
-      const yRoi = (v) => pad.t + h - v / maxRoi * h;
-      if (visible.spend) {
-        data.forEach((d, i) => {
-          const bw = Math.max(5, w / Math.max(22, pointCount) * .55);
-          ctx.fillStyle = 'rgba(47,111,159,.28)';
-          ctx.fillRect(x(i) - bw / 2, ySpend(d.spend), bw, pad.t + h - ySpend(d.spend));
-        });
-      }
-      const drawLine = (rows, getter, yScale, color, dashed = false) => {
+      // 每个指标按自己的量级归一化：CTR/CPC 这类低量级指标也能看清走势
+      const scaleOf = (key) => {
+        const vals = [...data, ...compareData].map(d => Number(d?.[key] || 0));
+        const max = Math.max(1e-9, ...vals);
+        return (v) => pad.t + h - Number(v || 0) / max * h;
+      };
+      const scales = new Map(selected.map(key => [key, scaleOf(key)]));
+      const drawLine = (rows, key, yScale, color, dashed = false) => {
         if (!rows.length) return;
         ctx.beginPath();
         ctx.strokeStyle = color;
         ctx.lineWidth = dashed ? 1.8 : 2.2;
         ctx.setLineDash(dashed ? [6, 5] : []);
         rows.forEach((d, i) => {
-          const xx = x(i), yy = yScale(getter(d));
+          const xx = x(i), yy = yScale(d[key]);
           if (i) ctx.lineTo(xx, yy); else ctx.moveTo(xx, yy);
         });
         ctx.stroke();
         ctx.setLineDash([]);
       };
-      if (visible.orders) drawLine(data, d => d.conversions, yOrders, '#b42318');
-      if (visible.roi) drawLine(data, d => d.roi, yRoi, '#0f766e');
-      if (hasCompare && visible.compareSpend) drawLine(compareData, d => d.spend, ySpend, '#7a8da0', true);
-      if (hasCompare && visible.compareOrders) drawLine(compareData, d => d.conversions, yOrders, '#d97062', true);
-      if (hasCompare && visible.compareRoi) drawLine(compareData, d => d.roi, yRoi, '#48a195', true);
+      selected.forEach(key => {
+        const m = TREND_METRIC_MAP.get(key);
+        const yScale = scales.get(key);
+        if (m.marker === 'bar') {
+          if (visible[key] !== false) {
+            const bw = Math.max(5, w / Math.max(22, pointCount) * .55);
+            data.forEach((d, i) => {
+              const yv = yScale(d[key]);
+              ctx.fillStyle = 'rgba(47,111,159,.28)';
+              ctx.fillRect(x(i) - bw / 2, yv, bw, pad.t + h - yv);
+            });
+          }
+        } else if (visible[key] !== false) {
+          drawLine(data, key, yScale, m.color);
+        }
+        if (hasCompare && visible[`cmp:${key}`] !== false) {
+          drawLine(compareData, key, yScale, m.soft, true);
+        }
+      });
       data.forEach((d, i) => {
         if (i % Math.ceil(data.length / 6) === 0 || i === data.length - 1) {
           ctx.fillStyle = '#667085';
@@ -3358,6 +3406,46 @@
       if (!hit) return;
       state.trendVisible[hit.key] = state.trendVisible[hit.key] === false;
       drawTrend();
+    }
+
+    function updateTrendPickerBtn() {
+      const btn = $('trendPickerBtn');
+      if (!btn) return;
+      const n = (state.trendSelected || []).length;
+      btn.innerHTML = `指标 ${n}/${TREND_METRICS.length} <span class="trend-picker-caret">▾</span>`;
+    }
+
+    function renderTrendPicker() {
+      const panel = $('trendPickerPanel');
+      if (!panel) return;
+      const selected = state.trendSelected || [];
+      panel.innerHTML = `
+        <div class="trend-picker-note">柱=花费 · 实线=所选指标 · 虚线=对比期同指标（需开启环比）</div>
+        <div class="trend-picker-list">
+          ${TREND_METRICS.map(m => {
+            const on = selected.includes(m.key);
+            const disabled = !on && selected.length >= TREND_MAX_METRICS;
+            return `<label class="trend-picker-opt ${disabled ? 'disabled' : ''}" data-trend-key="${m.key}">
+              <input type="checkbox" ${on ? 'checked' : ''} ${disabled ? 'disabled' : ''}>
+              <span class="trend-swatch" style="background:${m.color}"></span>
+              <span>${safe(m.label)}</span>
+            </label>`;
+          }).join('')}
+        </div>
+        <div class="trend-picker-foot">
+          <span>最多 ${TREND_MAX_METRICS} 项 · 各指标独立缩放</span>
+          <button type="button" data-trend-action="default">恢复默认</button>
+        </div>`;
+      updateTrendPickerBtn();
+    }
+
+    function setTrendSelected(keys, keepOpen = false) {
+      const clean = [...new Set(keys)].filter(k => TREND_METRIC_MAP.has(k)).slice(0, TREND_MAX_METRICS);
+      if (!clean.length) return;
+      state.trendSelected = clean;
+      renderTrendPicker();
+      drawTrend();
+      if (keepOpen) $('trendPicker')?.classList.add('open');
     }
 
     function renderTable() {
@@ -4168,6 +4256,32 @@
     $('downloadCsv').addEventListener('click', exportCsv);
     $('downloadDmsCsv').addEventListener('click', exportDmsCsv);
     $('trendChart').addEventListener('click', toggleTrendLegend);
+    $('trendPickerBtn')?.addEventListener('click', e => {
+      e.stopPropagation();
+      renderTrendPicker();
+      $('trendPicker').classList.toggle('open');
+    });
+    $('trendPickerPanel')?.addEventListener('change', e => {
+      const opt = e.target.closest('.trend-picker-opt');
+      if (!opt) return;
+      const key = opt.dataset.trendKey;
+      const next = [...(state.trendSelected || [])];
+      const idx = next.indexOf(key);
+      if (e.target.checked && idx < 0) next.push(key);
+      else if (!e.target.checked && idx >= 0) next.splice(idx, 1);
+      setTrendSelected(next, true);
+    });
+    $('trendPickerPanel')?.addEventListener('click', e => {
+      e.stopPropagation();
+      if (e.target.closest('[data-trend-action="default"]')) {
+        setTrendSelected(['spend', 'conversions', 'roi'], true);
+      }
+    });
+    document.addEventListener('click', e => {
+      if (e.target.closest('#trendPicker')) return;
+      $('trendPicker')?.classList.remove('open');
+    });
+    updateTrendPickerBtn();
     $('openDmsExport').addEventListener('click', () => window.open(state.dms?.dmsUrl || 'https://web.bersamadms.com/dms/id/ad/#/place/material', '_blank', 'noopener'));
     $('dmsSort').addEventListener('click', e => {
       const button = e.target.closest('[data-dms-sort]');
