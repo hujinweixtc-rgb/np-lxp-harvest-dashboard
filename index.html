@@ -778,6 +778,20 @@
       white-space: nowrap;
       cursor: help;
     }
+    .age-matrix-wrap table { min-width: 1760px; }
+    .age-detail-wrap table { min-width: 1320px; }
+    .age-matrix-wrap th, .age-matrix-wrap td,
+    .age-detail-wrap th, .age-detail-wrap td { padding: 7px 9px; font-size: 11px; }
+    .age-matrix-wrap thead tr:first-child th { background: #dbe7ef; text-align: center; font-size: 12px; }
+    .age-label { font-weight: 700; background: #f7fafc; white-space: nowrap; }
+    .age-row-l1 > td { background: #f7fafc; font-weight: 700; }
+    .age-row-l2 > td:nth-child(2) { padding-left: 22px; }
+    .age-row-l3 > td:nth-child(3) { padding-left: 40px; color: #475467; }
+    .age-toggle { cursor: pointer; user-select: none; color: #1f5f8f; }
+    .age-toggle:hover { text-decoration: underline; }
+    .age-detail-grid { display: grid; gap: 18px; margin-top: 18px; }
+    .age-detail-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; padding: 6px 2px; font-weight: 700; flex-wrap: wrap; }
+    .age-detail-head .small { font-weight: 400; }
     .product-dim-wrap { max-height: 460px; }
     .product-dim-wrap table { min-width: 920px; }
     th, td { border-bottom: 1px solid var(--line); padding: 9px 10px; text-align: left; vertical-align: top; }
@@ -1858,6 +1872,38 @@
       </div>
     </section>
 
+    <section class="panel age-panel">
+      <div class="head">
+        <div>
+          <h2>新素材 / 老素材 · 收割矩阵</h2>
+          <div class="small" id="ageNote">按 DMS 素材创建时间切分 · 近 30 天为新素材</div>
+        </div>
+      </div>
+      <div class="table-wrap age-matrix-wrap">
+        <table id="ageMatrix"></table>
+      </div>
+      <div class="age-detail-grid">
+        <div class="age-detail">
+          <div class="age-detail-head">
+            <span>老素材明细</span>
+            <span class="small">费用占比 / 订单占比均占老素材大盘 · 二级只展现 Top5 · 三级只展现 Top3 · 点箭头展开</span>
+          </div>
+          <div class="table-wrap age-detail-wrap">
+            <table id="ageOldDetail"></table>
+          </div>
+        </div>
+        <div class="age-detail">
+          <div class="age-detail-head">
+            <span>新素材明细</span>
+            <span class="small">费用占比 / 订单占比均占新素材大盘 · 二级只展现 Top5 · 三级只展现 Top3 · 点箭头展开</span>
+          </div>
+          <div class="table-wrap age-detail-wrap">
+            <table id="ageNewDetail"></table>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <section class="panel tree-section">
       <div class="head">
         <div>
@@ -2002,6 +2048,8 @@
       options: { brand: [], country: [], product: [], tag1: [], tag2: [] },
       multiSearch: { brand: '', country: '', product: '', tag1: '', tag2: '' },
       multiMode: { brand: 'default', country: 'default', product: 'default', tag1: 'default', tag2: 'default' },
+      ageExpanded: new Set(),
+      ageListenerBound: false,
       initialized: false
     };
 
@@ -3630,6 +3678,224 @@
       if (state.currentView === 'overview') drawTrend();
     }
 
+    // ===== 新/老素材 × 收割标签矩阵 =====
+    // 新素材定义：DMS 素材创建时间 >= 数据快照日 - 30 天；更早一律为老素材。
+    // 锚点取数据快照日而非浏览器当天，保证同一份数据下口径稳定。
+    const HARVEST_GROUPS = [
+      { key: 'awa', label: 'AWA' },
+      { key: 'consi', label: 'Consi' },
+      { key: 'conv', label: 'Conv' }
+    ];
+    const AGE_MATRIX_COLS = ['数量', '环比', 'ROI', '环比', '费用', '环比', '近7天LTV贡献占比'];
+    const AGE_DETAIL_HEAD = `<thead><tr>
+      <th>一级漏斗</th>
+      <th>二级漏斗<br><span class="small">只展现Top5</span></th>
+      <th>三级漏斗<br><span class="small">只展现Top3</span></th>
+      <th class="num">素材数量</th>
+      <th class="num" title="占本素材池（老/新素材大盘）花费">费用占比</th>
+      <th class="num" title="占本素材池（老/新素材大盘）订单">订单占比</th>
+      <th class="num">CPM</th>
+      <th class="num">CPC</th>
+      <th class="num">ROI</th>
+      <th class="num">订单环比</th>
+      <th class="num">CPM环比</th>
+      <th class="num">CPC环比</th>
+      <th class="num">ROI环比</th>
+    </tr></thead>`;
+
+    function ageAnchor() {
+      return String(state.raw?.generatedAt || dateText(new Date())).slice(0, 10);
+    }
+
+    function ageCutoff() {
+      return addDays(ageAnchor(), -30);
+    }
+
+    function materialAge(row) {
+      const day = materialCreatedDay(row);
+      if (!day) return 'old';
+      return day >= ageCutoff() ? 'new' : 'old';
+    }
+
+    function ageRows(rows, age) {
+      return rows.filter(row => materialAge(row) === age);
+    }
+
+    function harvestRows(rows, key) {
+      return rows.filter(row => String(row.harvestTag || '').toLowerCase() === key);
+    }
+
+    function last7Gmv(rows, to) {
+      const from = addDays(to, -6);
+      let total = 0;
+      rows.forEach(row => {
+        for (const [day, values] of Object.entries(row.days || {})) {
+          if (day >= from && day <= to) total += Number(values?.purchaseValue || 0);
+        }
+      });
+      return total;
+    }
+
+    function ageDelta(current, base, higherIsBetter = true) {
+      if (!state.compareAppliedRange) return '';
+      const now = Number(current || 0);
+      const old = Number(base || 0);
+      if (!old && !now) return '<span class="delta">环比 0.0%</span>';
+      if (!old) return '<span class="delta good">环比 ↑ 新增</span>';
+      const change = (now - old) / old;
+      if (Math.abs(change) < 0.0001) return '<span class="delta">环比 0.0%</span>';
+      const up = change > 0;
+      const good = higherIsBetter ? up : !up;
+      return `<span class="delta ${good ? 'good' : 'bad'}">环比 ${up ? '↑' : '↓'} ${Math.abs(change * 100).toFixed(1)}%</span>`;
+    }
+
+    function renderAgeMatrix() {
+      const cutoff = ageCutoff();
+      const winTo = state.to || ageAnchor();
+      const from7 = addDays(winTo, -6);
+      $('ageNote').textContent = `创建时间 ≥ ${cutoff}（近30天）= 新素材，更早 = 老素材 · 近7天 ${from7} ~ ${winTo} · LTV贡献占比 = 该组近7天GMV / 全部素材近7天GMV`;
+      const curAll = state.filtered;
+      const prevAll = state.compareFiltered || [];
+      const total7 = last7Gmv(curAll, winTo);
+      const defs = [
+        { label: '新素材', cur: ageRows(curAll, 'new'), prev: ageRows(prevAll, 'new') },
+        { label: '老素材', cur: ageRows(curAll, 'old'), prev: ageRows(prevAll, 'old') },
+        { label: 'TTL', cur: curAll, prev: prevAll }
+      ];
+      let head = `<thead><tr><th rowspan="2">素材汇总</th>`
+        + HARVEST_GROUPS.map(group => `<th colspan="${AGE_MATRIX_COLS.length}">${safe(group.label)}</th>`).join('')
+        + `</tr><tr>`
+        + HARVEST_GROUPS.map(() => AGE_MATRIX_COLS.map(col => `<th class="num">${safe(col)}</th>`).join('')).join('')
+        + `</tr></thead><tbody>`;
+      const body = defs.map(def => {
+        const cells = HARVEST_GROUPS.map(group => {
+          const c = sumRows(harvestRows(def.cur, group.key));
+          const p = sumRows(harvestRows(def.prev, group.key));
+          const share = total7 ? last7Gmv(harvestRows(def.cur, group.key), winTo) / total7 : 0;
+          return `<td class="num">${fmt(c.posts)}</td>`
+            + `<td class="num">${ageDelta(c.posts, p.posts)}</td>`
+            + `<td class="num">${roi(c.roi)}</td>`
+            + `<td class="num">${ageDelta(c.roi, p.roi)}</td>`
+            + `<td class="num">${money(c.spend)}</td>`
+            + `<td class="num">${ageDelta(c.spend, p.spend, false)}</td>`
+            + `<td class="num">${pct(share)}</td>`;
+        }).join('');
+        return `<tr><td class="age-label">${safe(def.label)}</td>${cells}</tr>`;
+      }).join('');
+      $('ageMatrix').innerHTML = head + body + '</tbody>';
+    }
+
+    function makeAgeNode(key, level, l1, l2, l3, rows, prevRows, pool) {
+      const metrics = sumRows(rows);
+      const base = sumRows(prevRows);
+      return {
+        key, level, l1, l2, l3, metrics, base, children: [],
+        spendShare: pool.spend ? metrics.spend / pool.spend : 0,
+        orderShare: pool.conversions ? metrics.conversions / pool.conversions : 0
+      };
+    }
+
+    function ageTree(rows, prevRows, age) {
+      const pool = sumRows(rows);
+      return HARVEST_GROUPS.map(group => {
+        const gKey = group.key;
+        const gRows = harvestRows(rows, gKey);
+        const gPrev = harvestRows(prevRows, gKey);
+        const node = makeAgeNode(`${age}|${gKey}`, 1, group.label, '', '', gRows, gPrev, pool);
+        const second = new Map();
+        gRows.forEach(row => {
+          const name = String(row.tag2 || '').trim();
+          if (!name || name === '未标注') return;
+          if (!second.has(name)) second.set(name, []);
+          second.get(name).push(row);
+        });
+        node.children = [...second.entries()]
+          .map(([name, items]) => ({ name, items, metrics: sumRows(items) }))
+          .sort((a, b) => (b.metrics.spend - a.metrics.spend) || (b.metrics.conversions - a.metrics.conversions))
+          .slice(0, 5)
+          .map(two => {
+            const twoPrev = gPrev.filter(row => String(row.tag2 || '').trim() === two.name);
+            const twoKey = `${age}|${gKey}|${two.name}`;
+            const twoNode = makeAgeNode(twoKey, 2, '', two.name, '', two.items, twoPrev, pool);
+            const third = new Map();
+            two.items.forEach(row => {
+              const name = String(row.tag3 || '').trim();
+              if (!name || name === '未标注') return;
+              if (!third.has(name)) third.set(name, []);
+              third.get(name).push(row);
+            });
+            twoNode.children = [...third.entries()]
+              .map(([name, items]) => ({ name, items, metrics: sumRows(items) }))
+              .sort((a, b) => (b.metrics.spend - a.metrics.spend) || (b.metrics.conversions - a.metrics.conversions))
+              .slice(0, 3)
+              .map(three => {
+                const threePrev = twoPrev.filter(row => String(row.tag3 || '').trim() === three.name);
+                return makeAgeNode(`${twoKey}|${three.name}`, 3, '', '', three.name, three.items, threePrev, pool);
+              });
+            return twoNode;
+          });
+        return node;
+      });
+    }
+
+    function ageNodeRowsHtml(nodes) {
+      return nodes.map(node => {
+        const hasChildren = node.children.length > 0;
+        const open = state.ageExpanded.has(node.key);
+        const caret = hasChildren
+          ? `<span class="age-toggle" data-key="${safe(node.key)}" title="展开/收起下级漏斗">${open ? '▾' : '▸'}</span>`
+          : '';
+        const l1 = node.level === 1 ? `${caret} ${safe(node.l1)}` : '';
+        const l2 = node.level === 2 ? `${caret} ${safe(node.l2)}` : '';
+        const l3 = node.level === 3 ? `${caret} ${safe(node.l3)}` : '';
+        const m = node.metrics;
+        const b = node.base;
+        return `<tr class="age-row-l${node.level}">`
+          + `<td>${l1}</td><td>${l2}</td><td>${l3}</td>`
+          + `<td class="num">${fmt(m.posts)}</td>`
+          + `<td class="num">${pct(node.spendShare)}</td>`
+          + `<td class="num">${pct(node.orderShare)}</td>`
+          + `<td class="num">${money2(m.cpm)}</td>`
+          + `<td class="num">${money2(m.cpc)}</td>`
+          + `<td class="num">${roi(m.roi)}</td>`
+          + `<td class="num">${ageDelta(m.conversions, b.conversions)}</td>`
+          + `<td class="num">${ageDelta(m.cpm, b.cpm, false)}</td>`
+          + `<td class="num">${ageDelta(m.cpc, b.cpc, false)}</td>`
+          + `<td class="num">${ageDelta(m.roi, b.roi)}</td>`
+          + `</tr>` + (open ? ageNodeRowsHtml(node.children) : '');
+      }).join('');
+    }
+
+    function renderAgeDetails() {
+      const prev = state.compareFiltered || [];
+      [['ageOldDetail', 'old'], ['ageNewDetail', 'new']].forEach(([id, age]) => {
+        const cur = ageRows(state.filtered, age);
+        const nodes = ageTree(cur, ageRows(prev, age), age);
+        $(id).innerHTML = AGE_DETAIL_HEAD + '<tbody>' + ageNodeRowsHtml(nodes) + '</tbody>';
+      });
+    }
+
+    function bindAgeEvents() {
+      if (state.ageListenerBound) return;
+      state.ageListenerBound = true;
+      ['ageOldDetail', 'ageNewDetail'].forEach(id => {
+        $(id).addEventListener('click', event => {
+          const toggle = event.target.closest('.age-toggle');
+          if (!toggle) return;
+          const key = toggle.dataset.key;
+          if (state.ageExpanded.has(key)) state.ageExpanded.delete(key);
+          else state.ageExpanded.add(key);
+          renderAgeDetails();
+        });
+      });
+    }
+
+    function renderAgeSection() {
+      renderAgeMatrix();
+      renderAgeDetails();
+      bindAgeEvents();
+    }
+
     function renderAll() {
       renderKpis();
       renderBoardTable();
@@ -3637,6 +3903,7 @@
       renderBars('typeBars', groupRows(state.filtered, 'materialType'), 4, true);
       renderHarvestTags();
       renderHarvestHierarchy();
+      renderAgeSection();
       renderAiKeywords();
       renderTable();
       renderDmsMaterials();
