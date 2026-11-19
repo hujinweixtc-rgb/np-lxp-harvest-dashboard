@@ -459,10 +459,12 @@
     #chinesePanel .grid2 { grid-template-columns: 1fr 1fr; }
     .cn-mini-wrap { max-height: 380px; }
     .cn-mini-wrap table { min-width: 0; width: 100%; }
-    .cn-mini-wrap table th:first-child,
-    .cn-mini-wrap table td:first-child {
+    /* 首列贴合内容宽度（ID 特异性压过全局 .table-wrap 的 270px 固定宽），不留大片空白 */
+    #chinesePanel .cn-mini-wrap table th:first-child,
+    #chinesePanel .cn-mini-wrap table td:first-child {
       position: sticky; left: 0; z-index: 2;
-      min-width: 96px; max-width: 130px; width: 112px;
+      min-width: 0; max-width: none; width: auto;
+      white-space: nowrap;
       box-shadow: 1px 0 0 var(--line);
     }
     .cn-mini-wrap table th:first-child { background: #eef4f8; }
@@ -3066,7 +3068,7 @@
         cnProducts.length ? cnProducts.map(r => {
           const b = cmpProductMap.get(r.name) || {};
           return `<tr>
-          <td title="${safe(r.name)}">${safe(short(r.name, 28))}</td>
+          <td title="${safe(r.name)}">${safe(short(r.name, 12))}</td>
           <td class="num">${cell(fmt(r.posts), r.posts, b.posts, true)}</td>
           <td class="num">${cell(money(r.spend), r.spend, b.spend, false)}</td>
           <td class="num">${cell(fmt(r.conversions), r.conversions, b.conversions, true)}</td>
@@ -3091,7 +3093,7 @@
         labelRows.length ? labelRows.map(r => {
           const b = r.base || {};
           return `<tr>
-          <td title="${safe(r.name)}">${safe(short(r.name, 30))}</td>
+          <td title="${safe(r.name)}">${safe(short(r.name, 12))}</td>
           <td class="num">${cell(fmt(r.posts), r.posts, b.posts, true)}</td>
           <td class="num">${cell(money(r.spend), r.spend, b.spend, false)}</td>
           <td class="num">${cell(fmt(r.conversions), r.conversions, b.conversions, true)}</td>
