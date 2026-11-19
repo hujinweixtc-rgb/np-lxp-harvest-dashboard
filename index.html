@@ -2381,7 +2381,7 @@
 
     function applyFilters(pushUrl = true) {
       readFilterControls();
-      syncProductScope();
+      syncMultiScopes();
       updateCompareControls();
       state.filtered = collectFilteredRows(state.from, state.to);
       state.compareAppliedRange = compareRange();
@@ -4264,30 +4264,41 @@
       if (empty) empty.classList.toggle('search-hidden', matches > 0);
     }
 
-    // 产品下拉跟随国家 / 品牌筛选：只列出当前口径下有素材的产品
+    // 多选筛选按此顺序级联：品牌 → 国家 → 产品 → 一级标签 → 二级标签
+    const MULTI_CHAIN = ['brand', 'country', 'product', 'tag1', 'tag2'];
+
+    // 级联选项：每个下拉只列出「上游筛选」口径下实际存在的值。
+    // 例如只选 SKT 品牌时，国家下拉里只出现 MY，不再出现 ID。
     function multiOptions(key) {
-      if (key !== 'product') return state.options[key];
-      if (!state.brand.length && !state.country.length) return state.options.product;
+      const idx = MULTI_CHAIN.indexOf(key);
+      if (idx <= 0) return state.options[key]; // 品牌是源头，始终给全量
+      const upstream = MULTI_CHAIN.slice(0, idx);
+      if (!upstream.some(up => state[up].length)) return state.options[key];
       const set = new Set();
       for (const row of state.rows) {
-        if (state.brand.length && !state.brand.includes(row.brand || '未标注')) continue;
-        if (state.country.length && !state.country.includes(row.country || '未标注')) continue;
-        set.add(row.product || '未标注');
+        let ok = true;
+        for (const up of upstream) {
+          if (state[up].length && !state[up].includes(row[up] || '未标注')) { ok = false; break; }
+        }
+        if (ok) set.add(row[key] || '未标注');
       }
       return [...set].sort((a, b) => a.localeCompare(b, 'zh-Hans-CN'));
     }
 
-    // 国家 / 品牌变化后，已选产品若不在当前口径内则自动剔除
-    function syncProductScope() {
-      const scope = multiOptions('product');
-      if (state.multiMode.product === 'custom' && state.product.length) {
-        const kept = state.product.filter(v => scope.includes(v));
-        if (kept.length !== state.product.length) {
-          state.product = kept;
-          state.multiMode.product = kept.length ? 'custom' : 'default';
+    // 上游变化后，下游已选项若不在新口径内则自动剔除，并重绘所有下拉
+    function syncMultiScopes() {
+      for (let i = 1; i < MULTI_CHAIN.length; i += 1) {
+        const key = MULTI_CHAIN[i];
+        const scope = multiOptions(key);
+        if (state.multiMode[key] === 'custom' && state[key].length) {
+          const kept = state[key].filter(v => scope.includes(v));
+          if (kept.length !== state[key].length) {
+            state[key] = kept;
+            state.multiMode[key] = kept.length ? 'custom' : 'default';
+          }
         }
+        renderMulti(key, fallbackText(key));
       }
-      renderMulti('product', '全部产品');
     }
 
     function renderMulti(key, fallback) {
