@@ -467,6 +467,9 @@
     }
     .cn-mini-wrap table th:first-child { background: #eef4f8; }
     .cn-mini-wrap table td:first-child { background: #fff; }
+    /* 华人迷你表环比：数值后跟一个小 chip，字号比卡片更小以适配窄列 */
+    .cn-mini-wrap table td.num { white-space: nowrap; }
+    .cn-mini-wrap table td.num .delta { min-height: 14px; padding: 0 4px; font-size: 9px; margin-left: 4px; vertical-align: 1px; }
     .delta-line {
       display: flex;
       flex-wrap: wrap;
@@ -3046,32 +3049,55 @@
         }</div></div>`;
       }).join('');
 
+      // 通用：把某字段分组结果转成 name -> metrics 映射，供对比期按同键取值
+      const groupMap = (rows, field) => {
+        const map = new Map();
+        groupRows(rows, field).forEach(r => map.set(r.name, r));
+        return map;
+      };
+      // 迷你表环比单元格：[当前值格式化, 当前数, 对比数, 越高越好]
+      const cell = (valFmt, cur, base, higher) => `${valFmt}${ageDelta(cur, base, higher)}`;
+
       // 华人素材分产品
+      const cmpProductMap = groupMap(cmpCn, 'product');
       const cnProducts = groupRows(cn, 'product').slice(0, 12);
       const pThead = `<thead><tr><th>产品</th><th class="num">素材</th><th class="num">花费</th><th class="num">订单</th><th class="num">ROI</th><th class="num">CPC</th></tr></thead>`;
       $('chineseProductTable').innerHTML = pThead + `<tbody>${
-        cnProducts.length ? cnProducts.map(r => `<tr>
+        cnProducts.length ? cnProducts.map(r => {
+          const b = cmpProductMap.get(r.name) || {};
+          return `<tr>
           <td title="${safe(r.name)}">${safe(short(r.name, 28))}</td>
-          <td class="num">${fmt(r.posts)}</td><td class="num">${money(r.spend)}</td>
-          <td class="num">${fmt(r.conversions)}</td><td class="num">${roi(r.roi)}</td>
-          <td class="num">${money2(r.cpc)}</td></tr>`).join('')
+          <td class="num">${cell(fmt(r.posts), r.posts, b.posts, true)}</td>
+          <td class="num">${cell(money(r.spend), r.spend, b.spend, false)}</td>
+          <td class="num">${cell(fmt(r.conversions), r.conversions, b.conversions, true)}</td>
+          <td class="num">${cell(roi(r.roi), r.roi, b.roi, true)}</td>
+          <td class="num">${cell(money2(r.cpc), r.cpc, b.cpc, false)}</td></tr>`;
+        }).join('')
           : `<tr><td colspan="6" class="empty">当前筛选下暂无华人素材</td></tr>`
       }</tbody>`;
 
       // 华人素材分收割标签（三大类）与一级标签
       const byHarvest = groupRows(cn, 'harvestTag');
       const byTag1 = groupRows(cn, 'tag1').slice(0, 12);
+      const cmpHarvestMap = groupMap(cmpCn, 'harvestTag');
+      const cmpTag1Map = groupMap(cmpCn, 'tag1');
       const labelRows = [
-        ...byHarvest.map(r => ({ ...r, name: harvestTagLabel(r.name) })),
+        ...byHarvest.map(r => ({ ...r, name: harvestTagLabel(r.name), base: cmpHarvestMap.get(r.name) || {} })),
         ...byTag1.filter(r => r.name !== '未标注' && !/^(awa|consi|conv)$/i.test(r.name))
+                 .map(r => ({ ...r, base: cmpTag1Map.get(r.name) || {} }))
       ];
       const tThead = `<thead><tr><th>标签</th><th class="num">素材</th><th class="num">花费</th><th class="num">订单</th><th class="num">ROI</th><th class="num">CPC</th></tr></thead>`;
       $('chineseTagTable').innerHTML = tThead + `<tbody>${
-        labelRows.length ? labelRows.map(r => `<tr>
+        labelRows.length ? labelRows.map(r => {
+          const b = r.base || {};
+          return `<tr>
           <td title="${safe(r.name)}">${safe(short(r.name, 30))}</td>
-          <td class="num">${fmt(r.posts)}</td><td class="num">${money(r.spend)}</td>
-          <td class="num">${fmt(r.conversions)}</td><td class="num">${roi(r.roi)}</td>
-          <td class="num">${money2(r.cpc)}</td></tr>`).join('')
+          <td class="num">${cell(fmt(r.posts), r.posts, b.posts, true)}</td>
+          <td class="num">${cell(money(r.spend), r.spend, b.spend, false)}</td>
+          <td class="num">${cell(fmt(r.conversions), r.conversions, b.conversions, true)}</td>
+          <td class="num">${cell(roi(r.roi), r.roi, b.roi, true)}</td>
+          <td class="num">${cell(money2(r.cpc), r.cpc, b.cpc, false)}</td></tr>`;
+        }).join('')
           : `<tr><td colspan="6" class="empty">暂无标签数据</td></tr>`
       }</tbody>`;
     }
