@@ -1,15 +1,18 @@
 #!/usr/bin/env bash
-# 把 NP / LXP / FR 收割素材看板部署到 Cloud Run（静态页 + 实时刷新 API）。
+# 把 NP / LXP / FR / SKT 收割素材看板部署到 Cloud Run（静态页 + 实时刷新 API）。
 #
 # 前置：
 #   1. gcloud 已登录（hujinweixtc@gmail.com）
-#   2. Secret Manager 中已有三个 DMS token 与关键词模型 key：
+#   2. Secret Manager 中已有四个 DMS token 与关键词模型 key：
 #        np-lxp-harvest-dms-token-np
 #        np-lxp-harvest-dms-token-lxp
 #        np-lxp-harvest-dms-token-fr
+#        np-lxp-harvest-dms-token-skt
 #        np-lxp-harvest-zhipu-key
 #      创建方式见 scripts/setup_secrets.sh
 #
+# 关键词提取只跑创建时间 >= 2026-09-01 的素材（DASH_THEME_CREATED_FROM），
+# 避免新品牌全量素材吃光免费额度。
 # 用法：
 #   bash deploy.sh
 set -euo pipefail
@@ -55,8 +58,8 @@ gcloud run deploy "$SERVICE" \
   --max-instances 1 \
   --no-cpu-throttling \
   --timeout 3600 \
-  --set-env-vars "DASH_GCS_BUCKET=${GCS_BUCKET},DASH_GCS_PREFIX=${GCS_PREFIX}" \
-  --set-secrets "DMS_TOKEN_NP=np-lxp-harvest-dms-token-np:latest,DMS_TOKEN_LXP=np-lxp-harvest-dms-token-lxp:latest,DMS_TOKEN_FR=np-lxp-harvest-dms-token-fr:latest,ZHIPU_API_KEY=np-lxp-harvest-zhipu-key:latest"
+  --set-env-vars "DASH_GCS_BUCKET=${GCS_BUCKET},DASH_GCS_PREFIX=${GCS_PREFIX},DASH_THEME_CREATED_FROM=${DASH_THEME_CREATED_FROM:-2026-09-01},DASH_MATERIAL_CREATED_FROM=${DASH_MATERIAL_CREATED_FROM:-2026-09-01}" \
+  --set-secrets "DMS_TOKEN_NP=np-lxp-harvest-dms-token-np:latest,DMS_TOKEN_LXP=np-lxp-harvest-dms-token-lxp:latest,DMS_TOKEN_FR=np-lxp-harvest-dms-token-fr:latest,DMS_TOKEN_SKT=np-lxp-harvest-dms-token-skt:latest,ZHIPU_API_KEY=np-lxp-harvest-zhipu-key:latest"
 
 echo "==> 3/3 完成"
 gcloud run services describe "$SERVICE" --project "$PROJECT" --region "$REGION" \

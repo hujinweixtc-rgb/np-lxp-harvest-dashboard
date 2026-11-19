@@ -59,6 +59,11 @@ def assert_free_model(name: str) -> None:
             "可能产生真实费用。请改用 glm-4.6v-flash。"
         )
 
+# 免费额度护栏：默认只分析 2026-09-01 及之后创建的素材。
+# 历史素材已有缓存照常展示，不再重复送模型；新接入品牌也不会一次吃掉免费额度。
+# 可用 DASH_THEME_CREATED_FROM 覆盖；显式传空字符串表示不限制。
+DEFAULT_CREATED_FROM = os.environ.get("DASH_THEME_CREATED_FROM", "2026-09-01").strip()
+
 MAX_SIDE = 1024
 JPEG_QUALITY = 82
 
@@ -596,11 +601,18 @@ def save_cache(doc: dict) -> None:
 
 def pick_rows(rows: list[dict], args) -> list[dict]:
     picked = []
+    created_from = str(getattr(args, "created_from", "") or "").strip()
     for row in rows:
         if args.brand and str(row.get("brand") or "").upper() != args.brand.upper():
             continue
         if args.country and str(row.get("country") or "").upper() != args.country.upper():
             continue
+        if created_from:
+            created = str(row.get("createdAt") or row.get("materialCreatedAt")
+                          or row.get("uploadTime") or "")[:10]
+            # 没有创建时间的旧行一律跳过，避免不确定地把历史素材送进模型
+            if not created or created < created_from:
+                continue
         if not cover_url(row):
             continue
         if not seed_of(row):
@@ -666,6 +678,8 @@ def main() -> None:
                     help="只跑尚未成功的素材，按花费降序最多 N 条（0=不限；云端分批用）")
     ap.add_argument("--brand", default="", help="只跑某品牌，如 NP / LXP")
     ap.add_argument("--country", default="", help="只跑某国家，如 ID / MY")
+    ap.add_argument("--created-from", default=DEFAULT_CREATED_FROM,
+                    help="只分析创建日期 >= 该日期的素材（默认 2026-09-01；传空串取消限制）")
     ap.add_argument("--dry-run", action="store_true", help="不调模型，仅用规则兜底")
     ap.add_argument("--normalize", action="store_true",
                     help="不调模型，只按市场口径清洗已有缓存（MY 的 lang=id→ms、清空中文 src）")
@@ -705,7 +719,8 @@ def main() -> None:
     picked_spend = sum(float(r.get("spend") or 0) for r in targets)
     log(f"素材总数 {len(rows)}，本次目标 {len(targets)} 条"
         f"（覆盖花费 {picked_spend:,.0f} / {total_spend:,.0f}，"
-        f"{picked_spend / total_spend * 100 if total_spend else 0:.1f}%）")
+        f"{picked_spend / total_spend * 100 if total_spend else 0:.1f}%）"
+        + (f" · 创建时间 >= {args.created_from}" if args.created_from else " · 不限创建时间"))
     log(f"模式 {'dry-run 规则兜底' if args.dry_run else f'视觉模型 {MODEL}'}")
 
     ok = skip = fail = 0

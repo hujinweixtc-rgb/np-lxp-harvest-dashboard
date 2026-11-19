@@ -26,9 +26,12 @@ def main() -> None:
         batch = max(1, int(os.environ.get("DASH_THEME_BATCH") or 300))
     except ValueError:
         batch = 300
+    created_from = os.environ.get("DASH_THEME_CREATED_FROM", vision_theme.DEFAULT_CREATED_FROM).strip()
     sys.argv = ["vision_theme.py", "--all", "--workers", "4",
              "--pending-limit", str(batch)]
-    print(f"关键词分析：单批上限 {batch} 条（其余下次刷新继续）", flush=True)
+    if created_from:
+        sys.argv += ["--created-from", created_from]
+    print(f"关键词分析：单批上限 {batch} 条（其余下次刷新继续）；只跑创建时间 >= {created_from or '不限'} 的素材", flush=True)
     vision_theme.main()
 
 

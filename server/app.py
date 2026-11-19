@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""NP / LXP / FR 素材看板 —— Cloud Run 单服务（静态页 + 实时刷新 API）。
+"""NP / LXP / FR / SKT 素材看板 —— Cloud Run 单服务（静态页 + 实时刷新 API）。
 
 架构
 ----

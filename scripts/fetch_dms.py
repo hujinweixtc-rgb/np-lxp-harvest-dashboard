@@ -13,7 +13,7 @@ from datetime import date
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from dms_api import COMBOS, Dms  # noqa: E402
+from dms_api import COMBOS, Dms, keep_scoped_material, is_scoped_combo  # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 RAW = os.environ.get("DASH_RAW_DIR") or os.path.join(ROOT, "raw")
@@ -76,9 +76,18 @@ def fetch_combo(key, brand, host, brand_id, country, tenant, token, log):
     materials = fetch_paged(client, "igad/advertisement/allPage",
                             {"orderBy": "id", "orderType": "desc"},
                             PAGE_MATERIALS, out_dir, "materials", log)
+    if is_scoped_combo(key):
+        materials = [m for m in materials if keep_scoped_material(key, m)]
+        dump(os.path.join(out_dir, "materials.json"), materials)
+        log(f"  [{key}] 创建时间下限收敛后素材库 {len(materials)} 条")
     ads = fetch_paged(client, "igad/ads/page/all",
                       {"orderBy": "id", "orderType": "asc"},
                       PAGE_ADS, out_dir, "ads", log)
+    if is_scoped_combo(key):
+        kept_codes = {(m.get("materialCode") or "").strip() for m in materials} - {""}
+        ads = [a for a in ads if (a.get("materialCode") or "").strip() in kept_codes]
+        dump(os.path.join(out_dir, "ads.json"), ads)
+        log(f"  [{key}] 收敛后广告行 {len(ads)} 条")
 
     log(f"  [{key}] fetching board aggregates ...")
     for tag, api_path in [

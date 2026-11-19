@@ -1,6 +1,6 @@
-# NP / LXP / FR 收割素材看板
+# NP / LXP / FR / SKT 收割素材看板
 
-复刻「Facerinna 收割广告看板」的 UI 与数据分析逻辑，数据源为 **NP / LXP / FR 三个品牌在 DMS 的 IG 投放数据**：NP、LXP 覆盖印尼 ID + 马来 MY，FR 覆盖马来 MY（共 5 个品牌×市场组合）。
+复刻「Facerinna 收割广告看板」的 UI 与数据分析逻辑，数据源为 **NP / LXP / FR / SKT 四个品牌在 DMS 的 IG 投放数据**：NP、LXP 覆盖印尼 ID + 马来 MY，FR、SKT 覆盖马来 MY（共 6 个品牌×市场组合）。
 
 提供两种形态：
 
@@ -22,7 +22,7 @@
 
 - **数据概览**：花费 / GMV / ROI / 曝光 / 点击 / 订单 / CTR / CVR / CPA / CPC 等 KPI，支持对比（上一周期 / 上月 / 自定义区间）
 - **每日趋势**：12 个可选指标（最多同时 6 条），每条按自身量级独立缩放，对比虚线联动，图例可点选显隐
-- **品牌 × 市场大盘**：NP / LXP × 印尼 / 马来、FR × 马来 的花费、GMV、ROI、CTR、客单价、CPA、CPC 汇总
+- **品牌 × 市场大盘**：NP / LXP × 印尼 / 马来、FR / SKT × 马来 的花费、GMV、ROI、CTR、客单价、CPA、CPC 汇总
 - **图文 vs 视频**：素材类型分布
 - **产品排序**：按花费 / ROI / 单量 / CTR / CPC / GMV / CVR 排序
 - **品类 × 标签子页**：独立 Tab，按产品名关键词把素材归入品类（套装/组合、洁面、面霜/B5、精华、防晒、沐浴露、洗发造型、止汗、唇膏、底妆、其他）。表头按「产品维度（品类/产品）→ 一级漏斗 AWA / 二级漏斗 Top5 / 三级漏斗 top3 → 素材数量 / 费用占比 / 订单占比（当前大盘） / CPM / CPC / ROI / 订单 △ / CPM △ / CPC △ / ROI △」展开，一级/二级可点箭头钻取，沿用标签树的素材创建月与达标线口径
@@ -114,13 +114,13 @@ DMS 里素材标签分两套体系（`category` 字段区分）：
 ```
 index.html                 看板单文件（原生 JS + Canvas，无框架）
 data/                      看板数据快照（镜像内置 + 本地输出）
-raw/                       DMS 原始缓存（~550MB，已 gitignore）
-raw.tar.gz                 raw/ 的精简压缩包（含 FR-MY 后约 62MB，部署时生成，已 gitignore）
+raw/                       DMS 原始缓存（~920MB，已 gitignore）
+raw.tar.gz                 raw/ 的精简压缩包（含 SKT-MY 后约 68MB，部署时生成，已 gitignore）
 Dockerfile                 Cloud Run 镜像（python:3.13-slim + TZ=Asia/Shanghai）
 deploy.sh                  打包缓存 + 部署到 Cloud Run
 .gcloudignore              Cloud Run 构建上下文过滤（排除 raw/、config/）
 server/app.py              Cloud Run 服务：静态托管 + 刷新 API + GCS 持久化
-scripts/dms_api.py         DMS API 客户端（NP / LXP / FR 共五组合配置；token 从环境变量读取）
+scripts/dms_api.py         DMS API 客户端（NP / LXP / FR / SKT 共六组合配置；token 从环境变量读取）
 scripts/fetch_dms.py       首次全量抓取（带本地缓存）
 scripts/refresh_board.py   大盘聚合增量刷新
 scripts/refresh_adv.py     素材投放窗口（advertisedPage）按月分桶抓取 + 趋势明细回补
@@ -148,6 +148,9 @@ python scripts/vision_theme.py --dry-run --limit 20  # 不调模型，仅用素�
 ```
 
 - 已成功的素材默认跳过，可反复执行做增量；`--force` 强制重跑。
+- **创建时间护栏**：默认只分析 `2026-09-01` 及之后创建的素材（可用 `--created-from` 或
+  `DASH_THEME_CREATED_FROM` 调整；显式设为空串才取消限制）。历史素材的已有结果照常展示，
+  但不再重复送模型，避免新品牌全量素材耗尽免费额度。
 - 图片下载走阿里云 OSS 直连，视频用 `x-oss-process=video/snapshot` 取帧。
 - 送模型前统一压到长边 1024 / JPEG q82（单张约 1150 输入 + 190 输出 tokens）。
 - **防欠费护栏**：脚本只接受 `-flash` / `-flashx` / `-free` 结尾的模型名，服务端返回
@@ -174,8 +177,8 @@ python scripts/vision_theme.py --dry-run --limit 20  # 不调模型，仅用素�
 
 DMS token **不写入源码**（本仓库公开，曾因此泄露过一次）。按优先级读取：
 
-1. 环境变量 `DMS_TOKEN_NP` / `DMS_TOKEN_LXP` / `DMS_TOKEN_FR`（Cloud Run 从 Secret Manager 注入）
-2. 本地文件 `config/dms_tokens.json`（已 gitignore），格式 `{"NP": "...", "LXP": "...", "FR": "..."}`
+1. 环境变量 `DMS_TOKEN_NP` / `DMS_TOKEN_LXP` / `DMS_TOKEN_FR` / `DMS_TOKEN_SKT`（Cloud Run 从 Secret Manager 注入）
+2. 本地文件 `config/dms_tokens.json`（已 gitignore），格式 `{"NP": "...", "LXP": "...", "FR": "...", "SKT": "..."}`
 
 > ⚠️ 若 token 曾出现在提交历史中，请在 DMS 后台重新生成，然后执行
 > `bash scripts/setup_secrets.sh` 更新 Secret Manager，并**重新部署服务**——
@@ -185,10 +188,10 @@ DMS token **不写入源码**（本仓库公开，曾因此泄露过一次）。
 
 ```bash
 # 0. 配置凭据
-mkdir -p config && echo '{"NP":"<token>","LXP":"<token>","FR":"<token>"}' > config/dms_tokens.json
+mkdir -p config && echo '{"NP":"<token>","LXP":"<token>","FR":"<token>","SKT":"<token>"}' > config/dms_tokens.json
 
 # 1. 首次全量抓取（结果缓存在 raw/，已 gitignore）
-python scripts/fetch_dms.py            # 全部五个组合
+python scripts/fetch_dms.py            # 全部六个组合
 python scripts/fetch_dms.py NP-ID      # 只抓某一个组合
 
 # 2. 生成看板数据
@@ -240,3 +243,16 @@ git push origin main
   对线上最新素材表（9527 条：NP 3932 / LXP 778 / FR 4817）覆盖率 100%，三品牌花费覆盖均 100%，
   随镜像部署（revision 00048）并回写 GCS。仅 3 条模型反复无法解析的素材用素材名规则兜底
   （`mode=dry`，花费合计 < 8），其余均为视觉模型结果。
+
+## SKT 马来（SKT-MY，SKINTIFIC）
+
+- DMS 域名 `web.cerahdms.com`，`fm-brandid=1` / `fm-country=my` / `tenant-id=125`、`platform=ig`，
+  token 存于 Secret Manager `np-lxp-harvest-dms-token-skt`。
+- 与其余品牌共用同一套 DMS 接口与数据管线（`allPage` 素材库、`ads/page/all` 广告表、
+  `advertisedPage` 月度桶、逐素材趋势 / 明细、标签字典、大盘聚合），素材编号同为 `SC*` / `JJ*`。
+- SKT 素材库基数很大（5.5 万条素材 / 23 万条广告 / 5.8 万条有花费素材），全量进管线会撑爆
+  Cloud Run 的 `/tmp`。因此 **SKT 数据本身也只收录创建时间 `>= 2026-09-01` 的素材**
+  （`DASH_MATERIAL_CREATED_FROM`，当前约 2310 素材 / 2987 广告行 / 1564 个有花费素材；
+  其余品牌仍是全量历史）。素材库、广告表、素材分析页、趋势/明细都按同一口径收敛。
+- 关键词提取同样默认只跑 `>= 2026-09-01` 创建的素材（`DASH_THEME_CREATED_FROM`），避免免费额度
+  被历史长尾吃光；已有关键词缓存照常展示，不受该下限影响。

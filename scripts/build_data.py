@@ -17,7 +17,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 RAW = os.environ.get("DASH_RAW_DIR") or os.path.join(ROOT, "raw")
 DATA = os.environ.get("DASH_DATA_DIR") or os.path.join(ROOT, "data")
 
-COMBO_KEYS = ["NP-ID", "NP-MY", "LXP-ID", "LXP-MY", "FR-MY"]
+COMBO_KEYS = ["NP-ID", "NP-MY", "LXP-ID", "LXP-MY", "FR-MY", "SKT-MY"]
 MATERIAL_TYPE = {1: "图文", 2: "视频", 3: "视频"}
 SOURCE_TYPE = {
     1: "剪辑系统",
@@ -827,7 +827,7 @@ def collect(combo):
 
 
 COUNTRY_LABEL = {"id": "印尼", "my": "马来"}
-BRAND_LABEL = {"NP": "NP", "LXP": "LXP", "FR": "FR"}
+BRAND_LABEL = {"NP": "NP", "LXP": "LXP", "FR": "FR", "SKT": "SKT"}
 DAY_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
 # DMS board payloads use different key names across endpoints -> normalize.
@@ -972,7 +972,7 @@ def build_board():
     days_all = sorted(set(days_all))
     payload = {
         "generatedAt": time.strftime("%Y-%m-%d %H:%M:%S"),
-        "source": "NP / LXP / FR DMS igad 大盘（selectAdDateBoardData）",
+        "source": "NP / LXP / FR / SKT DMS igad 大盘（selectAdDateBoardData）",
         "range": {"start": days_all[0] if days_all else "", "end": days_all[-1] if days_all else ""},
         "combos": combos,
     }
@@ -1019,7 +1019,7 @@ def main():
 
     payload = {
         "generatedAt": time.strftime("%Y-%m-%d %H:%M:%S"),
-        "source": "NP / LXP / FR DMS（IG 素材库 + 广告投放 + 素材每日趋势）",
+        "source": "NP / LXP / FR / SKT DMS（IG 素材库 + 广告投放 + 素材每日趋势）",
         "currency": "USD",
         "rawRows": raw_rows,
         "includedRows": len(posts),
@@ -1035,7 +1035,7 @@ def main():
         },
         "scope": "素材编号 " + " / ".join(f"{p}*" for p in MATERIAL_CODE_PREFIXES)
                  + " · 排除广告名含「" + "」「".join(EXCLUDED_AD_NAME_KEYWORDS) + "」",
-        "brands": ["NP", "LXP", "FR"],
+        "brands": ["NP", "LXP", "FR", "SKT"],
         "countries": ["ID", "MY"],
         "posts": posts,
     }
@@ -1049,7 +1049,7 @@ def main():
 
     dms_payload = {
         "generatedAt": time.strftime("%Y-%m-%d %H:%M:%S"),
-        "source": "NP / LXP / FR DMS IG 已投放素材（有花费）",
+        "source": "NP / LXP / FR / SKT DMS IG 已投放素材（有花费）",
         "paidFrom": include_from,
         "paidTo": include_to,
         "dmsUrl": "https://web.npdms.com/dms/id/ad/#/place/material",

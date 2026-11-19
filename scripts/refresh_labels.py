@@ -26,7 +26,7 @@ RAW = os.environ.get("DASH_RAW_DIR") or os.path.join(ROOT, "raw")
 
 CATEGORIES = ["design_igad", "test_direction"]
 LEVELS = (1, 2, 3)
-ALL_COMBOS = ("NP-ID", "NP-MY", "LXP-ID", "LXP-MY", "FR-MY")
+ALL_COMBOS = ("NP-ID", "NP-MY", "LXP-ID", "LXP-MY", "FR-MY", "SKT-MY")
 
 try:
     TTL_HOURS = float(os.environ.get("DASH_LABEL_DICT_TTL_HOURS") or 168)

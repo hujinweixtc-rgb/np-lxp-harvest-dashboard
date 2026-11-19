@@ -20,7 +20,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import date
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from dms_api import COMBOS, Dms  # noqa: E402
+from dms_api import COMBOS, Dms, is_scoped_combo  # noqa: E402
 from fetch_dms import fetch_paged, load, dump  # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -40,6 +40,13 @@ def refresh_combo(key, brand, host, brand_id, country, tenant, token, log):
 
     ads = fetch_paged(client, "igad/ads/page/all", {"orderBy": "id", "orderType": "asc"},
                       PAGE_ADS, out_dir, "ads_fresh", log)
+    if is_scoped_combo(key):
+        # SKT 全量广告表有 23 万行，绝大多数属于不在看板范围内的历史素材。
+        # 只保留近期素材库里的编码，避免每次刷新都回补几万个历史 code。
+        mats = load(os.path.join(out_dir, "materials.json")) or []
+        kept = {(m.get("materialCode") or "").strip() for m in mats} - {""}
+        ads = [a for a in ads if (a.get("materialCode") or "").strip() in kept]
+        log(f"  [{key}] 收敛后 fresh ads={len(ads)} codes={len(kept)}")
     new_codes = {(a.get("materialCode") or "").strip() for a in ads} - old_codes - {""}
     log(f"  [{key}] fresh ads={len(ads)} new codes={len(new_codes)}")
 

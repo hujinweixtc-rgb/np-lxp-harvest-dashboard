@@ -25,7 +25,7 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import date, timedelta
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from dms_api import COMBOS, Dms  # noqa: E402
+from dms_api import COMBOS, Dms, is_scoped_combo  # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 RAW = os.environ.get("DASH_RAW_DIR") or os.path.join(ROOT, "raw")
@@ -82,12 +82,24 @@ def pull_window(client, rng, log, tag):
     return rows
 
 
+def scoped_rows(key, rows):
+    """SKT 只保留近期素材库里的编码，避免历史长尾进入 backfill 目标。"""
+    if not is_scoped_combo(key):
+        return rows
+    mat_path = os.path.join(RAW, key, "materials.json")
+    if not os.path.exists(mat_path):
+        return rows
+    with open(mat_path, encoding="utf-8") as fh:
+        keep = {(m.get("materialCode") or "").strip() for m in (json.load(fh) or [])} - {""}
+    return [r for r in rows if (r.get("materialCode") or "").strip() in keep]
+
+
 def pull_combo(key, brand, host, brand_id, country, tenant, token, buckets, log):
     client = Dms(host, brand_id, country, tenant, token)
     out = []
     for rng in buckets:
         tag = f"{rng['start']}~{rng['end']}"
-        rows = pull_window(client, rng, log, tag)
+        rows = scoped_rows(key, pull_window(client, rng, log, tag))
         spend = sum(float(r.get("spend") or 0) for r in rows)
         orders = sum(float(r.get("orderCount") or 0) for r in rows)
         log(f"      {tag}: rows={len(rows)} spend={spend:.2f} orders={orders:.0f}")
@@ -176,7 +188,7 @@ def run_combo(combo, brand, host, brand_id, country, tenant, token, buckets, tod
     def pull_bucket(idx_rng):
         idx, rng = idx_rng
         tag = f"{rng['start']}~{rng['end']}"
-        rows = pull_window(client, rng, log, tag)
+        rows = scoped_rows(combo, pull_window(client, rng, log, tag))
         spend = sum(float(r.get("spend") or 0) for r in rows)
         orders = sum(float(r.get("orderCount") or 0) for r in rows)
         log(f"      {tag}: rows={len(rows)} spend={spend:.2f} orders={orders:.0f}")

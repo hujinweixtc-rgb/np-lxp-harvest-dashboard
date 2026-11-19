@@ -1,8 +1,8 @@
-"""DMS API client for NP / LXP / FR (feimei DMS igad module).
+"""DMS API client for NP / LXP / FR / SKT (feimei DMS igad module).
 
 凭据来源（按优先级）：
-  1. 环境变量  DMS_TOKEN_NP / DMS_TOKEN_LXP / DMS_TOKEN_FR
-  2. 本地文件  config/dms_tokens.json  -> {"NP": "...", "LXP": "...", "FR": "..."}
+  1. 环境变量  DMS_TOKEN_NP / DMS_TOKEN_LXP / DMS_TOKEN_FR / DMS_TOKEN_SKT
+  2. 本地文件  config/dms_tokens.json  -> {"NP": "...", "LXP": "...", "FR": "...", "SKT": "..."}
      （config/ 已加入 .gitignore，切勿提交）
 
 不要把 token 写进源码——本仓库是公开仓库，曾因此泄露过一次。
@@ -21,7 +21,7 @@ CTX.verify_mode = ssl.CERT_NONE
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CONFIG_PATH = os.environ.get("DMS_TOKENS_FILE") or os.path.join(ROOT, "config", "dms_tokens.json")
 
-BRANDS = ("NP", "LXP", "FR")
+BRANDS = ("NP", "LXP", "FR", "SKT")
 
 
 def load_tokens():
@@ -62,9 +62,32 @@ COMBOS = [
     ("LXP-ID",  "LXP", "web.lxpdms.com",  8, "id", "209", token_for("LXP")),
     ("LXP-MY",  "LXP", "web.lxpdms.com",  8, "my", "209", token_for("LXP")),
     ("FR-MY",   "FR",  "web.bersamadms.com", 4, "my", "202", token_for("FR")),
+    ("SKT-MY",  "SKT", "web.cerahdms.com",   1, "my", "125", token_for("SKT")),
 ]
 
-brand_label = {"NP": "NP（NextPrime）", "LXP": "LXP", "FR": "FR"}
+brand_label = {"NP": "NP（NextPrime）", "LXP": "LXP", "FR": "FR", "SKT": "SKT（SKINTIFIC）"}
+
+# SKT 素材库基数极大（5.5 万素材 / 23 万广告 / 5.8 万有花费素材），全量进管线会把
+# Cloud Run 的 /tmp 与免费关键词额度一起吃光。这里只把 SKT 收敛到近期创建的素材，
+# 其余品牌保持全量历史。日期可用 DASH_MATERIAL_CREATED_FROM 调整。
+MATERIAL_CREATED_FROM = os.environ.get("DASH_MATERIAL_CREATED_FROM", "2026-09-01").strip()
+SCOPED_COMBOS = {"SKT-MY"}
+
+
+def is_scoped_combo(key):
+    return key in SCOPED_COMBOS and bool(MATERIAL_CREATED_FROM)
+
+
+def material_created_at(row):
+    return str((row or {}).get("createdAt") or (row or {}).get("uploadTime") or "")[:10]
+
+
+def keep_scoped_material(key, row):
+    """SKT 只保留近期创建的素材；无创建时间的行一律丢弃，避免误收历史长尾。"""
+    if not is_scoped_combo(key):
+        return True
+    created = material_created_at(row)
+    return bool(created) and created >= MATERIAL_CREATED_FROM
 
 
 class Dms:
