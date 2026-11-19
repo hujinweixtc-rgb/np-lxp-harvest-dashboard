@@ -436,6 +436,21 @@
     .kpi .label { color: var(--muted); font-size: 12px; }
     .kpi .value { margin-top: 6px; font-size: 22px; font-weight: 900; color: var(--deep); }
     .kpi .note { margin-top: 3px; font-size: 11px; color: var(--muted); }
+    .chinese-toggle { display: inline-flex; gap: 0; }
+    .cn-mode {
+      height: 28px; padding: 0 9px; font-size: 11px; background: #fff;
+      color: var(--deep); white-space: nowrap; cursor: pointer;
+    }
+    .cn-mode + .cn-mode { border-left: 0; }
+    .cn-mode.active { background: var(--deep); border-color: var(--deep); color: #fff; }
+    .chinese-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-bottom: 12px; }
+    .cn-card { border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 12px; background: #fff; }
+    .cn-card.cn-hl { border-color: #c2410c; background: linear-gradient(180deg, #fff, #fff7f2); }
+    .cn-card h4 { margin: 0 0 8px; font-size: 13px; color: var(--deep); }
+    .cn-card .cn-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 5px 12px; }
+    .cn-card .cn-item { font-size: 11px; color: var(--muted); display: flex; justify-content: space-between; gap: 8px; }
+    .cn-card .cn-item b { color: var(--deep); font-size: 12px; font-weight: 800; }
+    #chinesePanel .grid2 > .table-wrap { min-width: 0; }
     .delta-line {
       display: flex;
       flex-wrap: wrap;
@@ -1742,6 +1757,14 @@
           </div>
         </div>
         <div class="field span2" data-keep="1">
+          <label>华人素材</label>
+          <div class="chinese-toggle" id="chineseFilter">
+            <button type="button" class="cn-mode active" data-cn="all">全部</button>
+            <button type="button" class="cn-mode" data-cn="cn">仅华人</button>
+            <button type="button" class="cn-mode" data-cn="non">非华人</button>
+          </div>
+        </div>
+        <div class="field span2" data-keep="1">
           <label>品牌</label>
           <div class="multi-select" data-key="brand">
             <button class="multi-button" type="button"><span id="brandLabel">全部品牌</span></button>
@@ -1864,6 +1887,24 @@
         </div>
       </div>
       <div class="pad" id="productBars"></div>
+    </section>
+
+    <section class="panel" id="chinesePanel">
+      <div class="head">
+        <div>
+          <h2>华人素材分析</h2>
+          <div class="small" id="chineseNote">中文文案素材（命名含华人/CN 或画面中文）· 不受「华人素材」三态筛选影响，始终对比全部 / 华人 / 非华人</div>
+        </div>
+      </div>
+      <div class="pad" id="chineseSummary"></div>
+      <div class="grid2">
+        <div class="table-wrap">
+          <table id="chineseProductTable"></table>
+        </div>
+        <div class="table-wrap">
+          <table id="chineseTagTable"></table>
+        </div>
+      </div>
     </section>
 
     <section class="panel">
@@ -2119,6 +2160,7 @@
         copy: { key: 'spend', dir: -1 }
       },
       options: { brand: [], country: [], product: [], tag1: [], tag2: [] },
+      chineseFilter: 'all', // all | cn（仅华人素材） | non（非华人素材）
       multiSearch: { brand: '', country: '', product: '', tag1: '', tag2: '' },
       multiMode: { brand: 'default', country: 'default', product: 'default', tag1: 'default', tag2: 'default' },
       ageExpanded: new Set(),
@@ -2305,6 +2347,7 @@
       state.compareMode = document.querySelector('.compare-mode.active')?.dataset.mode || state.compareMode;
       state.compareFrom = $('compareFrom').value;
       state.compareTo = $('compareTo').value;
+      state.chineseFilter = document.querySelector('#chineseFilter .cn-mode.active')?.dataset.cn || 'all';
     }
 
     function autoCompareRange(mode = state.compareMode) {
@@ -2350,12 +2393,16 @@
       if (enabled) $('advancedFilters').open = true;
     }
 
-    function collectFilteredRows(from, to) {
+    function collectFilteredRows(from, to, ignoreChinese = false) {
       const query = state.query;
       const rows = [];
       for (const row of state.rows) {
         if (!matchesMulti('brand', row.brand)) continue;
         if (!matchesMulti('country', row.country)) continue;
+        if (!ignoreChinese) {
+          if (state.chineseFilter === 'cn' && !row.isChinese) continue;
+          if (state.chineseFilter === 'non' && row.isChinese) continue;
+        }
         if (!matchesMaterialCreated(row)) continue;
         if (!state.materialTypes.includes(row.materialType)) continue;
         if (!matchesMulti('product', row.product)) continue;
@@ -2900,6 +2947,59 @@
         }).join('') : `<tr><td colspan="${headers.length}" class="empty">当前筛选下暂无产品数据</td></tr>`
       }</tbody></table>`;
       $('productCount').textContent = `${fmt(rows.length)} 个产品 · 按花费排序`;
+    }
+
+    // 华人素材分析：用不受三态筛选影响的全量行集，拆全部/华人/非华人三组对比
+    function renderChineseAnalysis() {
+      const all = collectFilteredRows(state.from, state.to, true);
+      const cn = all.filter(row => row.isChinese);
+      const non = all.filter(row => !row.isChinese);
+      const groups = [
+        { label: '全部素材', rows: all, hl: false },
+        { label: `华人素材（${fmt(cn.length)}）`, rows: cn, hl: true },
+        { label: `非华人素材（${fmt(non.length)}）`, rows: non, hl: false }
+      ];
+      const metric = (m) => [
+        ['素材数', fmt(m.posts)], ['花费', `$${money(m.spend)}`],
+        ['订单', fmt(m.conversions)], ['GMV', `$${money(m.purchaseValue)}`],
+        ['ROI', roi(m.roi)], ['CPC', money2(m.cpc)],
+        ['CPA', money2(m.cpa)], ['CPM', money2(m.cpm)]
+      ];
+      $('chineseSummary').innerHTML = groups.map(g => {
+        const m = sumRows(g.rows);
+        return `<div class="cn-card${g.hl ? ' cn-hl' : ''}"><h4>${safe(g.label)}</h4><div class="cn-grid">${
+          metric(m).map(([k, v]) => `<div class="cn-item"><span>${safe(k)}</span><b>${safe(v)}</b></div>`).join('')
+        }</div></div>`;
+      }).join('');
+
+      // 华人素材分产品
+      const cnProducts = groupRows(cn, 'product').slice(0, 12);
+      const pThead = `<thead><tr><th>产品</th><th class="num">素材</th><th class="num">花费</th><th class="num">订单</th><th class="num">ROI</th><th class="num">CPC</th></tr></thead>`;
+      $('chineseProductTable').innerHTML = pThead + `<tbody>${
+        cnProducts.length ? cnProducts.map(r => `<tr>
+          <td title="${safe(r.name)}">${safe(short(r.name, 28))}</td>
+          <td class="num">${fmt(r.posts)}</td><td class="num">${money(r.spend)}</td>
+          <td class="num">${fmt(r.conversions)}</td><td class="num">${roi(r.roi)}</td>
+          <td class="num">${money2(r.cpc)}</td></tr>`).join('')
+          : `<tr><td colspan="6" class="empty">当前筛选下暂无华人素材</td></tr>`
+      }</tbody>`;
+
+      // 华人素材分收割标签（三大类）与一级标签
+      const byHarvest = groupRows(cn, 'harvestTag');
+      const byTag1 = groupRows(cn, 'tag1').slice(0, 12);
+      const labelRows = [
+        ...byHarvest.map(r => ({ ...r, name: harvestTagLabel(r.name) })),
+        ...byTag1.filter(r => r.name !== '未标注' && !/^(awa|consi|conv)$/i.test(r.name))
+      ];
+      const tThead = `<thead><tr><th>标签</th><th class="num">素材</th><th class="num">花费</th><th class="num">订单</th><th class="num">ROI</th><th class="num">CPC</th></tr></thead>`;
+      $('chineseTagTable').innerHTML = tThead + `<tbody>${
+        labelRows.length ? labelRows.map(r => `<tr>
+          <td title="${safe(r.name)}">${safe(short(r.name, 30))}</td>
+          <td class="num">${fmt(r.posts)}</td><td class="num">${money(r.spend)}</td>
+          <td class="num">${fmt(r.conversions)}</td><td class="num">${roi(r.roi)}</td>
+          <td class="num">${money2(r.cpc)}</td></tr>`).join('')
+          : `<tr><td colspan="6" class="empty">暂无标签数据</td></tr>`
+      }</tbody>`;
     }
 
     function renderHarvestTags() {
@@ -4210,6 +4310,7 @@
       renderKpis();
       renderBoardTable();
       renderProductSortTable();
+      renderChineseAnalysis();
       renderBars('typeBars', groupRows(state.filtered, 'materialType'), 4, true);
       renderHarvestTags();
       renderHarvestHierarchy();
@@ -4221,8 +4322,9 @@
       drawTrend();
       const s = sumRows(state.filtered);
       const compareText = state.compareAppliedRange ? ` · 对比 ${state.compareAppliedRange.from} ~ ${state.compareAppliedRange.to}` : '';
+      const cnText = state.chineseFilter === 'cn' ? ' · 仅华人素材' : state.chineseFilter === 'non' ? ' · 非华人素材' : '';
       $('productCount').textContent = `${fmt(groupRows(state.filtered, 'product').length)} 个产品`;
-      $('status').textContent = `${countryText()} · ${state.from || '-'} ~ ${state.to || '-'} · ${fmt(state.filtered.length)} 个素材 · 花费 USD ${money(s.spend)} · CPC ${money2(s.cpc)} · ROI ${roi(s.roi)}${compareText}`;
+      $('status').textContent = `${countryText()}${cnText} · ${state.from || '-'} ~ ${state.to || '-'} · ${fmt(state.filtered.length)} 个素材 · 花费 USD ${money(s.spend)} · CPC ${money2(s.cpc)} · ROI ${roi(s.roi)}${compareText}`;
     }
 
     function optionText(key, fallback) {
@@ -4381,6 +4483,8 @@
       $('compareFrom').value = '';
       $('compareTo').value = '';
       $('search').value = '';
+      state.chineseFilter = 'all';
+      document.querySelectorAll('#chineseFilter .cn-mode').forEach(b => b.classList.toggle('active', b.dataset.cn === 'all'));
       document.querySelectorAll('#materialTypes input').forEach(input => input.checked = true);
       updateView();
       setOptions();
@@ -4401,6 +4505,7 @@
       if (state.tag1.length) params.set('tag1', state.tag1.join('|'));
       if (state.tag2.length) params.set('tag2', state.tag2.join('|'));
       if (state.materialTypes.length !== DEFAULT_TYPES.length) params.set('type', state.materialTypes.join('|'));
+      if (state.chineseFilter !== 'all') params.set('cn', state.chineseFilter);
       const rangeParam = (min, max) => (min === null && max === null) ? null : `${min ?? ''}|${max ?? ''}`;
       const spendRange = rangeParam(state.spendMin, state.spendMax);
       const ordersRange = rangeParam(state.ordersMin, state.ordersMax);
@@ -4434,6 +4539,9 @@
       $('materialFrom').value = params.get('materialFrom') || '';
       $('materialTo').value = params.get('materialTo') || '';
       $('search').value = params.get('q') || '';
+      const cnParam = params.get('cn');
+      state.chineseFilter = cnParam === 'cn' || cnParam === 'non' ? cnParam : 'all';
+      document.querySelectorAll('#chineseFilter .cn-mode').forEach(b => b.classList.toggle('active', b.dataset.cn === state.chineseFilter));
       state.product = params.get('product') ? params.get('product').split('|') : [];
       state.tag1 = params.get('tag1') ? params.get('tag1').split('|') : [];
       state.tag2 = params.get('tag2') ? params.get('tag2').split('|') : [];
@@ -4895,6 +5003,11 @@
     document.querySelectorAll('.compare-mode').forEach(button => button.addEventListener('click', () => {
       state.compareMode = button.dataset.mode;
       document.querySelectorAll('.compare-mode').forEach(item => item.classList.toggle('active', item === button));
+      applyFilters();
+    }));
+    document.querySelectorAll('#chineseFilter .cn-mode').forEach(button => button.addEventListener('click', () => {
+      state.chineseFilter = button.dataset.cn;
+      document.querySelectorAll('#chineseFilter .cn-mode').forEach(item => item.classList.toggle('active', item === button));
       applyFilters();
     }));
     ['compareFrom', 'compareTo'].forEach(id => $(id).addEventListener('change', () => applyFilters()));

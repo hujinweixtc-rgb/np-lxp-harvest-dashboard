@@ -828,6 +828,41 @@ def collect(combo):
 
 COUNTRY_LABEL = {"id": "印尼", "my": "马来"}
 BRAND_LABEL = {"NP": "NP", "LXP": "LXP", "FR": "FR", "SKT": "SKT"}
+
+# 华人素材（中文文案素材）判定：并集口径
+#   1) 命名标记：素材名/广告名/广告组/系列里含「华人」，或素材名含独立词 CN
+#   2) 画面文案：image_themes.json 里该素材的 OCR 原文 onimage 含汉字
+# 命名标记稳定可复现（不依赖关键词缓存）；画面判定随关键词增量刷新自动增多。
+_CJK_RE = re.compile(r"[\u4e00-\u9fff]")
+_CN_TOKEN_RE = re.compile(r"(?:^|[_\-])CN(?:$|[_\-])", re.I)
+
+
+def chinese_material(code, name_fields, themes):
+    """返回 (is_chinese, source)；source ∈ name|image|name+image|''。"""
+    names = [str(x or "") for x in name_fields]
+    named = ("华人" in " ".join(names)) or bool(_CN_TOKEN_RE.search(names[0] if names else ""))
+    theme = themes.get(str(code or ""), {}) or {}
+    image = bool(_CJK_RE.search(str(theme.get("onimage") or "")))
+    if not named and not image:
+        return False, ""
+    return True, ("name+image" if named and image else "name" if named else "image")
+
+
+def tag_chinese_materials(posts, dms_rows):
+    """读取关键词缓存，给素材行打 isChinese / chineseSource 字段。"""
+    themes_payload = load(os.path.join(DATA, "image_themes.json"), {}) or {}
+    themes = themes_payload.get("items") or {}
+    name_fields = lambda r: (r.get("materialName"), r.get("adName"),
+                             r.get("adSetName"), r.get("campaignName"))
+    for row in posts:
+        flag, src = chinese_material(row.get("materialCode"), name_fields(row), themes)
+        row["isChinese"] = flag
+        row["chineseSource"] = src
+    for row in dms_rows:
+        flag, src = chinese_material(row.get("materialCode"), name_fields(row), themes)
+        row["isChinese"] = flag
+        row["chineseSource"] = src
+    return sum(1 for r in posts if r.get("isChinese"))
 DAY_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
 # DMS board payloads use different key names across endpoints -> normalize.
@@ -1026,6 +1061,10 @@ def main():
     if kept_posts or kept_dms:
         print(f"preserve previous snapshot: posts +{len(kept_posts)} dms +{len(kept_dms)}", flush=True)
 
+    # 华人素材打标：放在合并旧快照之后，确保保留下来的行也一并标记
+    chinese_count = tag_chinese_materials(posts, dms_rows)
+    print(f"chinese materials: {chinese_count} posts", flush=True)
+
     type_counts = defaultdict(int)
     for post in posts:
         type_counts[post["materialType"]] += 1
@@ -1036,6 +1075,7 @@ def main():
         "currency": "USD",
         "rawRows": raw_rows,
         "includedRows": len(posts),
+        "chineseCount": chinese_count,
         "materialTypeCounts": dict(type_counts),
         "filters": {
             "performanceFrom": default_from,
