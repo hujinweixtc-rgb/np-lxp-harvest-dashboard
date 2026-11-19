@@ -832,6 +832,11 @@
     .cat-table-wrap table thead tr:nth-child(2) > th:first-child { background: #eef4f8; }
     .cat-table-wrap table tbody td:first-child,
     .cat-table-wrap tbody td:nth-child(2) { font-weight: 700; background: #f7fafc; }
+    /* 品类表：表头与所有格子内容居中（覆盖全局 num 右对齐） */
+    .cat-table-wrap table th,
+    .cat-table-wrap table td { text-align: center; }
+    /* 占比列色阶由 JS 按数值写入背景色，低饱和蓝、数值越大越深 */
+    .cat-table-wrap td.share-cell { font-variant-numeric: tabular-nums; }
     @media (max-width: 1100px) {
       .cat-tag-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     }
@@ -4305,6 +4310,14 @@
 
     function categoryRowsHtml(nodes) {
       const visible = flattenCategoryRows(nodes);
+      // 占比色阶：以当前可见行的最大占比归一化，映射到低饱和蓝的透明度 0.06~0.30
+      const maxShare = Math.max(0.0001,
+        ...visible.map(n => Math.max(Number(n.spendShare || 0), Number(n.orderShare || 0))));
+      const shareBg = (v) => {
+        const t = Math.max(0, Math.min(1, Number(v || 0) / maxShare));
+        const a = 0.06 + 0.24 * t;
+        return `background-color: rgba(47, 111, 159, ${a.toFixed(3)})`;
+      };
       const catSpans = new Map();
       const prodSpans = new Map();
       visible.forEach(node => {
@@ -4336,8 +4349,8 @@
           + catCell + prodCell
           + `<td>${l1}</td><td>${l2}</td><td>${l3}</td>`
           + `<td class="num">${fmt(m.posts)}</td>`
-          + `<td class="num">${pct(node.spendShare)}</td>`
-          + `<td class="num">${pct(node.orderShare)}</td>`
+          + `<td class="num share-cell" style="${shareBg(node.spendShare)}" title="费用占当前大盘 ${pct(node.spendShare)}">${pct(node.spendShare)}</td>`
+          + `<td class="num share-cell" style="${shareBg(node.orderShare)}" title="订单占当前大盘 ${pct(node.orderShare)}">${pct(node.orderShare)}</td>`
           + `<td class="num">${money2(m.cpm)}</td>`
           + `<td class="num">${money2(m.cpc)}</td>`
           + `<td class="num">${roi(m.roi)}</td>`
