@@ -889,6 +889,14 @@
       z-index: 1;
     }
     .age-matrix-wrap .age-delta { border-left: 1px solid var(--line); }
+    /* 一级标签分组(AWA/Consi/Conv)之间加明显竖向分界，避免 Consi 数据被看成 AWA 的延续 */
+    .age-matrix-wrap table th.grp-start,
+    .age-matrix-wrap table td.grp-start { border-left: 2px solid #8fa6bb; }
+    .age-matrix-wrap thead tr:first-child th.grp-head-0 { background: #dbe7ef; }
+    .age-matrix-wrap thead tr:first-child th.grp-head-1 { background: #cedfe9; border-left: 2px solid #8fa6bb; }
+    .age-matrix-wrap thead tr:first-child th.grp-head-2 { background: #dbe7ef; border-left: 2px solid #8fa6bb; }
+    /* 数据区各组交替极淡底色，强化区域归属（不影响左侧固定列） */
+    .age-matrix-wrap tbody td.grp-band-1 { background: #f6fafc; }
     /* 收割矩阵/新老素材明细：左侧固定列收窄，字体维持不变 */
     .age-matrix-wrap table thead tr:first-child > th:first-child,
     .age-matrix-wrap table tbody td:first-child,
@@ -905,6 +913,8 @@
     .age-detail-wrap table tbody tr.age-row-l1 > td:first-child { background: #f7fafc; }
     .age-label { font-weight: 700; background: #f7fafc; white-space: nowrap; }
     .age-row-l1 > td { background: #f7fafc; font-weight: 700; }
+    /* 明细表：不同一级漏斗(AWA/Consi/Conv)之间加顶部边界，避免下级数据被看串组 */
+    .age-detail-wrap table tbody tr.age-row-l1 > td { border-top: 2px solid #8fa6bb; }
     .age-row-l2 > td:nth-child(2) { padding-left: 22px; }
     .age-row-l3 > td:nth-child(3) { padding-left: 40px; color: #475467; }
     .age-toggle { cursor: pointer; user-select: none; color: #1f5f8f; }
@@ -4009,22 +4019,24 @@
         { label: 'TTL', cur: curAll, prev: prevAll }
       ];
       let head = `<thead><tr><th rowspan="2">素材汇总</th>`
-        + HARVEST_GROUPS.map(group => `<th colspan="${AGE_MATRIX_COLS.length}">${safe(group.label)}</th>`).join('')
+        + HARVEST_GROUPS.map((group, gi) => `<th colspan="${AGE_MATRIX_COLS.length}" class="grp-head-${gi}">${safe(group.label)}</th>`).join('')
         + `</tr><tr class="age-subhead">`
-        + HARVEST_GROUPS.map(() => AGE_MATRIX_COLS.map((col, i) => `<th class="num${i >= 4 ? ' age-delta' : ''}"${col.title ? ` title="${safe(col.title)}"` : ''}>${safe(col.label)}</th>`).join('')).join('')
+        + HARVEST_GROUPS.map((_, gi) => AGE_MATRIX_COLS.map((col, i) => `<th class="num${i >= 4 ? ' age-delta' : ''}${i === 0 && gi > 0 ? ' grp-start' : ''}"${col.title ? ` title="${safe(col.title)}"` : ''}>${safe(col.label)}</th>`).join('')).join('')
         + `</tr></thead><tbody>`;
       const body = defs.map(def => {
-        const cells = HARVEST_GROUPS.map(group => {
+        const cells = HARVEST_GROUPS.map((group, gi) => {
           const c = sumRows(harvestRows(def.cur, group.key));
           const p = sumRows(harvestRows(def.prev, group.key));
           const share = total7 ? last7Gmv(harvestRows(def.cur, group.key), winTo) / total7 : 0;
-          return `<td class="num">${fmt(c.posts)}</td>`
-            + `<td class="num">${roi(c.roi)}</td>`
-            + `<td class="num">${money(c.spend)}</td>`
-            + `<td class="num">${pct(share)}</td>`
-            + `<td class="num age-delta">${ageDelta(c.posts, p.posts)}</td>`
-            + `<td class="num age-delta">${ageDelta(c.roi, p.roi)}</td>`
-            + `<td class="num age-delta">${ageDelta(c.spend, p.spend, false)}</td>`;
+          const gs = gi > 0 ? ' grp-start' : '';
+          const band = gi === 1 ? ' grp-band-1' : '';
+          return `<td class="num${gs}${band}">${fmt(c.posts)}</td>`
+            + `<td class="num${band}">${roi(c.roi)}</td>`
+            + `<td class="num${band}">${money(c.spend)}</td>`
+            + `<td class="num${band}">${pct(share)}</td>`
+            + `<td class="num age-delta${band}">${ageDelta(c.posts, p.posts)}</td>`
+            + `<td class="num age-delta${band}">${ageDelta(c.roi, p.roi)}</td>`
+            + `<td class="num age-delta${band}">${ageDelta(c.spend, p.spend, false)}</td>`;
         }).join('');
         return `<tr><td class="age-label">${safe(def.label)}</td>${cells}</tr>`;
       }).join('');
