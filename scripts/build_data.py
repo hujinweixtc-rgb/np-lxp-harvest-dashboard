@@ -985,6 +985,10 @@ def build_board():
 
 def main():
     posts, dms_rows = [], []
+    # raw 快照可能比线上数据旧：上一版里已经被人工补进来的素材（关键词已跑完）
+    # 在重建时不能凭空消失。先记住它们，末尾把「本轮没再生成」的行原样保留。
+    prev_posts = (load(os.path.join(DATA, "materials.json"), {}) or {}).get("posts") or []
+    prev_dms = (load(os.path.join(DATA, "dms_materials.json"), {}) or {}).get("rows") or []
     for combo in COMBO_KEYS:
         try:
             p, d = collect(combo)
@@ -1012,6 +1016,15 @@ def main():
     raw_rows = 0
     for combo in COMBO_KEYS:
         raw_rows += len(load(os.path.join(RAW, combo, "materials.json"), []) or [])
+
+    post_keys = {p.get("key") for p in posts}
+    kept_posts = [p for p in prev_posts if p.get("key") not in post_keys]
+    posts.extend(kept_posts)
+    dms_keys = {r.get("key") for r in dms_rows}
+    kept_dms = [r for r in prev_dms if r.get("key") not in dms_keys]
+    dms_rows.extend(kept_dms)
+    if kept_posts or kept_dms:
+        print(f"preserve previous snapshot: posts +{len(kept_posts)} dms +{len(kept_dms)}", flush=True)
 
     type_counts = defaultdict(int)
     for post in posts:
