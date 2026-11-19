@@ -1813,7 +1813,7 @@
           <summary><span>高级筛选</span><span class="advanced-count" id="advancedCount">1 项启用</span></summary>
           <div class="advanced-body">
             <div class="field compare-field">
-              <label>开启环比对比</label>
+              <label>开启对比</label>
               <div class="compare-row" id="compareRow">
                 <label class="switch"><input id="compareEnabled" type="checkbox" checked><span></span></label>
                 <span class="compare-off">未启用</span>
@@ -2754,15 +2754,15 @@
       if (!state.compareAppliedRange) return '';
       const now = Number(current || 0);
       const old = Number(base || 0);
-      if (!old && !now) return '<span class="delta">环比 0.0%</span>';
+      if (!old && !now) return '<span class="delta">0.0%</span>';
       if (!old) {
-        return `<span class="delta bad">环比 ↑ 新增</span>`;
+        return `<span class="delta bad">↑ 新增</span>`;
       }
       const change = (now - old) / old;
-      if (Math.abs(change) < 0.0001) return '<span class="delta">环比 0.0%</span>';
+      if (Math.abs(change) < 0.0001) return '<span class="delta">0.0%</span>';
       const up = change > 0;
       const cls = up ? 'bad' : 'good';
-      return `<span class="delta ${cls}">环比 ${up ? '↑' : '↓'} ${Math.abs(change * 100).toFixed(1)}%</span>`;
+      return `<span class="delta ${cls}">${up ? '↑' : '↓'} ${Math.abs(change * 100).toFixed(1)}%</span>`;
     }
 
     function deltaLine(current, base, lowerIsBetter = false) {
@@ -3427,11 +3427,11 @@
       selected.forEach(key => {
         const m = TREND_METRIC_MAP.get(key);
         legendItems.push({ key, label: m.label, color: m.color, marker: m.marker || 'line' });
-        if (hasCompare) legendItems.push({ key: `cmp:${key}`, label: `${m.label}环比`, color: m.soft, marker: 'line', dashed: true });
+        if (hasCompare) legendItems.push({ key: `cmp:${key}`, label: `${m.label} △`, color: m.soft, marker: 'line', dashed: true });
       });
       state.trendLegendHits = [];
       ctx.font = '11px Arial';
-      // 先排版图例，按实际行数动态留顶部空间（6 个指标 + 环比时会换行）
+      // 先排版图例，按实际行数动态留顶部空间（6 个指标 + 对比时会换行）
       let lx = 48, ly = 12, legendRows = 1;
       legendItems.forEach(item => {
         const itemWidth = ctx.measureText(item.label).width + 28;
@@ -3546,7 +3546,7 @@
       if (!panel) return;
       const selected = state.trendSelected || [];
       panel.innerHTML = `
-        <div class="trend-picker-note">柱=花费 · 实线=所选指标 · 虚线=对比期同指标（需开启环比）</div>
+        <div class="trend-picker-note">柱=花费 · 实线=所选指标 · 虚线=对比期同指标（需开启对比）</div>
         <div class="trend-picker-list">
           ${TREND_METRICS.map(m => {
             const on = selected.includes(m.key);
@@ -3765,9 +3765,9 @@
       { label: 'ROI' },
       { label: '费用' },
       { label: '近7天LTV贡献占比' },
-      { label: '数量环比', title: '素材数量环比（涨为好）' },
-      { label: 'ROI环比', title: 'ROI 环比（涨为好）' },
-      { label: '费用环比', title: '花费环比（涨为差）' }
+      { label: '数量 △', title: '素材数量对比（涨为好）' },
+      { label: 'ROI △', title: 'ROI 对比（涨为好）' },
+      { label: '费用 △', title: '花费对比（涨为差）' }
     ];
     const AGE_DETAIL_HEAD = `<thead><tr>
       <th>一级漏斗</th>
@@ -3779,10 +3779,10 @@
       <th class="num">CPM</th>
       <th class="num">CPC</th>
       <th class="num">ROI</th>
-      <th class="num">订单环比</th>
-      <th class="num">CPM环比</th>
-      <th class="num">CPC环比</th>
-      <th class="num">ROI环比</th>
+      <th class="num">订单 △</th>
+      <th class="num">CPM △</th>
+      <th class="num">CPC △</th>
+      <th class="num">ROI △</th>
     </tr></thead>`;
 
     function ageAnchor() {
@@ -3822,13 +3822,13 @@
       if (!state.compareAppliedRange) return '';
       const now = Number(current || 0);
       const old = Number(base || 0);
-      if (!old && !now) return '<span class="delta">环比 0.0%</span>';
-      if (!old) return '<span class="delta good">环比 ↑ 新增</span>';
+      if (!old && !now) return '<span class="delta">0.0%</span>';
+      if (!old) return '<span class="delta good">↑ 新增</span>';
       const change = (now - old) / old;
-      if (Math.abs(change) < 0.0001) return '<span class="delta">环比 0.0%</span>';
+      if (Math.abs(change) < 0.0001) return '<span class="delta">0.0%</span>';
       const up = change > 0;
       const good = higherIsBetter ? up : !up;
-      return `<span class="delta ${good ? 'good' : 'bad'}">环比 ${up ? '↑' : '↓'} ${Math.abs(change * 100).toFixed(1)}%</span>`;
+      return `<span class="delta ${good ? 'good' : 'bad'}">${up ? '↑' : '↓'} ${Math.abs(change * 100).toFixed(1)}%</span>`;
     }
 
     function renderAgeMatrix() {
@@ -4072,10 +4072,10 @@
       <th rowspan="2">CPM</th>
       <th rowspan="2">CPC</th>
       <th rowspan="2">ROI</th>
-      <th rowspan="2">订单环比 △</th>
-      <th rowspan="2">CPM环比 △</th>
-      <th rowspan="2">CPC环比 △</th>
-      <th rowspan="2">ROI环比 △</th>
+      <th rowspan="2">订单 △</th>
+      <th rowspan="2">CPM △</th>
+      <th rowspan="2">CPC △</th>
+      <th rowspan="2">ROI △</th>
     </tr><tr>
       <th>AWA</th>
       <th>Top5</th>
@@ -4220,7 +4220,7 @@
       renderDmsMaterials();
       drawTrend();
       const s = sumRows(state.filtered);
-      const compareText = state.compareAppliedRange ? ` · 环比 ${state.compareAppliedRange.from} ~ ${state.compareAppliedRange.to}` : '';
+      const compareText = state.compareAppliedRange ? ` · 对比 ${state.compareAppliedRange.from} ~ ${state.compareAppliedRange.to}` : '';
       $('productCount').textContent = `${fmt(groupRows(state.filtered, 'product').length)} 个产品`;
       $('status').textContent = `${countryText()} · ${state.from || '-'} ~ ${state.to || '-'} · ${fmt(state.filtered.length)} 个素材 · 花费 USD ${money(s.spend)} · CPC ${money2(s.cpc)} · ROI ${roi(s.roi)}${compareText}`;
     }
