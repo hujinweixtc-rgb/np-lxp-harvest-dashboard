@@ -852,6 +852,20 @@
       z-index: 1;
     }
     .age-matrix-wrap .age-delta { border-left: 1px solid var(--line); }
+    /* 收割矩阵/新老素材明细：左侧固定列收窄，字体维持不变 */
+    .age-matrix-wrap table thead tr:first-child > th:first-child,
+    .age-matrix-wrap table tbody td:first-child,
+    .age-detail-wrap table thead tr:first-child > th:first-child,
+    .age-detail-wrap table tbody td:first-child {
+      min-width: 84px;
+      max-width: 116px;
+      width: 96px;
+    }
+    /* 固定列必须是不透明背景，否则横向滚动时后面的数字会从底下透出来造成“重叠” */
+    .age-matrix-wrap table tbody td:first-child,
+    .age-detail-wrap table tbody td:first-child { background: #fff; }
+    .age-matrix-wrap table tbody tr.age-row-l1 > td:first-child,
+    .age-detail-wrap table tbody tr.age-row-l1 > td:first-child { background: #f7fafc; }
     .age-label { font-weight: 700; background: #f7fafc; white-space: nowrap; }
     .age-row-l1 > td { background: #f7fafc; font-weight: 700; }
     .age-row-l2 > td:nth-child(2) { padding-left: 22px; }
