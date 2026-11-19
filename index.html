@@ -455,6 +455,18 @@
     .cn-card .cn-item b { color: var(--deep); font-size: 15px; font-weight: 800; font-variant-numeric: tabular-nums; white-space: nowrap; }
     .cn-card .cn-item .delta { min-height: 17px; padding: 0 5px; font-size: 10px; }
     #chinesePanel .grid2 > .table-wrap { min-width: 0; }
+    /* 华人模块两表：始终左右并排（ID 特异性压过 1180px 断点的单列规则） */
+    #chinesePanel .grid2 { grid-template-columns: 1fr 1fr; }
+    .cn-mini-wrap { max-height: 380px; }
+    .cn-mini-wrap table { min-width: 0; width: 100%; }
+    .cn-mini-wrap table th:first-child,
+    .cn-mini-wrap table td:first-child {
+      position: sticky; left: 0; z-index: 2;
+      min-width: 96px; max-width: 130px; width: 112px;
+      box-shadow: 1px 0 0 var(--line);
+    }
+    .cn-mini-wrap table th:first-child { background: #eef4f8; }
+    .cn-mini-wrap table td:first-child { background: #fff; }
     .delta-line {
       display: flex;
       flex-wrap: wrap;
@@ -1934,10 +1946,10 @@
       </div>
       <div class="pad chinese-summary" id="chineseSummary"></div>
       <div class="grid2">
-        <div class="table-wrap">
+        <div class="table-wrap cn-mini-wrap">
           <table id="chineseProductTable"></table>
         </div>
-        <div class="table-wrap">
+        <div class="table-wrap cn-mini-wrap">
           <table id="chineseTagTable"></table>
         </div>
       </div>
