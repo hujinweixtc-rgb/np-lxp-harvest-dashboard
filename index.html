@@ -800,9 +800,25 @@
     }
     .cat-more { color: var(--muted); font-size: 10px; padding: 2px 0; }
     .cat-table-wrap table { min-width: 1680px; }
-    .cat-table-wrap thead th { position: static; }
+    /* 品类表：分组标题行(产品维度)与子表头行(AWA/Top5/top3)不做横向固定，避免滚动时遮住后面的表头文字 */
+    .cat-table-wrap table thead tr:first-child > th:first-child,
+    .cat-table-wrap table thead tr:last-child > th:first-child {
+      left: auto;
+      min-width: 0;
+      max-width: none;
+      box-shadow: none;
+      z-index: 1;
+    }
     .cat-table-wrap thead tr:first-child th { background: #dbe7ef; text-align: center; }
-    .cat-table-wrap tbody td:first-child,
+    /* 品类列保留固定但收窄；表头/数据背景不透明，滚动时后面的数字不再从底下透出 */
+    .cat-table-wrap table thead tr:nth-child(2) > th:first-child,
+    .cat-table-wrap table tbody td:first-child {
+      min-width: 84px;
+      max-width: 116px;
+      width: 96px;
+    }
+    .cat-table-wrap table thead tr:nth-child(2) > th:first-child { background: #eef4f8; }
+    .cat-table-wrap table tbody td:first-child,
     .cat-table-wrap tbody td:nth-child(2) { font-weight: 700; background: #f7fafc; }
     @media (max-width: 1100px) {
       .cat-tag-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
