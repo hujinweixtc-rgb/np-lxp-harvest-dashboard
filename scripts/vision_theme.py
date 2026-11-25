@@ -599,27 +599,59 @@ def save_cache(doc: dict) -> None:
         shutil.copyfile(tmp, OUT)
 
 
+def code_date_from_seed(seed: str) -> str:
+    """从素材编号里解析 YYMMDD，作为 createdAt 缺失时的兜底日期。
+
+    DMS 编号多为 SC26MMDDxxxx / JJ..2026MMDDxxxx 形式。能解析就返回 YYYY-MM-DD，
+    否则返回空串（交由调用方决定如何处理）。
+    """
+    s = str(seed or "")
+    # SC2611200335 -> 26 11 20
+    m = re.search(r"(?:^|[^0-9])(2[6-9])(\d{2})(\d{2})\d{3,}", s)
+    if m:
+        yy, mm, dd = m.group(1), m.group(2), m.group(3)
+        if 1 <= int(mm) <= 12 and 1 <= int(dd) <= 31:
+            return f"20{yy}-{mm}-{dd}"
+    # JJ020d20260908092123 -> 2026 09 08
+    m = re.search(r"(20[2-3]\d)(\d{2})(\d{2})", s)
+    if m and 1 <= int(m.group(2)) <= 12 and 1 <= int(m.group(3)) <= 31:
+        return f"{m.group(1)}-{m.group(2)}-{m.group(3)}"
+    return ""
+
+
+def row_created_date(row: dict) -> str:
+    """素材创建日期：显式字段优先，缺失时用编号内嵌日期兜底。"""
+    created = str(row.get("createdAt") or row.get("materialCreatedAt")
+                  or row.get("uploadTime") or "")[:10]
+    return created or code_date_from_seed(seed_of(row))
+
+
 def pick_rows(rows: list[dict], args) -> list[dict]:
     picked = []
     created_from = str(getattr(args, "created_from", "") or "").strip()
+    codes = {str(c).strip() for c in getattr(args, "codes", []) or [] if str(c).strip()}
     for row in rows:
+        seed = seed_of(row)
         if args.brand and str(row.get("brand") or "").upper() != args.brand.upper():
             continue
         if args.country and str(row.get("country") or "").upper() != args.country.upper():
             continue
-        if created_from:
-            created = str(row.get("createdAt") or row.get("materialCreatedAt")
-                          or row.get("uploadTime") or "")[:10]
-            # 没有创建时间的旧行一律跳过，避免不确定地把历史素材送进模型
+        # --codes：精准补跑指定素材，绕过创建时间/花费限制（仍要求有封面）
+        if codes:
+            if seed not in codes:
+                continue
+        elif created_from:
+            # 创建日期缺失时用编号内嵌日期兜底；两者都没有才跳过（避免误杀无日期的新素材）
+            created = row_created_date(row)
             if not created or created < created_from:
                 continue
         if not cover_url(row):
             continue
-        if not seed_of(row):
+        if not seed:
             continue
         picked.append(row)
     picked.sort(key=lambda r: -(float(r.get("spend") or 0)))
-    if args.all:
+    if args.all or codes:
         return picked
     return picked[: args.limit]
 
@@ -678,6 +710,8 @@ def main() -> None:
                     help="只跑尚未成功的素材，按花费降序最多 N 条（0=不限；云端分批用）")
     ap.add_argument("--brand", default="", help="只跑某品牌，如 NP / LXP")
     ap.add_argument("--country", default="", help="只跑某国家，如 ID / MY")
+    ap.add_argument("--codes", nargs="+", default=[], metavar="CODE",
+                    help="精准补跑指定素材编号（可多个），绕过创建时间/花费限制，仍要求有封面")
     ap.add_argument("--created-from", default=DEFAULT_CREATED_FROM,
                     help="只分析创建日期 >= 该日期的素材（默认 2026-09-01；传空串取消限制）")
     ap.add_argument("--dry-run", action="store_true", help="不调模型，仅用规则兜底")
