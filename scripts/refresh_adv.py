@@ -25,7 +25,7 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import date, timedelta
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from dms_api import COMBOS, Dms, is_scoped_combo  # noqa: E402
+from dms_api import COMBOS, Dms, is_scoped_combo, keep_scoped_material  # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 RAW = os.environ.get("DASH_RAW_DIR") or os.path.join(ROOT, "raw")
@@ -83,15 +83,26 @@ def pull_window(client, rng, log, tag):
 
 
 def scoped_rows(key, rows):
-    """SKT 只保留近期素材库里的编码，避免历史长尾进入 backfill 目标。"""
+    """SKT 只保留近期素材，避免历史长尾进入 backfill 目标。
+
+    白名单 = 素材库已有编码 ∪ 行自身满足创建时间下限的素材。
+    后者是双保险：素材库增量刷新若失败/滞后，新建素材也不会被永久挡在门外
+    （2026-11 SKT 素材停在 11-19 就是因为过期白名单把新素材全过滤了）。
+    """
     if not is_scoped_combo(key):
         return rows
     mat_path = os.path.join(RAW, key, "materials.json")
-    if not os.path.exists(mat_path):
-        return rows
-    with open(mat_path, encoding="utf-8") as fh:
-        keep = {(m.get("materialCode") or "").strip() for m in (json.load(fh) or [])} - {""}
-    return [r for r in rows if (r.get("materialCode") or "").strip() in keep]
+    keep = set()
+    if os.path.exists(mat_path):
+        with open(mat_path, encoding="utf-8") as fh:
+            keep = {(m.get("materialCode") or "").strip() for m in (json.load(fh) or [])} - {""}
+
+    def allowed(row):
+        if (row.get("materialCode") or "").strip() in keep:
+            return True
+        return keep_scoped_material(key, row)
+
+    return [r for r in rows if allowed(r)]
 
 
 def pull_combo(key, brand, host, brand_id, country, tenant, token, buckets, log):

@@ -20,7 +20,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import date
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from dms_api import COMBOS, Dms, is_scoped_combo  # noqa: E402
+from dms_api import COMBOS, Dms, is_scoped_combo, keep_scoped_material  # noqa: E402
 from fetch_dms import fetch_paged, load, dump  # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -42,10 +42,13 @@ def refresh_combo(key, brand, host, brand_id, country, tenant, token, log):
                       PAGE_ADS, out_dir, "ads_fresh", log)
     if is_scoped_combo(key):
         # SKT 全量广告表有 23 万行，绝大多数属于不在看板范围内的历史素材。
-        # 只保留近期素材库里的编码，避免每次刷新都回补几万个历史 code。
+        # 白名单 = 近期素材库编码 ∪ 创建时间满足下限的行（双保险，防止新素材
+        # 因素材库增量滞后被永久挡在门外，2026-11 就是这么卡在 11-19 的）。
         mats = load(os.path.join(out_dir, "materials.json")) or []
         kept = {(m.get("materialCode") or "").strip() for m in mats} - {""}
-        ads = [a for a in ads if (a.get("materialCode") or "").strip() in kept]
+        ads = [a for a in ads
+               if (a.get("materialCode") or "").strip() in kept
+               or keep_scoped_material(key, a)]
         log(f"  [{key}] 收敛后 fresh ads={len(ads)} codes={len(kept)}")
     new_codes = {(a.get("materialCode") or "").strip() for a in ads} - old_codes - {""}
     log(f"  [{key}] fresh ads={len(ads)} new codes={len(new_codes)}")
