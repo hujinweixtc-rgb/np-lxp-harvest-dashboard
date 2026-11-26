@@ -472,6 +472,24 @@
     /* 华人迷你表环比：数值后跟一个小 chip，字号比卡片更小以适配窄列 */
     .cn-mini-wrap table td.num { white-space: nowrap; }
     .cn-mini-wrap table td.num .delta { min-height: 14px; padding: 0 4px; font-size: 9px; margin-left: 4px; vertical-align: 1px; }
+    /* 国内/本地化图文对比：复用 cn-card，首列贴合内容 */
+    #originPanel .grid2 { grid-template-columns: 1fr 1fr; }
+    #originPanel .chinese-summary { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    #originPanel .origin-toggle { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+    #originPanel .origin-toggle button { border: 0; background: #fff; color: var(--muted); font-size: 11px; padding: 4px 10px; cursor: pointer; }
+    #originPanel .origin-toggle button + button { border-left: 1px solid var(--line); }
+    #originPanel .origin-toggle button.active { background: var(--deep); color: #fff; }
+    #originPanel .cn-mini-wrap table th:first-child,
+    #originPanel .cn-mini-wrap table td:first-child {
+      position: sticky; left: 0; z-index: 2;
+      min-width: 0; max-width: none; width: auto;
+      white-space: nowrap; box-shadow: 1px 0 0 var(--line);
+    }
+    #originPanel .cn-mini-wrap table th:first-child { background: #eef4f8; }
+    #originPanel .cn-mini-wrap table td:first-child { background: #fff; }
+    #originPanel .cn-mini-wrap table td.num { white-space: nowrap; }
+    #originPanel .cn-mini-wrap table td.num .delta { min-height: 14px; padding: 0 4px; font-size: 9px; margin-left: 4px; vertical-align: 1px; }
+    #originPanel .cn-card.cn-local { border-color: #c9d9c6; background: linear-gradient(180deg, #fff, #f8fcf7); }
     .delta-line {
       display: flex;
       flex-wrap: wrap;
@@ -1975,6 +1993,29 @@
       </div>
     </section>
 
+    <section class="panel" id="originPanel">
+      <div class="head">
+        <div>
+          <h2>国内图文 vs 本地化图文</h2>
+          <div class="small" id="originNote">按 DMS 策划 PIC 区分：Helen / Linda = 国内图文，陈耀菲 Faye = 本地化图文 · 不受「华人素材」三态筛选影响</div>
+        </div>
+        <div class="origin-toggle" id="originTypeToggle">
+          <button type="button" data-otype="图文" class="active">图文</button>
+          <button type="button" data-otype="视频">视频</button>
+          <button type="button" data-otype="all">全部</button>
+        </div>
+      </div>
+      <div class="pad chinese-summary" id="originSummary"></div>
+      <div class="grid2">
+        <div class="table-wrap cn-mini-wrap">
+          <table id="originMarketTable"></table>
+        </div>
+        <div class="table-wrap cn-mini-wrap">
+          <table id="originProductTable"></table>
+        </div>
+      </div>
+    </section>
+
     <section class="panel">
       <div class="head">
         <div>
@@ -2229,6 +2270,7 @@
       },
       options: { brand: [], country: [], product: [], tag1: [], tag2: [] },
       chineseFilter: 'all', // all | cn（仅华人素材） | non（非华人素材）
+      originType: '图文', // 国内/本地化图文对比模块的素材类型：图文 | 视频 | all
       multiSearch: { brand: '', country: '', product: '', tag1: '', tag2: '' },
       multiMode: { brand: 'default', country: 'default', product: 'default', tag1: 'default', tag2: 'default' },
       ageExpanded: new Set(),
@@ -3102,6 +3144,86 @@
         }).join('')
           : `<tr><td colspan="6" class="empty">暂无标签数据</td></tr>`
       }</tbody>`;
+    }
+
+    // 国内 / 本地化图文：按 DMS 策划 PIC 判定，忽略华人三态筛选（与华人模块口径一致）
+    const ORIGIN_PIC = {
+      domestic: { label: '国内图文', test: n => /Helen|Linda/i.test(n) },
+      local: { label: '本地化图文', test: n => /Faye|陈耀菲/i.test(n) }
+    };
+    function originGroupOf(row) {
+      const pic = String(row.planPicName || '').trim();
+      if (ORIGIN_PIC.domestic.test(pic)) return 'domestic';
+      if (ORIGIN_PIC.local.test(pic)) return 'local';
+      return 'other';
+    }
+    function renderOriginAnalysis() {
+      const all = collectFilteredRows(state.from, state.to, true);
+      const byType = state.originType === 'all' ? all : all.filter(r => r.materialType === state.originType);
+      const cmpRange = state.compareAppliedRange;
+      const cmpAll = cmpRange ? collectFilteredRows(cmpRange.from, cmpRange.to, true) : [];
+      const cmpByType = state.originType === 'all' ? cmpAll : cmpAll.filter(r => r.materialType === state.originType);
+      const keys = ['domestic', 'local', 'other'];
+      const groups = keys.map(key => ({
+        key,
+        label: `${ORIGIN_PIC[key]?.label || '其他策划'}（${fmt(byType.filter(r => originGroupOf(r) === key).length)}）`,
+        rows: byType.filter(r => originGroupOf(r) === key),
+        base: cmpByType.filter(r => originGroupOf(r) === key),
+        hl: key === 'domestic',
+        local: key === 'local',
+        tag: key === 'domestic' ? 'Helen/Linda' : key === 'local' ? 'Faye' : ''
+      }));
+      const metric = (m, b) => [
+        ['素材数', fmt(m.posts), m.posts, b.posts, true],
+        ['花费', `$${money(m.spend)}`, m.spend, b.spend, false],
+        ['订单', fmt(m.conversions), m.conversions, b.conversions, true],
+        ['GMV', `$${money(m.purchaseValue)}`, m.purchaseValue, b.purchaseValue, true],
+        ['ROI', roi(m.roi), m.roi, b.roi, true],
+        ['CPC', money2(m.cpc), m.cpc, b.cpc, false],
+        ['CPA', money2(m.cpa), m.cpa, b.cpa, false],
+        ['CPM', money2(m.cpm), m.cpm, b.cpm, false]
+      ];
+      $('originSummary').innerHTML = groups.map(g => {
+        const m = sumRows(g.rows);
+        const b = sumRows(g.base);
+        return `<div class="cn-card${g.hl ? ' cn-hl' : ''}${g.local ? ' cn-local' : ''}"><h4>${safe(g.label)}${g.tag ? `<span class="cn-tag">${safe(g.tag)}</span>` : ''}</h4><div class="cn-grid">${
+          metric(m, b).map(([k, v, cur, base, higher]) => `<div class="cn-item"><span class="cn-k">${safe(k)}</span><span class="cn-v"><b>${safe(v)}</b>${ageDelta(cur, base, higher)}</span></div>`).join('')
+        }</div></div>`;
+      }).join('');
+
+      const groupMap = (rows, field) => {
+        const map = new Map();
+        groupRows(rows, field).forEach(r => map.set(r.name, r));
+        return map;
+      };
+      const cell = (valFmt, cur, base, higher) => `${valFmt}${ageDelta(cur, base, higher)}`;
+      const withOrigin = rows => rows.map(r => ({
+        ...r,
+        originKey: originGroupOf(r),
+        market: `${r.brand || '-'} · ${r.country || '-'}`,
+        originProduct: `${short(r.product || '未标注', 12)} · ${ORIGIN_PIC[originGroupOf(r)]?.label || '其他策划'}`
+      }));
+      const decorated = withOrigin(byType);
+      const cmpDecorated = withOrigin(cmpByType);
+      const cmpMarketMap = groupMap(cmpDecorated, 'market');
+      const cmpProductMap = groupMap(cmpDecorated, 'originProduct');
+      // 两个对比组在各市场 / 产品上的表现，按花费排序，各取前 12
+      const focus = decorated.filter(r => r.originKey !== 'other');
+      const marketRows = groupRows(focus, 'market').slice(0, 12);
+      const productRows = groupRows(focus, 'originProduct').slice(0, 12);
+      const thead = `<thead><tr><th>分组</th><th class="num">素材</th><th class="num">花费</th><th class="num">订单</th><th class="num">ROI</th><th class="num">CPC</th></tr></thead>`;
+      const body = (rows, baseMap) => rows.length ? rows.map(r => {
+        const b = baseMap.get(r.name) || {};
+        return `<tr><td title="${safe(r.name)}">${safe(short(r.name, 18))}</td>
+          <td class="num">${cell(fmt(r.posts), r.posts, b.posts, true)}</td>
+          <td class="num">${cell(money(r.spend), r.spend, b.spend, false)}</td>
+          <td class="num">${cell(fmt(r.conversions), r.conversions, b.conversions, true)}</td>
+          <td class="num">${cell(roi(r.roi), r.roi, b.roi, true)}</td>
+          <td class="num">${cell(money2(r.cpc), r.cpc, b.cpc, false)}</td></tr>`;
+      }).join('') : `<tr><td colspan="6" class="empty">当前筛选下暂无国内/本地化图文素材</td></tr>`;
+      $('originMarketTable').innerHTML = `<thead><tr><th>品牌 · 市场</th><th class="num">素材</th><th class="num">花费</th><th class="num">订单</th><th class="num">ROI</th><th class="num">CPC</th></tr></thead><tbody>${body(marketRows, cmpMarketMap)}</tbody>`;
+      $('originProductTable').innerHTML = thead + `<tbody>${body(productRows, cmpProductMap)}</tbody>`;
+      $('originNote').textContent = `按 DMS 策划 PIC 区分：Helen / Linda = 国内图文，陈耀菲 Faye = 本地化图文 · 当前类型：${state.originType === 'all' ? '全部' : state.originType} · 不受「华人素材」三态筛选影响`;
     }
 
     function renderHarvestTags() {
@@ -4423,6 +4545,7 @@
       renderBoardTable();
       renderProductSortTable();
       renderChineseAnalysis();
+      renderOriginAnalysis();
       renderBars('typeBars', groupRows(state.filtered, 'materialType'), 4, true);
       renderHarvestTags();
       renderHarvestHierarchy();
@@ -5121,6 +5244,11 @@
       state.chineseFilter = button.dataset.cn;
       document.querySelectorAll('#chineseFilter .cn-mode').forEach(item => item.classList.toggle('active', item === button));
       applyFilters();
+    }));
+    document.querySelectorAll('#originTypeToggle button').forEach(button => button.addEventListener('click', () => {
+      state.originType = button.dataset.otype;
+      document.querySelectorAll('#originTypeToggle button').forEach(item => item.classList.toggle('active', item === button));
+      renderOriginAnalysis();
     }));
     ['compareFrom', 'compareTo'].forEach(id => $(id).addEventListener('change', () => applyFilters()));
     document.querySelectorAll('#materialTypes input').forEach(input => input.addEventListener('change', () => {
