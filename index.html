@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>NP / LXP / FR / SKT 收割素材看板</title>
+  <title><span data-cn="NP / LXP / FR / SKT 收割素材看板" data-en="NP / LXP / FR / SKT Harvest Creative Dashboard">NP / LXP / FR / SKT 收割素材看板</span></title>
   <link rel="icon" href="data:," />
   <style>
     :root {
@@ -79,6 +79,10 @@
       border-color: #f0d49b;
       color: #a2711a;
     }
+    .lang-toggle { display: inline-flex; border: 1px solid var(--line); border-radius: 7px; overflow: hidden; background: #fff; box-shadow: var(--shadow); }
+    .lang-toggle button { height: 28px; min-width: 38px; border: 0; border-radius: 0; background: #fff; padding: 0 9px; font-weight: 900; color: var(--muted); cursor: pointer; }
+    .lang-toggle button + button { border-left: 1px solid var(--line); }
+    .lang-toggle button.active { background: var(--deep); color: #fff; }
     .refresh-wrap { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
     /* hidden 必须真正隐藏，别被 display:flex 覆盖 */
     .refresh-wrap[hidden] { display: none; }
@@ -1797,138 +1801,142 @@
     <div class="shell">
       <div class="topline">
         <div>
-          <h1>NP / LXP / FR / SKT 收割素材看板</h1>
-          <div class="sub" id="sourceLine">DMS · 素材类型=图文/视频 · loading</div>
+          <h1><span data-cn="NP / LXP / FR / SKT 收割素材看板" data-en="NP / LXP / FR / SKT Harvest Creative Dashboard">NP / LXP / FR / SKT 收割素材看板</span></h1>
+          <div class="sub" id="sourceLine"><span data-cn="DMS · 素材类型=图文/视频 · loading" data-en="DMS · Type=Image/Video · loading">DMS · 素材类型=图文/视频 · loading</span></div>
         </div>
         <div class="top-actions">
           <span class="badge version-badge" id="appVersion">local</span>
+          <div class="lang-toggle" aria-label="Language">
+            <button type="button" data-lang="CN" class="active">CN</button>
+            <button type="button" data-lang="EN">EN</button>
+          </div>
           <div class="refresh-wrap" id="refreshWrap" hidden>
-            <button id="refreshData" type="button" title="单击：快速刷新（约 1-2 分钟，6 个品牌市场并行拉取）&#10;Shift + 单击：完整刷新（约 4-5 分钟，含广告表与全量趋势重拉）">刷新数据</button>
+            <button id="refreshData" type="button" title="单击：快速刷新（约 1-2 分钟，6 个品牌市场并行拉取）&#10;Shift + 单击：完整刷新（约 4-5 分钟，含广告表与全量趋势重拉）"><span data-cn="刷新数据" data-en="Refresh">刷新数据</span></button>
             <span class="refresh-progress" id="refreshProgress" hidden></span>
           </div>
-          <button id="shareLink" type="button">分享链接</button>
-          <button id="exportExcel" type="button">导出Excel</button>
+          <button id="shareLink" type="button"><span data-cn="分享链接" data-en="Share Link">分享链接</span></button>
+          <button id="exportExcel" type="button"><span data-cn="导出Excel" data-en="Export Excel">导出Excel</span></button>
         </div>
       </div>
       <div class="tabs" id="countryTabs">
-        <button class="tab active" data-view="overview" data-country="ALL" type="button">数据概览</button>
-        <button class="tab" data-view="dms" type="button">DMS素材</button>
-        <button class="tab" data-view="category" type="button">品类 × 标签</button>
+        <button class="tab active" data-view="overview" data-country="ALL" type="button"><span data-cn="数据概览" data-en="Overview">数据概览</span></button>
+        <button class="tab" data-view="dms" type="button"><span data-cn="DMS素材" data-en="DMS Creatives">DMS素材</span></button>
+        <button class="tab" data-view="category" type="button"><span data-cn="品类 × 标签" data-en="Category × Tags">品类 × 标签</span></button>
         <button class="filters-toggle" id="filtersToggle" type="button" aria-expanded="true" aria-controls="filtersBar" title="收起筛选，仅保留日期 / 品牌 / 产品">
-          <span class="filters-toggle-icon">▾</span><span class="filters-toggle-text">收起筛选</span>
+          <span class="filters-toggle-icon">▾</span><span class="filters-toggle-text"><span data-cn="收起筛选" data-en="Collapse Filters">收起筛选</span></span>
         </button>
       </div>
       <div class="filters" id="filtersBar">
         <div class="field span2" data-keep="1">
-          <label>开始日期</label>
+          <label><span data-cn="开始日期" data-en="Start Date">开始日期</span></label>
           <input id="from" type="date" />
         </div>
         <div class="field span2" data-keep="1">
-          <label>结束日期</label>
+          <label><span data-cn="结束日期" data-en="End Date">结束日期</span></label>
           <input id="to" type="date" />
         </div>
         <div class="field span2">
-          <label>素材创建开始</label>
+          <label><span data-cn="素材创建开始" data-en="Creative Created From">素材创建开始</span></label>
           <input id="materialFrom" type="date" />
         </div>
         <div class="field span2">
-          <label>素材创建结束</label>
+          <label><span data-cn="素材创建结束" data-en="Creative Created To">素材创建结束</span></label>
           <input id="materialTo" type="date" />
         </div>
         <div class="field span2">
-          <label>素材类型</label>
+          <label><span data-cn="素材类型" data-en="Creative Type">素材类型</span></label>
           <div class="type-toggle" id="materialTypes">
-            <label><input type="checkbox" value="图文" checked />图文</label>
-            <label><input type="checkbox" value="视频" checked />视频</label>
+            <label><input type="checkbox" value="图文" checked /><span data-cn="图文" data-en="Image">图文</span></label>
+            <label><input type="checkbox" value="视频" checked /><span data-cn="视频" data-en="Video">视频</span></label>
           </div>
         </div>
         <div class="field span2" data-keep="1">
-          <label>华人素材</label>
+          <label><span data-cn="华人素材" data-en="CN Creatives">华人素材</span></label>
           <div class="chinese-toggle" id="chineseFilter">
-            <button type="button" class="cn-mode active" data-cn="all">全部</button>
-            <button type="button" class="cn-mode" data-cn="cn">仅华人</button>
-            <button type="button" class="cn-mode" data-cn="non">非华人</button>
+            <button type="button" class="cn-mode active" data-cn="all"><span data-cn="全部" data-en="All">全部</span></button>
+            <button type="button" class="cn-mode" data-cn="cn"><span data-cn="仅华人" data-en="CN Only">仅华人</span></button>
+            <button type="button" class="cn-mode" data-cn="non"><span data-cn="非华人" data-en="Non-CN">非华人</span></button>
           </div>
         </div>
         <div class="field span2" data-keep="1">
-          <label>品牌</label>
+          <label><span data-cn="品牌" data-en="Brand">品牌</span></label>
           <div class="multi-select" data-key="brand">
-            <button class="multi-button" type="button"><span id="brandLabel">全部品牌</span></button>
+            <button class="multi-button" type="button"><span id="brandLabel"><span data-cn="全部品牌" data-en="All Brands">全部品牌</span></span></button>
             <div class="multi-panel" id="brandPanel"></div>
           </div>
         </div>
         <div class="field span2">
-          <label>国家</label>
+          <label><span data-cn="国家" data-en="Country">国家</span></label>
           <div class="multi-select" data-key="country">
-            <button class="multi-button" type="button"><span id="countryLabel">全部国家</span></button>
+            <button class="multi-button" type="button"><span id="countryLabel"><span data-cn="全部国家" data-en="All Countries">全部国家</span></span></button>
             <div class="multi-panel" id="countryPanel"></div>
           </div>
         </div>
         <div class="field span2" data-keep="1">
-          <label>产品</label>
+          <label><span data-cn="产品" data-en="Product">产品</span></label>
           <div class="multi-select" data-key="product">
-            <button class="multi-button" type="button"><span id="productLabel">全部产品</span></button>
+            <button class="multi-button" type="button"><span id="productLabel"><span data-cn="全部产品" data-en="All Products">全部产品</span></span></button>
             <div class="multi-panel" id="productPanel"></div>
           </div>
         </div>
         <div class="field span2">
-          <label>DMS 一级标签</label>
+          <label><span data-cn="DMS 一级标签" data-en="DMS L1 Tag">DMS 一级标签</span></label>
           <div class="multi-select" data-key="tag1">
-            <button class="multi-button" type="button"><span id="tag1Label">全部一级标签</span></button>
+            <button class="multi-button" type="button"><span id="tag1Label"><span data-cn="全部一级标签" data-en="All L1 Tags">全部一级标签</span></span></button>
             <div class="multi-panel" id="tag1Panel"></div>
           </div>
         </div>
         <div class="field span2">
-          <label>DMS 二级标签</label>
+          <label><span data-cn="DMS 二级标签" data-en="DMS L2 Tag">DMS 二级标签</span></label>
           <div class="multi-select" data-key="tag2">
-            <button class="multi-button" type="button"><span id="tag2Label">全部主题</span></button>
+            <button class="multi-button" type="button"><span id="tag2Label"><span data-cn="全部主题" data-en="All Topics">全部主题</span></span></button>
             <div class="multi-panel" id="tag2Panel"></div>
           </div>
         </div>
         <div class="field span4">
-          <label>搜索素材 / 广告 / 标签</label>
+          <label><span data-cn="搜索素材 / 广告 / 标签" data-en="Search creative / ad / tag">搜索素材 / 广告 / 标签</span></label>
           <input id="search" placeholder="输入素材编号、Ad name、Campaign 或标签" />
         </div>
         <div class="field span2">
-          <label>操作</label>
-          <button id="resetFilters" class="ghost" type="button">重置筛选</button>
+          <label><span data-cn="操作" data-en="Actions">操作</span></label>
+          <button id="resetFilters" class="ghost" type="button"><span data-cn="重置筛选" data-en="Reset Filters">重置筛选</span></button>
         </div>
         <div class="field span10">
-          <label>指标区间</label>
+          <label><span data-cn="指标区间" data-en="Metric Range">指标区间</span></label>
           <div class="metric-ranges">
             <div class="metric-range">
-              <span class="mr-name">花费</span><span class="mr-between">介于</span>
+              <span class="mr-name"><span data-cn="花费" data-en="Spend">花费</span></span><span class="mr-between"><span data-cn="介于" data-en="Between">介于</span></span>
               <input id="spendMin" type="number" min="0" step="0.01" placeholder="最小值">
               <input id="spendMax" type="number" min="0" step="0.01" placeholder="最大值">
             </div>
             <div class="metric-range">
-              <span class="mr-name">订单</span><span class="mr-between">介于</span>
+              <span class="mr-name"><span data-cn="订单" data-en="Orders">订单</span></span><span class="mr-between"><span data-cn="介于" data-en="Between">介于</span></span>
               <input id="ordersMin" type="number" min="0" step="1" placeholder="最小值">
               <input id="ordersMax" type="number" min="0" step="1" placeholder="最大值">
             </div>
             <div class="metric-range">
-              <span class="mr-name">ROI</span><span class="mr-between">介于</span>
+              <span class="mr-name">ROI</span><span class="mr-between"><span data-cn="介于" data-en="Between">介于</span></span>
               <input id="roiMin" type="number" min="0" step="0.01" placeholder="最小值">
               <input id="roiMax" type="number" min="0" step="0.01" placeholder="最大值">
             </div>
             <div class="metric-range">
-              <span class="mr-name">CPC</span><span class="mr-between">介于</span>
+              <span class="mr-name">CPC</span><span class="mr-between"><span data-cn="介于" data-en="Between">介于</span></span>
               <input id="cpcMin" type="number" min="0" step="0.01" placeholder="最小值">
               <input id="cpcMax" type="number" min="0" step="0.01" placeholder="最大值">
             </div>
           </div>
         </div>
         <details class="advanced-filters" id="advancedFilters" open>
-          <summary><span>高级筛选</span><span class="advanced-count" id="advancedCount">1 项启用</span></summary>
+          <summary><span><span data-cn="高级筛选" data-en="Advanced Filters">高级筛选</span></span><span class="advanced-count" id="advancedCount"><span data-cn="1 项启用" data-en="1 active">1 项启用</span></span></summary>
           <div class="advanced-body">
             <div class="field compare-field">
-              <label>开启对比</label>
+              <label><span data-cn="开启对比" data-en="Enable Compare">开启对比</span></label>
               <div class="compare-row" id="compareRow">
                 <label class="switch"><input id="compareEnabled" type="checkbox" checked><span></span></label>
-                <span class="compare-off">未启用</span>
-                <button type="button" class="compare-mode active" data-mode="previous">上期</button>
-                <button type="button" class="compare-mode" data-mode="month">上月同期</button>
-                <button type="button" class="compare-mode" data-mode="custom">自定义</button>
+                <span class="compare-off"><span data-cn="未启用" data-en="Off">未启用</span></span>
+                <button type="button" class="compare-mode active" data-mode="previous"><span data-cn="上期" data-en="Previous">上期</span></button>
+                <button type="button" class="compare-mode" data-mode="month"><span data-cn="上月同期" data-en="Prev Month">上月同期</span></button>
+                <button type="button" class="compare-mode" data-mode="custom"><span data-cn="自定义" data-en="Custom">自定义</span></button>
                 <input id="compareFrom" type="date" disabled>
                 <input id="compareTo" type="date" disabled>
               </div>
@@ -1946,7 +1954,7 @@
     <section class="grid2">
       <div class="panel">
         <div class="head">
-          <h2>每日趋势</h2>
+          <h2><span data-cn="每日趋势" data-en="Daily Trend">每日趋势</span></h2>
           <div class="trend-picker" id="trendPicker">
             <button type="button" class="trend-picker-btn" id="trendPickerBtn"></button>
             <div class="trend-picker-panel" id="trendPickerPanel"></div>
@@ -1958,8 +1966,8 @@
       </div>
       <div class="panel">
         <div class="head">
-          <h2>图文 vs 视频</h2>
-          <div class="small">按当前筛选汇总</div>
+          <h2><span data-cn="图文 vs 视频" data-en="Image vs Video">图文 vs 视频</span></h2>
+          <div class="small"><span data-cn="按当前筛选汇总" data-en="Under current filters">按当前筛选汇总</span></div>
         </div>
         <div class="pad" id="typeBars"></div>
       </div>
@@ -1968,8 +1976,8 @@
     <section class="panel">
       <div class="head">
         <div>
-          <h2>产品排序</h2>
-          <div class="small" id="productCount">按花费排序</div>
+          <h2><span data-cn="产品排序" data-en="Product Ranking">产品排序</span></h2>
+          <div class="small" id="productCount"><span data-cn="按花费排序" data-en="By Spend">按花费排序</span></div>
         </div>
       </div>
       <div class="pad" id="productBars"></div>
@@ -1978,8 +1986,8 @@
     <section class="panel" id="chinesePanel">
       <div class="head">
         <div>
-          <h2>华人素材分析</h2>
-          <div class="small" id="chineseNote">中文文案素材（命名含华人/CN 或画面中文）· 不受「华人素材」三态筛选影响，始终对比全部 / 华人 / 非华人</div>
+          <h2><span data-cn="华人素材分析" data-en="CN Creative Analysis">华人素材分析</span></h2>
+          <div class="small" id="chineseNote"><span data-cn="中文文案素材（命名含华人/CN 或画面中文）· 不受「华人素材」三态筛选影响，始终对比全部 / 华人 / 非华人" data-en="Chinese-copy creatives (name contains CN/华人 or on-image Chinese) · Independent of the CN filter; always compares All / CN / Non-CN">中文文案素材（命名含华人/CN 或画面中文）· 不受「华人素材」三态筛选影响，始终对比全部 / 华人 / 非华人</span></div>
         </div>
       </div>
       <div class="pad chinese-summary" id="chineseSummary"></div>
@@ -1996,13 +2004,13 @@
     <section class="panel" id="originPanel">
       <div class="head">
         <div>
-          <h2>国内图文 vs 本地化图文</h2>
-          <div class="small" id="originNote">按 DMS 策划 PIC 区分：Helen / Linda = 国内图文，陈耀菲 Faye = 本地化图文 · 不受「华人素材」三态筛选影响</div>
+          <h2><span data-cn="国内图文 vs 本地化图文" data-en="Domestic vs Localized Creatives">国内图文 vs 本地化图文</span></h2>
+          <div class="small" id="originNote"><span data-cn="按 DMS 策划 PIC 区分：Helen / Linda = 国内图文，陈耀菲 Faye = 本地化图文 · 不受「华人素材」三态筛选影响" data-en="By DMS planning PIC: Helen / Linda = Domestic, Faye = Localized · Independent of the CN filter">按 DMS 策划 PIC 区分：Helen / Linda = 国内图文，陈耀菲 Faye = 本地化图文 · 不受「华人素材」三态筛选影响</span></div>
         </div>
         <div class="origin-toggle" id="originTypeToggle">
-          <button type="button" data-otype="图文" class="active">图文</button>
-          <button type="button" data-otype="视频">视频</button>
-          <button type="button" data-otype="all">全部</button>
+          <button type="button" data-otype="图文" class="active"><span data-cn="图文" data-en="Image">图文</span></button>
+          <button type="button" data-otype="视频"><span data-cn="视频" data-en="Video">视频</span></button>
+          <button type="button" data-otype="all"><span data-cn="全部" data-en="All">全部</span></button>
         </div>
       </div>
       <div class="pad chinese-summary" id="originSummary"></div>
@@ -2019,8 +2027,8 @@
     <section class="panel">
       <div class="head">
         <div>
-          <h2>DMS 大盘投放数据</h2>
-          <div class="small" id="boardNote">品牌 × 市场口径（DMS 原始数据，不受产品 / 标签筛选影响）</div>
+          <h2><span data-cn="DMS 大盘投放数据" data-en="DMS Overall Performance">DMS 大盘投放数据</span></h2>
+          <div class="small" id="boardNote"><span data-cn="品牌 × 市场口径（DMS 原始数据，不受产品 / 标签筛选影响）" data-en="By brand × market (raw DMS data, not affected by product/tag filters)">品牌 × 市场口径（DMS 原始数据，不受产品 / 标签筛选影响）</span></div>
         </div>
       </div>
       <div class="pad table-wrap">
@@ -2032,8 +2040,8 @@
       <div class="panel">
         <div class="head">
           <div>
-            <h2>卖点关键词</h2>
-            <div class="small" id="aiKwNote">视觉模型从素材快照提取 · 按当前筛选汇总 · 按花费降序 Top 40</div>
+            <h2><span data-cn="卖点关键词" data-en="Selling Points">卖点关键词</span></h2>
+            <div class="small" id="aiKwNote"><span data-cn="视觉模型从素材快照提取 · 按当前筛选汇总 · 按花费降序 Top 40" data-en="Extracted by vision model from creative snapshots · Under current filters · Top 40 by spend">视觉模型从素材快照提取 · 按当前筛选汇总 · 按花费降序 Top 40</span></div>
           </div>
         </div>
         <div class="table-wrap ai-kw-wrap">
@@ -2043,8 +2051,8 @@
       <div class="panel">
         <div class="head">
           <div>
-            <h2>文案关键词</h2>
-            <div class="small">文案主题词 · 点表头切换排序 · 默认花费降序 Top 40 · ROI = GMV / 花费</div>
+            <h2><span data-cn="文案关键词" data-en="Copy Keywords">文案关键词</span></h2>
+            <div class="small"><span data-cn="文案主题词 · 点表头切换排序 · 默认花费降序 Top 40 · ROI = GMV / 花费" data-en="Copy themes · Click headers to sort · Top 40 by spend · ROI = GMV / Spend">文案主题词 · 点表头切换排序 · 默认花费降序 Top 40 · ROI = GMV / 花费</span></div>
           </div>
         </div>
         <div class="table-wrap ai-kw-wrap">
@@ -2056,22 +2064,22 @@
     <section class="grid3">
       <div class="panel">
         <div class="head">
-          <h2>DMS 一级标签分布</h2>
-          <div class="small" title="归一口径：CONV / CONVE / CONVI / 转化 / 促销 / 大促 → conv；品牌 / AWA → awa；种草 / CONSI → consi。原始 DMS 标签保留在 tag1Raw，可在筛选与 CSV 中查看。">已归一别名（CONVE / 品牌·种草·促销）· Top 12</div>
+          <h2><span data-cn="DMS 一级标签分布" data-en="DMS L1 Tags">DMS 一级标签分布</span></h2>
+          <div class="small" title="归一口径：CONV / CONVE / CONVI / 转化 / 促销 / 大促 → conv；品牌 / AWA → awa；种草 / CONSI → consi。原始 DMS 标签保留在 tag1Raw，可在筛选与 CSV 中查看。"><span data-cn="已归一别名（CONVE / 品牌·种草·促销）· Top 12" data-en="Aliases normalized (CONVE / brand·seeding·promo) · Top 12">已归一别名（CONVE / 品牌·种草·促销）· Top 12</span></div>
         </div>
         <div class="pad" id="tag1Bars"></div>
       </div>
       <div class="panel">
         <div class="head">
-          <h2>DMS 二级标签分布</h2>
-          <div class="small">按上述一级标签展开 · Top 12</div>
+          <h2><span data-cn="DMS 二级标签分布" data-en="DMS L2 Tags">DMS 二级标签分布</span></h2>
+          <div class="small"><span data-cn="按上述一级标签展开 · Top 12" data-en="Under above L1 tags · Top 12">按上述一级标签展开 · Top 12</span></div>
         </div>
         <div class="pad" id="tag2Bars"></div>
       </div>
       <div class="panel">
         <div class="head">
-          <h2>DMS 三级标签分布</h2>
-          <div class="small">按上述一级标签展开 · Top 12</div>
+          <h2><span data-cn="DMS 三级标签分布" data-en="DMS L3 Tags">DMS 三级标签分布</span></h2>
+          <div class="small"><span data-cn="按上述一级标签展开 · Top 12" data-en="Under above L1 tags · Top 12">按上述一级标签展开 · Top 12</span></div>
         </div>
         <div class="pad" id="tag3Bars"></div>
       </div>
@@ -2080,8 +2088,8 @@
     <section class="panel age-panel">
       <div class="head">
         <div>
-          <h2>新素材 / 老素材 · 收割矩阵</h2>
-          <div class="small" id="ageNote">按 DMS 素材创建时间切分 · 近 30 天为新素材</div>
+          <h2><span data-cn="新素材 / 老素材 · 收割矩阵" data-en="New / Old Creatives · Harvest Matrix">新素材 / 老素材 · 收割矩阵</span></h2>
+          <div class="small" id="ageNote"><span data-cn="按 DMS 素材创建时间切分 · 近 30 天为新素材" data-en="Split by DMS creative creation date · Last 30 days = New">按 DMS 素材创建时间切分 · 近 30 天为新素材</span></div>
         </div>
       </div>
       <div class="table-wrap age-matrix-wrap">
@@ -2090,8 +2098,8 @@
       <div class="age-detail-grid">
         <div class="age-detail">
           <div class="age-detail-head">
-            <span>老素材明细</span>
-            <span class="small">费用占比 / 订单占比均占老素材大盘 · 二级只展现 Top5 · 三级只展现 Top3 · 点箭头展开</span>
+            <span><span data-cn="老素材明细" data-en="Old Creative Details">老素材明细</span></span>
+            <span class="small"><span data-cn="费用占比 / 订单占比均占老素材大盘 · 二级只展现 Top5 · 三级只展现 Top3 · 点箭头展开" data-en="Shares are relative to Old total · L2 Top5 · L3 Top3 · Click arrows to expand">费用占比 / 订单占比均占老素材大盘 · 二级只展现 Top5 · 三级只展现 Top3 · 点箭头展开</span></span>
           </div>
           <div class="table-wrap age-detail-wrap">
             <table id="ageOldDetail"></table>
@@ -2099,7 +2107,7 @@
         </div>
         <div class="age-detail">
           <div class="age-detail-head">
-            <span>新素材明细</span>
+            <span><span data-cn="新素材明细" data-en="New Creative Details">新素材明细</span></span>
             <span class="small">费用占比 / 订单占比均占新素材大盘 · 二级只展现 Top5 · 三级只展现 Top3 · 点箭头展开</span>
           </div>
           <div class="table-wrap age-detail-wrap">
@@ -2112,10 +2120,10 @@
     <section class="panel tree-section">
       <div class="head">
         <div>
-          <h2>标签树状图与层级汇总</h2>
-          <div class="small">DMS 官方一/二/三级标签（设计素材内容体系 + 测试方向体系） · MTD · 本月创建的新素材</div>
+          <h2><span data-cn="标签树状图与层级汇总" data-en="Tag Tree & Hierarchy">标签树状图与层级汇总</span></h2>
+          <div class="small"><span data-cn="DMS 官方一/二/三级标签（设计素材内容体系 + 测试方向体系） · MTD · 本月创建的新素材" data-en="DMS official L1/L2/L3 tags (design content + test direction) · MTD · Created this month">DMS 官方一/二/三级标签（设计素材内容体系 + 测试方向体系） · MTD · 本月创建的新素材</span></div>
         </div>
-        <div class="small" id="tagTreeNote">成功率按国家达标线统计</div>
+        <div class="small" id="tagTreeNote"><span data-cn="成功率按国家达标线统计" data-en="Success rate by country benchmark">成功率按国家达标线统计</span></div>
       </div>
       <div class="tree-shell">
         <div class="tree-legend" id="tagTreeLegend"></div>
@@ -2129,11 +2137,11 @@
     <section class="panel">
       <div class="head">
         <div>
-          <h2>素材明细</h2>
-          <div class="small" id="tableNote">按花费排序，最多展示 250 条</div>
+          <h2><span data-cn="素材明细" data-en="Creative Details">素材明细</span></h2>
+          <div class="small" id="tableNote"><span data-cn="按花费排序，最多展示 250 条" data-en="By spend, up to 250 rows">按花费排序，最多展示 250 条</span></div>
         </div>
         <div class="table-tools">
-          <button id="downloadCsv" class="ghost" type="button">导出当前表</button>
+          <button id="downloadCsv" class="ghost" type="button"><span data-cn="导出当前表" data-en="Export Table">导出当前表</span></button>
         </div>
       </div>
       <div class="table-wrap">
@@ -2146,32 +2154,32 @@
     <section class="panel">
       <div class="head">
         <div>
-          <h2>DMS素材</h2>
-          <div class="small" id="dmsSubtitle">6-7月有花费的图文 / 视频素材</div>
+          <h2><span data-cn="DMS素材" data-en="DMS Creatives">DMS素材</span></h2>
+          <div class="small" id="dmsSubtitle"><span data-cn="6-7月有花费的图文 / 视频素材" data-en="Jun-Jul paid Image / Video creatives">6-7月有花费的图文 / 视频素材</span></div>
         </div>
         <div class="table-tools">
-          <button id="downloadDmsCsv" class="ghost" type="button">导出当前DMS列表</button>
-          <button id="openDmsExport" class="ghost" type="button">打开DMS导出页</button>
+          <button id="downloadDmsCsv" class="ghost" type="button"><span data-cn="导出当前DMS列表" data-en="Export DMS List">导出当前DMS列表</span></button>
+          <button id="openDmsExport" class="ghost" type="button"><span data-cn="打开DMS导出页" data-en="Open DMS Export">打开DMS导出页</span></button>
         </div>
       </div>
       <div class="pad">
         <div class="dms-toolbar">
-          <div class="creative-count" id="dmsCount">命中素材 <b>0</b> 个</div>
+          <div class="creative-count" id="dmsCount"><span data-cn="命中素材" data-en="Matched">命中素材</span> <b>0</b> <span data-cn="个" data-en="">个</span></div>
           <div class="sort-pills" id="dmsSort">
-            <button type="button" class="active" data-dms-sort="spend">花费</button>
+            <button type="button" class="active" data-dms-sort="spend"><span data-cn="花费" data-en="Spend">花费</span></button>
             <button type="button" data-dms-sort="cpc">CPC</button>
-            <button type="button" data-dms-sort="orders">订单</button>
+            <button type="button" data-dms-sort="orders"><span data-cn="订单" data-en="Orders">订单</span></button>
             <button type="button" data-dms-sort="gmv">GMV</button>
             <button type="button" data-dms-sort="roi">ROI</button>
-            <button type="button" data-dms-sort="downloadReady">可下载</button>
-            <button type="button" data-dms-sort="createdAt">创建时间</button>
+            <button type="button" data-dms-sort="downloadReady"><span data-cn="可下载" data-en="Downloadable">可下载</span></button>
+            <button type="button" data-dms-sort="createdAt"><span data-cn="创建时间" data-en="Created">创建时间</span></button>
           </div>
         </div>
         <section class="dms-grid" id="dmsCards"></section>
         <div class="dms-list-head">
           <div>
-            <h3>视频 / 图文素材列表</h3>
-            <div class="dms-source-note" id="dmsSourceNote">DMS 素材列表导出 + 7月有花费素材</div>
+            <h3><span data-cn="视频 / 图文素材列表" data-en="Video / Image Creatives">视频 / 图文素材列表</span></h3>
+            <div class="dms-source-note" id="dmsSourceNote"><span data-cn="DMS 素材列表导出 + 7月有花费素材" data-en="DMS export + July paid creatives">DMS 素材列表导出 + 7月有花费素材</span></div>
           </div>
         </div>
         <div class="dms-table-wrap">
@@ -2186,8 +2194,8 @@
     <section class="panel">
       <div class="head">
         <div>
-          <h2>品类 × 产品 × 收割标签</h2>
-          <div class="small" id="categoryNote">按当前筛选 · 点品类展开下属产品</div>
+          <h2><span data-cn="品类 × 产品 × 收割标签" data-en="Category × Product × Harvest Tag">品类 × 产品 × 收割标签</span></h2>
+          <div class="small" id="categoryNote"><span data-cn="按当前筛选 · 点品类展开下属产品" data-en="Under current filters · Click category to expand products">按当前筛选 · 点品类展开下属产品</span></div>
         </div>
       </div>
       <div class="pad category-summary" id="categorySummary"></div>
@@ -2211,15 +2219,23 @@
       <button type="button" class="lb-btn" id="lbZoomOut" title="缩小（-）">−</button>
       <span class="lb-zoom" id="lbZoom">100%</span>
       <button type="button" class="lb-btn" id="lbZoomIn" title="放大（+）">＋</button>
-      <button type="button" class="lb-btn" id="lbFit" title="适应窗口（0）">适应</button>
+      <button type="button" class="lb-btn" id="lbFit" title="适应窗口（0）"><span data-cn="适应" data-en="Fit">适应</span></button>
       <button type="button" class="lb-btn" id="lbActual" title="实际大小（1）">1:1</button>
-      <a class="lb-btn lb-link" id="lbDownload" href="#" target="_blank" rel="noopener" download>下载原图</a>
+      <a class="lb-btn lb-link" id="lbDownload" href="#" target="_blank" rel="noopener" download><span data-cn="下载原图" data-en="Download">下载原图</span></a>
       <button type="button" class="lb-btn lb-close" id="lbClose" title="关闭（Esc）">✕</button>
     </div>
-    <div class="lb-hint" id="lbHint">滚轮缩放 · 拖拽平移 · 点击空白处关闭</div>
+    <div class="lb-hint" id="lbHint"><span data-cn="滚轮缩放 · 拖拽平移 · 点击空白处关闭" data-en="Scroll to zoom · Drag to pan · Click outside to close">滚轮缩放 · 拖拽平移 · 点击空白处关闭</span></div>
   </div>
 
   <script>
+    // 语言在脚本加载前确定，保证模块级常量（表头/指标注册）按正确语言构建
+    let LANG = (() => {
+      try {
+        const p = new URLSearchParams(location.search).get('lang');
+        if (p === 'EN' || p === 'CN') return p;
+        return localStorage.getItem('harvest-lang') || 'CN';
+      } catch { return 'CN'; }
+    })();
     const $ = (id) => document.getElementById(id);
     const DEFAULT_TYPES = ['图文', '视频'];
     const TABLE_LIMIT = 250;
@@ -2278,6 +2294,46 @@
       initialized: false
     };
 
+    // ===== 双语（CN / EN）=====
+    // t(cn, en)：显示文案就近翻译。CN 模式原样返回，EN 模式返回英文。
+    // 注意：只包裹「显示给用户」的文本；数据 key（未标注/图文/视频/awa 等）保持原样，
+    // 它们在 EN 模式下通过 translateName() 只在展示层映射，不参与逻辑判断。
+    function t(cn, en) { return LANG === 'EN' ? en : cn; }
+    // 数据值展示映射（仅显示层；不要把映射结果写回 state 或用于比较）
+    const VALUE_EN = {
+      '未标注': 'Unlabeled', '图文': 'Image', '视频': 'Video', '全部': 'All',
+      '一级标签': 'L1 Tag', '二级标签': 'L2 Tag', '三级标签': 'L3 Tag',
+      '收割标签': 'Harvest Tag', '其他策划': 'Other PIC',
+      '认知': 'Awareness', '种草': 'Consideration', '转化': 'Conversion',
+      '是': 'Yes', '否': 'No', '新增': 'New', '当前': 'Current',
+      'AWA 认知': 'AWA Awareness', 'consi 种草': 'Consi Consideration', 'conv 转化': 'Conv Conversion'
+    };
+    function translateName(value) {
+      const raw = String(value ?? '');
+      if (LANG !== 'EN' || !raw) return raw;
+      if (VALUE_EN[raw]) return VALUE_EN[raw];
+      // 数据专有名（品牌 / 国家 / 编号 / 广告名）原样保留
+      return raw;
+    }
+    // 静态 HTML 文案：标记 data-cn / data-en，切换语言时批量替换
+    function applyStaticLang() {
+      document.querySelectorAll('[data-cn][data-en]').forEach(el => {
+        // 这些节点由 JS 用 t() 动态维护，跳过静态替换避免被改回中文
+        const ownerId = el.id || el.parentElement?.id || '';
+        if (['advancedCount','brandLabel','countryLabel','productLabel','tag1Label','tag2Label'].includes(ownerId)) return;
+        const next = LANG === 'EN' ? el.dataset.en : el.dataset.cn;
+        if (el.children.length) {
+          // 混排节点：只替换首个文本节点，保留内部 <b>/<span> 等结构
+          const node = [...el.childNodes].find(n => n.nodeType === Node.TEXT_NODE && n.textContent.trim());
+          if (node) node.textContent = next;
+        } else {
+          el.textContent = next;
+        }
+      });
+      document.documentElement.lang = LANG === 'EN' ? 'en' : 'zh-CN';
+      document.querySelectorAll('.lang-toggle button').forEach(b => b.classList.toggle('active', b.dataset.lang === LANG));
+    }
+
     const safe = (value) => String(value ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
     const fmt = (n, d = 0) => Number(n || 0).toLocaleString('en-US', { maximumFractionDigits: d, minimumFractionDigits: d });
     const money = (n) => Number(n || 0).toLocaleString('en-US', { maximumFractionDigits: 0 });
@@ -2287,12 +2343,12 @@
     // 趋势图可画线指标：最多同时选 6 个，每个指标按自身量级独立归一化
     const TREND_MAX_METRICS = 6;
     const TREND_METRICS = [
-      { key: 'spend', label: '花费', color: '#2f6f9f', soft: '#7a8da0', marker: 'bar' },
-      { key: 'impressions', label: '曝光', color: '#6b5bd2', soft: '#a89de0' },
-      { key: 'linkClick', label: '链接点击', color: '#2563eb', soft: '#93b4f0' },
-      { key: 'conversions', label: '订单', color: '#b42318', soft: '#d97062' },
+      { key: 'spend', label: t('花费','Spend'), color: '#2f6f9f', soft: '#7a8da0', marker: 'bar' },
+      { key: 'impressions', label: t('曝光','Impressions'), color: '#6b5bd2', soft: '#a89de0' },
+      { key: 'linkClick', label: t('链接点击','Link Clicks'), color: '#2563eb', soft: '#93b4f0' },
+      { key: 'conversions', label: t('订单','Orders'), color: '#b42318', soft: '#d97062' },
       { key: 'purchaseValue', label: 'GMV', color: '#c2410c', soft: '#eda47f' },
-      { key: 'addToCart', label: '加购金额', color: '#a12a72', soft: '#dd9ac4' },
+      { key: 'addToCart', label: t('加购金额','Add-to-Cart'), color: '#a12a72', soft: '#dd9ac4' },
       { key: 'roi', label: 'ROI', color: '#0f766e', soft: '#48a195' },
       { key: 'cpc', label: 'CPC', color: '#4338ca', soft: '#9c95e8' },
       { key: 'cpa', label: 'CPA', color: '#b45309', soft: '#e0a463' },
@@ -2499,7 +2555,7 @@
       $('compareFrom').disabled = !enabled || state.compareMode !== 'custom';
       $('compareTo').disabled = !enabled || state.compareMode !== 'custom';
       row.classList.toggle('disabled', !enabled);
-      $('advancedCount').textContent = enabled ? '1 项启用' : '0 项启用';
+      $('advancedCount').textContent = enabled ? t('1 项启用','1 active') : t('0 项启用','0 active');
       if (enabled) $('advancedFilters').open = true;
     }
 
@@ -2735,10 +2791,10 @@
       return `<div class="tree-child ${treeColorClass(node)}">
         <div class="tree-child-title">${safe(node.name)}</div>
         <div class="tree-child-meta">
-          <span>素材 ${fmt(node.posts)}</span>
-          <span>订单 ${fmt(node.conversions)}</span>
+          <span>${t('素材','Creatives')}${fmt(node.posts)}</span>
+          <span>${t('订单','Orders')}${fmt(node.conversions)}</span>
           <span>ROI ${roi(node.roi)}</span>
-          <span>成功率 ${pct(node.successRate)}</span>
+          <span>${t('成功率','Success Rate')}${pct(node.successRate)}</span>
         </div>${leaves}
       </div>`;
     }
@@ -2754,23 +2810,23 @@
 
       $('tagTreeLegend').innerHTML = tree.length
         ? tree.map(node => `<span class="badge">${safe(node.tag1)} · ${fmt(node.posts)} 素材 · ${money(node.spend)} 花费 · ${roi(node.roi)} ROI</span>`).join('')
-        : `<span class="small">当前筛选下没有带 DMS 一级标签的素材</span>`;
+        : `<span class="small">${t('当前筛选下没有带 DMS 一级标签的素材','No creatives with DMS L1 tags under current filters')}</span>`;
 
       const anchorMonth = harvestAnchorMonth();
       $('tagTreeNote').textContent = state.materialFrom || state.materialTo
-        ? `${state.materialFrom || (anchorMonth + '-01')} ~ ${state.materialTo || state.to || state.raw?.filters?.performanceTo || '当前'} · 成功率=达标素材/素材数`
-        : `素材创建月 ${anchorMonth} · 成功率=达标素材/素材数`;
+        ? `${state.materialFrom || (anchorMonth + '-01')} ~ ${state.materialTo || state.to || state.raw?.filters?.performanceTo || '当前'} · ${t('成功率','Success Rate')}=达标素材/素材数`
+        : `${t('素材创建月','Creative month')}${anchorMonth} · ${t('成功率','Success Rate')}=达标素材/素材数`;
 
       $('tagTreemap').innerHTML = tree.length
         ? tree.map(node => `<div class="tree-root" style="flex:${Math.max(1, Number(node.spend || 0))}">
             <div class="tree-root-head">
               <div class="tree-root-title">${safe(node.tag1)}</div>
               <div class="tree-root-meta">
-                <span>素材 ${fmt(node.posts)}</span>
-                <span>花费 ${money(node.spend)}</span>
+                <span>${t('素材','Creatives')}${fmt(node.posts)}</span>
+                <span>${t('花费','Spend')}${money(node.spend)}</span>
                 <span>GMV ${money(node.purchaseValue)}</span>
                 <span>ROI ${roi(node.roi)}</span>
-                <span>成功率 ${pct(node.successRate)}</span>
+                <span>${t('成功率','Success Rate')}${pct(node.successRate)}</span>
               </div>
               <div class="small">${safe(thresholdText(node.harvestTag))}</div>
             </div>
@@ -2778,9 +2834,9 @@
               (node.children || []).slice(0, 8).map(renderTreeNode).join('')
             }</div>
           </div>`).join('')
-        : `<div class="empty">当前筛选下暂无树状图数据</div>`;
+        : `<div class="empty">${t('当前筛选下暂无树状图数据','No tree data')}</div>`;
 
-      const headers = ['标签', '素材数', '花费', 'GMV', '订单', 'ROI', 'CPC', '达标素材', '成功率'];
+      const headers = [t('标签','Tag'), t('素材数','Creatives'), t('花费','Spend'), 'GMV', t('订单','Orders'), 'ROI', 'CPC', t('达标素材','Qualified'), t('成功率','Success Rate')];
       $('tagHierarchyTable').innerHTML = `<thead><tr>${headers.map(label => `<th>${safe(label)}</th>`).join('')}</tr></thead><tbody>${
         flat.length ? flat.map(node => {
           const compare = compareMap.get(node.path.join(' / ')) || {};
@@ -2840,15 +2896,15 @@
         }
       }
       const headers = [
-        ['关键词', 'zh', ''],
-        ['素材数', 'posts', 'num'],
-        ['花费', 'spend', 'num'],
+        [t('关键词','Keyword'), 'zh', ''],
+        [t('素材数','Creatives'), 'posts', 'num'],
+        [t('花费','Spend'), 'spend', 'num'],
         ['CTR', 'ctr', 'num'],
         ['CPC', 'cpc', 'num'],
-        ['订单', 'orders', 'num'],
+        [t('订单','Orders'), 'orders', 'num'],
         ['ROI', 'roi', 'num']
       ];
-      const aiKwLabel = { zh: '关键词', posts: '素材数', spend: '花费', ctr: 'CTR', cpc: 'CPC', orders: '订单', roi: 'ROI' };
+      const aiKwLabel = { zh: t('关键词','Keyword'), posts: t('素材数','Creatives'), spend: t('花费','Spend'), ctr: 'CTR', cpc: 'CPC', orders: t('订单','Orders'), roi: 'ROI' };
       const aiKwValue = (item, key) => {
         if (key === 'posts') return Number(item.posts || 0);
         if (key === 'spend') return Number(item.spend || 0);
@@ -2903,8 +2959,8 @@
       bindAiKwSort(sellTable, 'sell');
       bindAiKwSort(copyTable, 'copy');
       const sorts = state.aiKwSort;
-      const sortText = (k) => `${aiKwLabel[sorts[k].key]}${sorts[k].dir > 0 ? '升序' : '降序'}`;
-      $('aiKwNote').textContent = `视觉模型从素材快照提取 · 当前筛选内已分析 ${fmt(analyzed)} 条素材 · 卖点按${sortText('sell')} / 文案按${sortText('copy')}，各取 Top 40`;
+      const sortText = (k) => `${aiKwLabel[sorts[k].key]}${sorts[k].dir > 0 ? '升序' : t('降序','descending')}`;
+      $('aiKwNote').textContent = `视觉模型从素材快照提取 · 当前筛选内已分析 ${fmt(analyzed)} 条素材 · 卖点按${sortText('sell')} / ${t('文案按','Copy by ')}${sortText('copy')}，${t('各取 Top 40','Top 40 each')}`;
     }
 
     function deltaChip(current, base) {
@@ -2938,15 +2994,15 @@
       const s = sumRows(state.filtered);
       const c = sumRows(state.compareFiltered || []);
       const items = [
-        { label: '花费(USD)', value: money(s.spend), note: `${fmt(s.posts)} 个在跑素材`, metric: s.spend, base: c.spend, lower: true, primary: true },
-        { label: '曝光', value: fmt(s.impressions), note: `CPM ${fmt(s.cpm, 2)}`, metric: s.impressions, base: c.impressions },
-        { label: '链接点击', value: fmt(s.linkClick), note: `CTR ${pct(s.ctr)}`, metric: s.linkClick, base: c.linkClick },
-        { label: '订单', value: fmt(s.conversions), note: `CPA ${fmt(s.cpa, 2)}`, metric: s.conversions, base: c.conversions },
+        { label: t('花费(USD)','Spend (USD)'), value: money(s.spend), note: `${fmt(s.posts)} ${t('个在跑素材',' active creatives')}`, metric: s.spend, base: c.spend, lower: true, primary: true },
+        { label: t('曝光','Impressions'), value: fmt(s.impressions), note: `CPM ${fmt(s.cpm, 2)}`, metric: s.impressions, base: c.impressions },
+        { label: t('链接点击','Link Clicks'), value: fmt(s.linkClick), note: `CTR ${pct(s.ctr)}`, metric: s.linkClick, base: c.linkClick },
+        { label: t('订单','Orders'), value: fmt(s.conversions), note: `CPA ${fmt(s.cpa, 2)}`, metric: s.conversions, base: c.conversions },
         { label: 'GMV(USD)', value: money(s.purchaseValue), note: `ROI ${roi(s.roi)}`, metric: s.purchaseValue, base: c.purchaseValue, primary: true },
-        { label: '加购金额', value: money(s.addToCart), note: `CVR ${pct(s.cvr)}`, metric: s.addToCart, base: c.addToCart },
-        { label: 'CPC', value: money2(s.cpc), note: '花费 / 链接点击', metric: s.cpc, base: c.cpc, lower: true },
-        { label: 'CPA', value: money2(s.cpa), note: '花费 / 订单', metric: s.cpa, base: c.cpa, lower: true },
-        { label: 'CPM', value: money2(s.cpm), note: '花费 / 千次曝光', metric: s.cpm, base: c.cpm, lower: true }
+        { label: t('加购金额','Add-to-Cart'), value: money(s.addToCart), note: `CVR ${pct(s.cvr)}`, metric: s.addToCart, base: c.addToCart },
+        { label: 'CPC', value: money2(s.cpc), note: t('花费 / 链接点击','Spend / Link Clicks'), metric: s.cpc, base: c.cpc, lower: true },
+        { label: 'CPA', value: money2(s.cpa), note: t('花费 / 订单','Spend / Orders'), metric: s.cpa, base: c.cpa, lower: true },
+        { label: 'CPM', value: money2(s.cpm), note: t('花费 / 千次曝光','Spend / 1k Impressions'), metric: s.cpm, base: c.cpm, lower: true }
       ];
       $('kpis').innerHTML = items.map(item => `<div class="kpi ${item.primary ? 'primary-kpi' : ''}">
         <div class="label">${safe(item.label)}</div>
@@ -2962,11 +3018,11 @@
       const totalSpend = rows.reduce((sum, row) => sum + Number(row.spend || 0), 0);
       const avgRoi = totalSpend ? rows.reduce((sum, row) => sum + Number(row.purchaseValue || 0), 0) / totalSpend : 0;
       if (!top.length) {
-        $(id).innerHTML = `<div class="empty">当前筛选下暂无数据</div>`;
+        $(id).innerHTML = `<div class="empty">${t('当前筛选下暂无数据','No data under current filters')}</div>`;
         return;
       }
       $(id).innerHTML = `<div class="barrow header ${showSpendShare ? 'with-share' : ''} ${showCpc ? 'with-cpc' : ''}">
-          <div>维度</div><div>花费占比</div><div class="num">花费</div><div class="num hide-mobile">订单</div><div class="num hide-mobile">ROI</div>${showCpc ? '<div class="num hide-mobile" title="CPC = 花费 / 链接点击（USD）">CPC</div>' : ''}${showSpendShare ? '<div class="num hide-mobile">花费占比</div>' : ''}
+          <div>${t('维度','Dimension')}</div><div>${t('花费占比','Spend Share')}</div><div class="num">${t('花费','Spend')}</div><div class="num hide-mobile">${t('订单','Orders')}</div><div class="num hide-mobile">ROI</div>${showCpc ? '<div class="num hide-mobile" title="CPC = 花费 / 链接点击（USD）">CPC</div>' : ''}${showSpendShare ? '<div class="num hide-mobile">花费占比</div>' : ''}
         </div>` + top.map(row => {
           const cls = row.name === '视频' ? 'video' : row.name === '图文' ? 'image' : '';
           const roiClass = row.roi > avgRoi ? 'roi-high' : row.roi < avgRoi ? 'roi-low' : 'roi-mid';
@@ -3030,11 +3086,11 @@
       const compareMap = new Map(compareRows.map(row => [row.name, row]));
       const shown = rows.slice(0, 12);
       const headers = [
-        ['产品', 'product', ''],
-        ['花费', 'spend', 'num'],
+        [t('产品','Product'), 'product', ''],
+        [t('花费','Spend'), 'spend', 'num'],
         ['ROI', 'roi', 'num'],
-        ['单量', 'conversions', 'num'],
-        ['出单的素材量', 'orderMaterials', 'num'],
+        [t('单量','Orders'), 'conversions', 'num'],
+        [t('出单的素材量','Ordering Creatives'), 'orderMaterials', 'num'],
         ['CTR', 'ctr', 'num'],
         ['CPC', 'cpc', 'num'],
         ['GMV', 'purchaseValue', 'num'],
@@ -3076,9 +3132,9 @@
       ];
       // [标签, 当前值, 当前数, 对比数, 越高越好]
       const metric = (m, b) => [
-        ['素材数', fmt(m.posts), m.posts, b.posts, true],
-        ['花费', `$${money(m.spend)}`, m.spend, b.spend, false],
-        ['订单', fmt(m.conversions), m.conversions, b.conversions, true],
+        [t('素材数','Creatives'), fmt(m.posts), m.posts, b.posts, true],
+        [t('花费','Spend'), `$${money(m.spend)}`, m.spend, b.spend, false],
+        [t('订单','Orders'), fmt(m.conversions), m.conversions, b.conversions, true],
         ['GMV', `$${money(m.purchaseValue)}`, m.purchaseValue, b.purchaseValue, true],
         ['ROI', roi(m.roi), m.roi, b.roi, true],
         ['CPC', money2(m.cpc), m.cpc, b.cpc, false],
@@ -3105,7 +3161,7 @@
       // 华人素材分产品
       const cmpProductMap = groupMap(cmpCn, 'product');
       const cnProducts = groupRows(cn, 'product').slice(0, 12);
-      const pThead = `<thead><tr><th>产品</th><th class="num">素材</th><th class="num">花费</th><th class="num">订单</th><th class="num">ROI</th><th class="num">CPC</th></tr></thead>`;
+      const pThead = `<thead><tr><th>${t('产品','Product')}</th><th class="num">${t('素材','Creatives')}</th><th class="num">${t('花费','Spend')}</th><th class="num">${t('订单','Orders')}</th><th class="num">ROI</th><th class="num">CPC</th></tr></thead>`;
       $('chineseProductTable').innerHTML = pThead + `<tbody>${
         cnProducts.length ? cnProducts.map(r => {
           const b = cmpProductMap.get(r.name) || {};
@@ -3130,7 +3186,7 @@
         ...byTag1.filter(r => r.name !== '未标注' && !/^(awa|consi|conv)$/i.test(r.name))
                  .map(r => ({ ...r, base: cmpTag1Map.get(r.name) || {} }))
       ];
-      const tThead = `<thead><tr><th>标签</th><th class="num">素材</th><th class="num">花费</th><th class="num">订单</th><th class="num">ROI</th><th class="num">CPC</th></tr></thead>`;
+      const tThead = `<thead><tr><th>${t('标签','Tag')}</th><th class="num">${t('素材','Creatives')}</th><th class="num">${t('花费','Spend')}</th><th class="num">${t('订单','Orders')}</th><th class="num">ROI</th><th class="num">CPC</th></tr></thead>`;
       $('chineseTagTable').innerHTML = tThead + `<tbody>${
         labelRows.length ? labelRows.map(r => {
           const b = r.base || {};
@@ -3174,9 +3230,9 @@
         tag: key === 'domestic' ? 'Helen/Linda' : key === 'local' ? 'Faye' : ''
       }));
       const metric = (m, b) => [
-        ['素材数', fmt(m.posts), m.posts, b.posts, true],
-        ['花费', `$${money(m.spend)}`, m.spend, b.spend, false],
-        ['订单', fmt(m.conversions), m.conversions, b.conversions, true],
+        [t('素材数','Creatives'), fmt(m.posts), m.posts, b.posts, true],
+        [t('花费','Spend'), `$${money(m.spend)}`, m.spend, b.spend, false],
+        [t('订单','Orders'), fmt(m.conversions), m.conversions, b.conversions, true],
         ['GMV', `$${money(m.purchaseValue)}`, m.purchaseValue, b.purchaseValue, true],
         ['ROI', roi(m.roi), m.roi, b.roi, true],
         ['CPC', money2(m.cpc), m.cpc, b.cpc, false],
@@ -3211,7 +3267,7 @@
       const focus = decorated.filter(r => r.originKey !== 'other');
       const marketRows = groupRows(focus, 'market').slice(0, 12);
       const productRows = groupRows(focus, 'originProduct').slice(0, 12);
-      const thead = `<thead><tr><th>分组</th><th class="num">素材</th><th class="num">花费</th><th class="num">订单</th><th class="num">ROI</th><th class="num">CPC</th></tr></thead>`;
+      const thead = `<thead><tr><th>${t('分组','Group')}</th><th class="num">${t('素材','Creatives')}</th><th class="num">${t('花费','Spend')}</th><th class="num">${t('订单','Orders')}</th><th class="num">ROI</th><th class="num">CPC</th></tr></thead>`;
       const body = (rows, baseMap) => rows.length ? rows.map(r => {
         const b = baseMap.get(r.name) || {};
         return `<tr><td title="${safe(r.name)}">${safe(short(r.name, 18))}</td>
@@ -3220,8 +3276,8 @@
           <td class="num">${cell(fmt(r.conversions), r.conversions, b.conversions, true)}</td>
           <td class="num">${cell(roi(r.roi), r.roi, b.roi, true)}</td>
           <td class="num">${cell(money2(r.cpc), r.cpc, b.cpc, false)}</td></tr>`;
-      }).join('') : `<tr><td colspan="6" class="empty">当前筛选下暂无国内/本地化图文素材</td></tr>`;
-      $('originMarketTable').innerHTML = `<thead><tr><th>品牌 · 市场</th><th class="num">素材</th><th class="num">花费</th><th class="num">订单</th><th class="num">ROI</th><th class="num">CPC</th></tr></thead><tbody>${body(marketRows, cmpMarketMap)}</tbody>`;
+      }).join('') : `<tr><td colspan="6" class="empty">${t('当前筛选下暂无国内/本地化图文素材','No domestic/localized creatives')}</td></tr>`;
+      $('originMarketTable').innerHTML = `<thead><tr><th>${t('品牌 · 市场','Brand · Market')}</th><th class="num">${t('素材','Creatives')}</th><th class="num">${t('花费','Spend')}</th><th class="num">${t('订单','Orders')}</th><th class="num">ROI</th><th class="num">CPC</th></tr></thead><tbody>${body(marketRows, cmpMarketMap)}</tbody>`;
       $('originProductTable').innerHTML = thead + `<tbody>${body(productRows, cmpProductMap)}</tbody>`;
       $('originNote').textContent = `按 DMS 策划 PIC 区分：Helen / Linda = 国内图文，陈耀菲 Faye = 本地化图文 · 当前类型：${state.originType === 'all' ? '全部' : state.originType} · 不受「华人素材」三态筛选影响`;
     }
@@ -3229,8 +3285,8 @@
     function renderHarvestTags() {
       const scopedRows = harvestTagRows();
       renderBars('tag1Bars', groupRows(scopedRows, 'tag1'), 12, false, true);
-      renderSplitTagPanel('tag2Bars', scopedRows, 'tag2', '主题');
-      renderSplitTagPanel('tag3Bars', scopedRows, 'tag3', '测试点');
+      renderSplitTagPanel('tag2Bars', scopedRows, 'tag2', t('主题','Topic'));
+      renderSplitTagPanel('tag3Bars', scopedRows, 'tag3', t('测试点','Test Point'));
     }
 
     // 收割三大类（awa / consi / conv），仅用于达标线分档；标签列展示的是 DMS 官方标签
@@ -3273,9 +3329,9 @@
           <div class="tag-group-head">
         <div class="tag-group-title">
           <span>${safe(parent.label)}</span>
-          <span class="small">${safe(labelName)} ${fmt(items.length)} 项 · 总花费(USD) ${money(parentMetrics.spend)}</span>
+          <span class="small">${safe(labelName)} ${fmt(items.length)} ${t('项 · 总花费(USD)',' items · Spend (USD)')}${money(parentMetrics.spend)}</span>
         </div>
-        <span class="tag-column-head">订单</span>
+        <span class="tag-column-head">${t('订单','Orders')}</span>
         <span class="tag-column-head">ROI</span>
         <span class="tag-column-head" title="CPC = 花费 / 链接点击（USD）">CPC</span>
           </div>
@@ -3293,7 +3349,7 @@
           }</div>
         </div>`;
       }).filter(Boolean);
-      $(id).innerHTML = blocks.length ? `<div class="tag-groups">${blocks.join('')}</div>` : `<div class="empty">当前筛选下暂无数据</div>`;
+      $(id).innerHTML = blocks.length ? `<div class="tag-groups">${blocks.join('')}</div>` : `<div class="empty">${t('当前筛选下暂无数据','No data under current filters')}</div>`;
     }
 
     function dmsMatchesFilters(row) {
@@ -3375,15 +3431,15 @@
       const rows = dmsRows();
       const matched = rows.filter(row => row.matchedDms).length;
       const avgRoi = rows.length ? rows.reduce((sum, row) => sum + Number(row.roi || 0), 0) / rows.length : 0;
-      $('dmsSubtitle').textContent = `${dmsRangeText()} 有花费的图文 / 视频素材 · DMS匹配 ${fmt(matched)}/${fmt(rows.length)}`;
-      $('dmsCount').innerHTML = `命中素材 <b>${fmt(rows.length)}</b> 个`;
+      $('dmsSubtitle').textContent = `${dmsRangeText()} ${t('有花费的图文 / 视频素材 · DMS匹配','Paid image/video · DMS matched ')}${fmt(matched)}/${fmt(rows.length)}`;
+      $('dmsCount').innerHTML = `${t('命中素材','Matched')}<b>${fmt(rows.length)}</b> 个`;
       const shown = rows.slice(0, 120);
       $('dmsCards').innerHTML = shown.map((row, i) => {
         const coverUrl = row.mediaUrl || row.preview || '';
         const downloadUrl = row.downloadUrl || row.mediaUrl || '';
         const cover = coverUrl && /^https?:\/\//.test(coverUrl)
           ? `<img src="${safe(coverUrl)}" alt="" loading="lazy" referrerpolicy="no-referrer">`
-          : `<span>${row.matchedDms ? 'No Preview' : '待导出'}</span>`;
+          : `<span>${row.matchedDms ? 'No Preview' : t('待导出','Pending')}</span>`;
         const typeClass = row.materialType === '视频' ? 'video' : 'image';
         const roiClass = Number(row.roi || 0) > avgRoi ? 'roi-high' : Number(row.roi || 0) < avgRoi ? 'roi-low' : 'roi-mid';
         return `<article class="dms-card">
@@ -3393,8 +3449,8 @@
             <div class="small">${safe(row.materialId || row.materialCode || '-')} · ${safe(row.country || '-')} · ${safe(row.product || '-')}</div>
             ${themeChipsHtml(row)}
             <div class="dms-meta">
-              <span>花费<b>${money(row.spend)}</b></span>
-              <span>订单<b>${fmt(row.orders)}</b></span>
+              <span>${t('花费','Spend')}<b>${money(row.spend)}</b></span>
+              <span>${t('订单','Orders')}<b>${fmt(row.orders)}</b></span>
               <span>CTR<b>${pct(cardCtr(row))}</b></span>
               <span class="${roiClass}">ROI<b>${roi(row.roi)}</b></span>
               <span class="dms-meta-wide" title="CPC = 花费 / 链接点击（USD）">CPC<b>${money2(row.cpc ?? cpcOf(row))}</b></span>
@@ -3468,7 +3524,7 @@
     // 高清预览触发属性：把原始 URL 写进 data-*，由 lightbox 统一走代理 / 处理跨域
     function lightboxAttrs(hiSrc, thumbSrc, row = {}, isVideo = false) {
       const raw = row.materialName || row.adName || row.materialCode || row.materialId || '';
-      const title = short(String(raw).trim() || '素材快照', 90);
+      const title = short(String(raw).trim() || t('素材快照','Creative Snapshot'), 90);
       const attrs = [` data-lb-title="${safe(title)}"`];
       const themeKey = String(row.key || row.materialCode || row.materialId || '').trim();
       if (themeKey) attrs.push(` data-lb-key="${safe(themeKey)}"`);
@@ -3494,7 +3550,7 @@
       if (!photo || !/^https?:\/\//.test(String(photo))) return '';
       const big = dmsOriginalVideoUrl(dmsDownloadUrl(row) || photo);
       const isVideo = row.isVideo === true || row.materialType === '视频' || dmsIsVideoUrl(big);
-      const title = short(String(row.materialName || row.materialCode || row.adName || '素材快照').trim(), 90);
+      const title = short(String(row.materialName || row.materialCode || row.adName || t('素材快照','Creative Snapshot')).trim(), 90);
       return `<a class="post-thumb${isVideo ? ' video' : ''}" href="${safe(dmsProxyUrl(big))}"
         target="_blank" rel="noopener" title="${safe(title)}"${lightboxAttrs(big, photo, row, isVideo)}
         ><img src="${safe(dmsProxyUrl(photo))}" alt="" loading="lazy"
@@ -3506,8 +3562,8 @@
     function renderDmsFallbackCover(row = {}, fallbackText = '') {
       const typeText = String(row.materialType || row.materialKind || fallbackText || '');
       const isVideo = /video|视频|頻|频/i.test(typeText);
-      const title = short(row.materialName || row.adName || row.product || fallbackText || '素材封面', 42);
-      const sub = [row.product, row.country].filter(Boolean).join(' · ') || (isVideo ? '视频素材' : '图文素材');
+      const title = short(row.materialName || row.adName || row.product || fallbackText || t('素材封面','Cover'), 42);
+      const sub = [row.product, row.country].filter(Boolean).join(' · ') || (isVideo ? '视频素材' : t('图文素材','Image'));
       const code = row.materialId || row.materialCode || row.key || 'DMS';
       return `<div class="dms-fallback-cover ${isVideo ? 'video' : 'image'}">
         <div class="dms-fallback-brand">${safe(row.brand || 'NP / LXP / FR / SKT')}</div>
@@ -3518,7 +3574,7 @@
       </div>`;
     }
 
-    const THEME_LANG_LABEL = { id: '印尼语', ms: '马来语', en: '英语', zh: '中文', none: '无文字' };
+    const THEME_LANG_LABEL = { id: t('印尼语','Indonesian'), ms: t('马来语','Malay'), en: t('英语','English'), zh: t('中文','Chinese'), none: t('无文字','No Text') };
 
     function themeOf(row) {
       if (!state.themes) return null;
@@ -3583,20 +3639,20 @@
         return `<div class="lb-themes-sec"><div class="lb-themes-sec-head">${label}</div>`
           + `<div class="lb-themes-grid">${items}</div></div>`;
       };
-      const rows = [['场景', item.scene], ['图上语言', THEME_LANG_LABEL[String(item.lang || '').toLowerCase()] || '']]
+      const rows = [[t('场景','Scene'), item.scene], [t('图上语言','On-image Language'), THEME_LANG_LABEL[String(item.lang || '').toLowerCase()] || '']]
         .filter(([, value]) => value);
       const kv = rows.length
         ? `<dl class="lb-themes-kv">${rows.map(([k, v]) => `<dt>${k}</dt><dd>${safe(v)}</dd>`).join('')}</dl>`
         : '';
       const onimage = (item.onimage || item.onimageZh)
-        ? `<div class="lb-themes-onimage"><em>图上文案</em>${safe(item.onimage || '')}${item.onimageZh ? `<span class="lb-onimage-zh">中译：${safe(item.onimageZh)}</span>` : ''}</div>`
+        ? `<div class="lb-themes-onimage"><em>${t('图上文案','On-image Copy')}</em>${safe(item.onimage || '')}${item.onimageZh ? `<span class="lb-onimage-zh">中译：${safe(item.onimageZh)}</span>` : ''}</div>`
         : '';
       const metaBits = [item.model, item.analyzedAt].filter(Boolean).map(safe).join(' · ');
       box.innerHTML = `<div class="lb-themes-head">卖点 &amp; 文案<span>${metaBits}</span></div>`
-        + gridOf(sell, 'sell', '卖点标签')
-        + gridOf(copy, 'copy', '文案主题关键词')
+        + gridOf(sell, 'sell', t('卖点标签','Selling Points'))
+        + gridOf(copy, 'copy', t('文案主题关键词','Copy Themes'))
         + kv + onimage
-        + `<div class="lb-themes-foot">由视觉模型读取快照生成，${state.themesMeta?.model || 'glm-4.6v-flash'} · 仅供创意参考</div>`;
+        + `<div class="lb-themes-foot">由视觉模型读取快照生成，${state.themesMeta?.model || 'glm-4.6v-flash'} · ${t('仅供创意参考','Reference only')}</div>`;
       box.hidden = false;
     }
 
@@ -3628,9 +3684,9 @@
         const playUrl = dmsProxyUrl(hiRes);
         if (poster) {
           const fallbackPoster = dmsVideoPosterUrl(url, 3500);
-          return `<a class="dms-video-wrap" href="${safe(playUrl)}" target="_blank" rel="noopener"${lb}>${fallback}<img src="${safe(dmsProxyUrl(poster))}" data-fallback="${safe(dmsProxyUrl(fallbackPoster))}" alt="" loading="lazy" onload="${dropFallback}" onerror="if(this.dataset.fallback){this.src=this.dataset.fallback;this.dataset.fallback=''}else{this.remove()}"><span class="dms-play-badge">播放</span></a>`;
+          return `<a class="dms-video-wrap" href="${safe(playUrl)}" target="_blank" rel="noopener"${lb}>${fallback}<img src="${safe(dmsProxyUrl(poster))}" data-fallback="${safe(dmsProxyUrl(fallbackPoster))}" alt="" loading="lazy" onload="${dropFallback}" onerror="if(this.dataset.fallback){this.src=this.dataset.fallback;this.dataset.fallback=''}else{this.remove()}"><span class="dms-play-badge">${t('播放','Play')}</span></a>`;
         }
-        return `<a class="dms-video-wrap" href="${safe(playUrl)}" target="_blank" rel="noopener"${lb}>${fallback}<video src="${safe(playUrl)}" muted playsinline preload="metadata" controls onloadeddata="${dropFallback}"></video><span class="dms-play-badge">播放</span></a>`;
+        return `<a class="dms-video-wrap" href="${safe(playUrl)}" target="_blank" rel="noopener"${lb}>${fallback}<video src="${safe(playUrl)}" muted playsinline preload="metadata" controls onloadeddata="${dropFallback}"></video><span class="dms-play-badge">${t('播放','Play')}</span></a>`;
       }
       return `<span class="dms-media-shell"${lb}>${fallback}<img src="${safe(dmsProxyUrl(url))}" alt="" loading="lazy" onload="${dropFallback}" onerror="this.remove()"></span>`;
     }
@@ -3644,11 +3700,11 @@
     }
 
     function dmsDownloadState(row) {
-      return dmsDownloadUrl(row) && /^https?:\/\//.test(dmsDownloadUrl(row)) ? '可下载' : '待DMS导出';
+      return dmsDownloadUrl(row) && /^https?:\/\//.test(dmsDownloadUrl(row)) ? '可下载' : t('待DMS导出','Pending DMS Export');
     }
 
     function renderDmsTable(rows, avgRoi = 0) {
-      const headers = ['预览','素材编号','素材名称','国家','产品','类型','花费','CPC','订单','GMV','ROI','创建时间','尺寸','投放状态','下载'];
+      const headers = [t('预览','Preview'),t('素材编号','Creative ID'),t('素材名称','Creative Name'),t('国家','Country'),t('产品','Product'),t('类型','Type'),t('花费','Spend'),'CPC',t('订单','Orders'),'GMV','ROI',t('创建时间','Created'),t('尺寸','Size'),t('投放状态','Status'),t('下载','Download')];
       const thead = `<thead><tr>${headers.map(h => `<th>${safe(h)}</th>`).join('')}</tr></thead>`;
       const body = rows.slice(0, TABLE_LIMIT).map(row => {
         const previewUrl = dmsPreviewUrl(row);
@@ -3656,8 +3712,8 @@
         const mediaUrl = previewUrl || downloadUrl;
         const preview = `<div class="dms-thumb">${renderDmsMedia(mediaUrl, row.materialType || '-', row)}</div>`;
         const download = downloadUrl && /^https?:\/\//.test(downloadUrl)
-          ? `<a href="${safe(dmsProxyUrl(downloadUrl, true))}" target="_blank" rel="noopener" download>下载</a>`
-          : `<span class="dms-download-state pending">待导出</span>`;
+          ? `<a href="${safe(dmsProxyUrl(downloadUrl, true))}" target="_blank" rel="noopener" download>${t('下载','Download')}</a>`
+          : `<span class="dms-download-state pending">${t('待导出','Pending')}</span>`;
         const stateClass = downloadUrl && /^https?:\/\//.test(downloadUrl) ? 'ready' : 'pending';
         const roiClass = Number(row.roi || 0) > avgRoi ? 'roi-high' : Number(row.roi || 0) < avgRoi ? 'roi-low' : 'roi-mid';
         return `<tr>
@@ -3686,8 +3742,8 @@
       const matched = rows.filter(row => row.matchedDms).length;
       const ready = rows.filter(row => row.downloadReady || /^https?:\/\//.test(dmsDownloadUrl(row))).length;
       const avgRoi = rows.length ? rows.reduce((sum, row) => sum + Number(row.roi || 0), 0) / rows.length : 0;
-      $('dmsSubtitle').textContent = `${dmsRangeText()} 有花费的图文 / 视频素材 · DMS匹配 ${fmt(matched)}/${fmt(rows.length)} · 可下载 ${fmt(ready)}`;
-      $('dmsCount').innerHTML = `命中素材 <b>${fmt(rows.length)}</b> 个`;
+      $('dmsSubtitle').textContent = `${dmsRangeText()} ${t('有花费的图文 / 视频素材 · DMS匹配','Paid image/video · DMS matched ')}${fmt(matched)}/${fmt(rows.length)} · 可下载 ${fmt(ready)}`;
+      $('dmsCount').innerHTML = `${t('命中素材','Matched')}<b>${fmt(rows.length)}</b> 个`;
       if ($('dmsSourceNote')) {
         $('dmsSourceNote').textContent = `优先解析/展示7月有花费图文视频 · 待解析 ${fmt(state.dms?.missingMediaCount || 0)} 个 · 导出文件 ${fmt((state.dms?.dmsFiles || []).length)} 个 · 生成 ${state.dms?.generatedAt || '-'}`;
       }
@@ -3695,7 +3751,7 @@
       $('dmsCards').innerHTML = shown.map((row, i) => {
         const coverUrl = dmsPreviewUrl(row) || dmsDownloadUrl(row);
         const downloadUrl = dmsDownloadUrl(row);
-        const cover = renderDmsMedia(coverUrl, row.matchedDms ? 'No Preview' : '待DMS导出', row);
+        const cover = renderDmsMedia(coverUrl, row.matchedDms ? 'No Preview' : t('待DMS导出','Pending DMS Export'), row);
         const typeClass = row.materialType === '视频' || row.materialType === '��Ƶ' ? 'video' : 'image';
         const roiClass = Number(row.roi || 0) > avgRoi ? 'roi-high' : Number(row.roi || 0) < avgRoi ? 'roi-low' : 'roi-mid';
         return `<article class="dms-card">
@@ -3705,8 +3761,8 @@
             <div class="small">${safe(row.materialId || row.materialCode || '-')} · ${safe(row.country || '-')} · ${safe(row.product || '-')}</div>
             ${themeChipsHtml(row)}
             <div class="dms-meta">
-              <span>花费<b>${money(row.spend)}</b></span>
-              <span>订单<b>${fmt(row.orders)}</b></span>
+              <span>${t('花费','Spend')}<b>${money(row.spend)}</b></span>
+              <span>${t('订单','Orders')}<b>${fmt(row.orders)}</b></span>
               <span>CTR<b>${pct(cardCtr(row))}</b></span>
               <span class="${roiClass}">ROI<b>${roi(row.roi)}</b></span>
               <span class="dms-meta-wide" title="CPC = 花费 / 链接点击（USD）">CPC<b>${money2(row.cpc ?? cpcOf(row))}</b></span>
@@ -3793,7 +3849,7 @@
       }
       if (!data.length) {
         ctx.fillStyle = '#667085';
-        ctx.fillText('当前筛选下暂无趋势数据', pad.l, pad.t + 22);
+        ctx.fillText(t('当前筛选下暂无趋势数据','No trend data'), pad.l, pad.t + 22);
         return;
       }
       const pointCount = Math.max(data.length, compareData.length, 1);
@@ -3862,7 +3918,7 @@
       const btn = $('trendPickerBtn');
       if (!btn) return;
       const n = (state.trendSelected || []).length;
-      btn.innerHTML = `指标 ${n}/${TREND_METRICS.length} <span class="trend-picker-caret">▾</span>`;
+      btn.innerHTML = `${t('指标','Metrics')}${n}/${TREND_METRICS.length} <span class="trend-picker-caret">▾</span>`;
     }
 
     function renderTrendPicker() {
@@ -3870,7 +3926,7 @@
       if (!panel) return;
       const selected = state.trendSelected || [];
       panel.innerHTML = `
-        <div class="trend-picker-note">柱=花费 · 实线=所选指标 · 虚线=对比期同指标（需开启对比）</div>
+        <div class="trend-picker-note">${t('柱','Bars')}=花费 · 实线=所选指标 · 虚线=${t('对比期同指标（需开启对比）','Compare (enable compare)')}</div>
         <div class="trend-picker-list">
           ${TREND_METRICS.map(m => {
             const on = selected.includes(m.key);
@@ -3900,16 +3956,16 @@
 
     function renderTable() {
       const headers = [
-        ['素材', 'materialLabel'],
-        ['类型', 'materialType'],
-        ['国家', 'country'],
-        ['产品', 'product'],
-        ['日期', 'lastDate'],
-        ['DMS 标签（一/二/三级）', 'tag1'],
-        ['花费', 'spend', true],
-        ['曝光', 'impressions', true],
-        ['点击', 'linkClick', true],
-        ['订单', 'conversions', true],
+        [t('素材','Creatives'), 'materialLabel'],
+        [t('类型','Type'), 'materialType'],
+        [t('国家','Country'), 'country'],
+        [t('产品','Product'), 'product'],
+        [t('日期','Date'), 'lastDate'],
+        [t('DMS 标签（一/二/三级）','DMS Tags (L1/L2/L3)'), 'tag1'],
+        [t('花费','Spend'), 'spend', true],
+        [t('曝光','Impressions'), 'impressions', true],
+        [t('点击','Click'), 'linkClick', true],
+        [t('订单','Orders'), 'conversions', true],
         ['GMV', 'purchaseValue', true],
         ['ROI', 'roi', true],
         ['CPM', 'cpm', true],
@@ -3917,7 +3973,7 @@
         ['CVR', 'cvr', true],
         ['CPA', 'cpa', true],
         ['CPC', 'cpc', true],
-        ['广告细分', 'adDetail']
+        [t('广告细分','Ad Breakdown'), 'adDetail']
       ];
       const rows = [...state.filtered].sort((a, b) => {
         const av = state.sortKey === 'materialLabel' ? materialLabel(a) : a[state.sortKey];
@@ -4002,7 +4058,7 @@
       const table = $('boardTable');
       if (!table) return;
       const combos = boardCombos();
-      const headers = ['品牌', '市场', '花费', 'GMV', 'ROI', '曝光', '链接点击', 'CTR', 'CPC', '订单', '客单价', 'CPA', 'CPM'];
+      const headers = [t('品牌','Brand'), t('市场','Market'), t('花费','Spend'), 'GMV', 'ROI', t('曝光','Impressions'), t('链接点击','Link Clicks'), 'CTR', 'CPC', t('订单','Orders'), t('客单价','AOV'), 'CPA', 'CPM'];
       const thead = `<thead><tr>${headers.map(h => `<th>${safe(h)}</th>`).join('')}</tr></thead>`;
       const totals = { spend: 0, gmv: 0, impressions: 0, linkClicks: 0, orderCount: 0 };
       const body = combos.map(combo => {
@@ -4033,7 +4089,7 @@
         </tr>`;
       }).join('');
       const totalRow = combos.length > 1 ? `<tr class="board-total">
-          <td><b>合计</b></td>
+          <td><b>${t('合计','Total')}</b></td>
           <td>${fmt(combos.length)} 个品牌×市场</td>
           <td class="num">${money(totals.spend)}</td>
           <td class="num">${money(totals.gmv)}</td>
@@ -4060,10 +4116,10 @@
     }
 
     function countryText() {
-      const scope = state.country.length ? (state.country.length === 1 ? state.country[0] : `${state.country.length} 个国家`) : '';
+      const scope = state.country.length ? (state.country.length === 1 ? state.country[0] : `${state.country.length} ${t('个国家',' countries')}`) : '';
       const brand = state.brand.length ? (state.brand.length === 1 ? state.brand[0] : `${state.brand.length} 个品牌`) : '';
       const parts = [brand, scope].filter(Boolean);
-      return parts.length ? parts.join(' · ') : '数据概览';
+      return parts.length ? parts.join(' · ') : t('数据概览','Overview');
     }
 
     function updateView() {
@@ -4085,25 +4141,25 @@
       { key: 'conv', label: 'Conv' }
     ];
     const AGE_MATRIX_COLS = [
-      { label: '数量' },
+      { label: t('数量','Count') },
       { label: 'ROI' },
-      { label: '费用' },
-      { label: '近7天LTV贡献占比' },
-      { label: '数量 △', title: '素材数量对比（涨为好）' },
-      { label: 'ROI △', title: 'ROI 对比（涨为好）' },
-      { label: '费用 △', title: '花费对比（涨为差）' }
+      { label: t('费用','Spend') },
+      { label: t('近7天LTV贡献占比','Last 7d LTV share') },
+      { label: 'Count △', title: t('素材数量对比（涨为好）','Creative count (higher better)') },
+      { label: 'ROI △', title: 'ROI compare (higher better)' },
+      { label: 'Spend △', title: t('花费对比（涨为差）','Spend (lower better)') }
     ];
     const AGE_DETAIL_HEAD = `<thead><tr>
-      <th>一级漏斗</th>
-      <th>二级漏斗<br><span class="small">只展现Top5</span></th>
-      <th>三级漏斗<br><span class="small">只展现Top3</span></th>
-      <th class="num">素材数量</th>
-      <th class="num" title="占本素材池（老/新素材大盘）花费">费用占比</th>
-      <th class="num" title="占本素材池（老/新素材大盘）订单">订单占比</th>
+      <th>${t('一级漏斗','L1 Funnel')}</th>
+      <th>${t('二级漏斗','L2 Funnel')}<br><span class="small">${t('只展现Top5','Top5 only')}</span></th>
+      <th>${t('三级漏斗','L3 Funnel')}<br><span class="small">${t('只展现Top3','Top3 only')}</span></th>
+      <th class="num">${t('素材数量','Creatives')}</th>
+      <th class="num" title="${t('占本素材池（老/新素材大盘）花费','Share of pool spend')}">${t('费用占比','Spend Share')}</th>
+      <th class="num" title="${t('占本素材池（老/新素材大盘）订单','Share of pool orders')}">${t('订单占比','Order Share')}</th>
       <th class="num">CPM</th>
       <th class="num">CPC</th>
       <th class="num">ROI</th>
-      <th class="num">订单 △</th>
+      <th class="num">${t('订单','Orders')}△</th>
       <th class="num">CPM △</th>
       <th class="num">CPC △</th>
       <th class="num">ROI △</th>
@@ -4159,16 +4215,16 @@
       const cutoff = ageCutoff();
       const winTo = state.to || ageAnchor();
       const from7 = addDays(winTo, -6);
-      $('ageNote').textContent = `创建时间 ≥ ${cutoff}（近30天）= 新素材，更早 = 老素材 · 近7天 ${from7} ~ ${winTo} · LTV贡献占比 = 该组近7天GMV / 全部素材近7天GMV`;
+      $('ageNote').textContent = `${t('创建时间','Created')}≥ ${cutoff}（近30天）= 新素材，更早 = 老素材 · 近7天 ${from7} ~ ${winTo} · LTV${t('贡献占比','Contribution')}= 该组近7天GMV / 全部素材近7天GMV`;
       const curAll = state.filtered;
       const prevAll = state.compareFiltered || [];
       const total7 = last7Gmv(curAll, winTo);
       const defs = [
-        { label: '新素材', cur: ageRows(curAll, 'new'), prev: ageRows(prevAll, 'new') },
-        { label: '老素材', cur: ageRows(curAll, 'old'), prev: ageRows(prevAll, 'old') },
+        { label: t('新素材','New'), cur: ageRows(curAll, 'new'), prev: ageRows(prevAll, 'new') },
+        { label: t('老素材','Old'), cur: ageRows(curAll, 'old'), prev: ageRows(prevAll, 'old') },
         { label: 'TTL', cur: curAll, prev: prevAll }
       ];
-      let head = `<thead><tr><th rowspan="2">素材汇总</th>`
+      let head = `<thead><tr><th rowspan="2">${t('素材汇总','Summary')}</th>`
         + HARVEST_GROUPS.map((group, gi) => `<th colspan="${AGE_MATRIX_COLS.length}" class="grp-head-${gi}">${safe(group.label)}</th>`).join('')
         + `</tr><tr class="age-subhead">`
         + HARVEST_GROUPS.map((_, gi) => AGE_MATRIX_COLS.map((col, i) => `<th class="num${i >= 4 ? ' age-delta' : ''}${i === 0 && gi > 0 ? ' grp-start' : ''}"${col.title ? ` title="${safe(col.title)}"` : ''}>${safe(col.label)}</th>`).join('')).join('')
@@ -4313,17 +4369,17 @@
     ];
     // 品类按产品名关键词归类；顺序即优先级，避免 B5洁面 被 B5 归到面霜。
     const CATEGORY_RULES = [
-      { name: '套装 / 组合', re: /(pcs|件套|套盒|combo|合集|组合|买\d+得|buy\d+get)/i },
-      { name: '防晒', re: /防晒|sunblock|sunscreen/i },
-      { name: '洁面', re: /洁面|洗面|洁颜|洁皂|low\s*ph|磨砂/i },
-      { name: '面霜 / B5修复', re: /面霜|b5|gel|啫喱|修复|祛痘膏|霜/i },
-      { name: '精华', re: /精华|serum|377/i },
-      { name: '沐浴露', re: /沐浴露|body\s*wash/i },
-      { name: '洗发造型', re: /洗发|发泥|发蜡|定型|蓬松粉|头发|发膜|护发/i },
-      { name: '止汗滚珠', re: /止汗|滚珠|deodorant/i },
-      { name: '唇膏', re: /润唇膏|唇膏|lip\s*balm/i },
-      { name: '底妆', re: /气垫|素颜霜|cushion/i },
-      { name: '其他', re: /.*/ }
+      { name: t('套装 / 组合','Sets / Combos'), re: /(pcs|件套|套盒|combo|合集|组合|买\d+得|buy\d+get)/i },
+      { name: t('防晒','Sunscreen'), re: /防晒|sunblock|sunscreen/i },
+      { name: t('洁面','Cleanser'), re: /洁面|洗面|洁颜|洁皂|low\s*ph|磨砂/i },
+      { name: t('面霜 / B5修复','Cream / B5 Repair'), re: /面霜|b5|gel|啫喱|修复|祛痘膏|霜/i },
+      { name: t('精华','Serum'), re: /精华|serum|377/i },
+      { name: t('沐浴露','Body Wash'), re: /沐浴露|body\s*wash/i },
+      { name: t('洗发造型','Shampoo / Styling'), re: /洗发|发泥|发蜡|定型|蓬松粉|头发|发膜|护发/i },
+      { name: t('止汗滚珠','Deodorant'), re: /止汗|滚珠|deodorant/i },
+      { name: t('唇膏','Lip Balm'), re: /润唇膏|唇膏|lip\s*balm/i },
+      { name: t('底妆','Makeup Base'), re: /气垫|素颜霜|cushion/i },
+      { name: t('其他','Other'), re: /.*/ }
     ];
     function categoryOf(row) {
       const text = `${row?.productRaw || ''} ${row?.product || ''}`;
@@ -4346,7 +4402,7 @@
       };
       for (const row of sourceRows) {
         const category = categoryOf(row);
-        const product = String(row.product || row.productRaw || '未命名产品');
+        const product = String(row.product || row.productRaw || t('未命名产品','Unnamed Product'));
         const tagKey = harvestKeyOf(row);
         const tagLabel = harvestTagLabel(tagKey);
         const tag2 = String(row.tag2 || '未标注');
@@ -4384,21 +4440,21 @@
       }).join('');
     }
     const CATEGORY_HEAD = `<thead><tr>
-      <th colspan="2">产品维度</th>
+      <th colspan="2">${t('产品维度','Product Dimension')}</th>
       <th colspan="13"></th>
     </tr><tr>
-      <th rowspan="2">品类</th>
-      <th rowspan="2">产品</th>
-      <th>一级漏斗</th>
-      <th>二级漏斗</th>
-      <th>三级漏斗</th>
-      <th rowspan="2">素材数量</th>
-      <th rowspan="2">费用占比</th>
-      <th rowspan="2" title="占当前筛选大盘订单">订单占比（占当前大盘）</th>
+      <th rowspan="2">${t('品类','Category')}</th>
+      <th rowspan="2">${t('产品','Product')}</th>
+      <th>${t('一级漏斗','L1 Funnel')}</th>
+      <th>${t('二级漏斗','L2 Funnel')}</th>
+      <th>${t('三级漏斗','L3 Funnel')}</th>
+      <th rowspan="2">${t('素材数量','Creatives')}</th>
+      <th rowspan="2">${t('费用占比','Spend Share')}</th>
+      <th rowspan="2" title="${t('占当前筛选大盘订单','Share of current orders')}">${t('订单占比（占当前大盘）','Order Share')}</th>
       <th rowspan="2">CPM</th>
       <th rowspan="2">CPC</th>
       <th rowspan="2">ROI</th>
-      <th rowspan="2">订单 △</th>
+      <th rowspan="2">${t('订单','Orders')}△</th>
       <th rowspan="2">CPM △</th>
       <th rowspan="2">CPC △</th>
       <th rowspan="2">ROI △</th>
@@ -4511,8 +4567,8 @@
           + catCell + prodCell
           + `<td>${l1}</td><td>${l2}</td><td>${l3}</td>`
           + `<td class="num">${fmt(m.posts)}</td>`
-          + `<td class="num share-cell" style="${shareBg(node.spendShare)}" title="费用占当前大盘 ${pct(node.spendShare)}">${pct(node.spendShare)}</td>`
-          + `<td class="num share-cell" style="${shareBg(node.orderShare)}" title="订单占当前大盘 ${pct(node.orderShare)}">${pct(node.orderShare)}</td>`
+          + `<td class="num share-cell" style="${shareBg(node.spendShare)}" title="${t('费用占当前大盘','Spend Share')}${pct(node.spendShare)}">${pct(node.spendShare)}</td>`
+          + `<td class="num share-cell" style="${shareBg(node.orderShare)}" title="${t('订单占当前大盘','Order Share')}${pct(node.orderShare)}">${pct(node.orderShare)}</td>`
           + `<td class="num">${money2(m.cpm)}</td>`
           + `<td class="num">${money2(m.cpc)}</td>`
           + `<td class="num">${roi(m.roi)}</td>`
@@ -4533,11 +4589,11 @@
       renderCategorySummary(rows);
       const monthNote = state.materialFrom || state.materialTo
         ? `素材创建 ${state.materialFrom || '最早'} ~ ${state.materialTo || '当前'}`
-        : `素材创建月 ${harvestAnchorMonth()}`;
+        : `${t('素材创建月','Creative month')}${harvestAnchorMonth()}`;
       $('categoryNote').textContent = `${monthNote} · 品类按产品名关键词归类 · 点一级/二级漏斗前的箭头展开下级 · 二级 Top5 / 三级 Top3`;
       $('categoryTable').innerHTML = CATEGORY_HEAD + '<tbody>' + (nodes.length
         ? categoryRowsHtml(nodes)
-        : `<tr><td colspan="15" class="empty">当前筛选下暂无品类数据</td></tr>`) + '</tbody>';
+        : `<tr><td colspan="15" class="empty">${t('当前筛选下暂无品类数据','No category data')}</td></tr>`) + '</tbody>';
     }
 
     function renderAll() {
@@ -4558,12 +4614,12 @@
       const s = sumRows(state.filtered);
       const compareText = state.compareAppliedRange ? ` · 对比 ${state.compareAppliedRange.from} ~ ${state.compareAppliedRange.to}` : '';
       const cnText = state.chineseFilter === 'cn' ? ' · 仅华人素材' : state.chineseFilter === 'non' ? ' · 非华人素材' : '';
-      $('productCount').textContent = `${fmt(groupRows(state.filtered, 'product').length)} 个产品`;
-      $('status').textContent = `${countryText()}${cnText} · ${state.from || '-'} ~ ${state.to || '-'} · ${fmt(state.filtered.length)} 个素材 · 花费 USD ${money(s.spend)} · CPC ${money2(s.cpc)} · ROI ${roi(s.roi)}${compareText}`;
+      $('productCount').textContent = `${fmt(groupRows(state.filtered, 'product').length)} ${t('个产品',' products')}`;
+      $('status').textContent = `${countryText()}${cnText} · ${t('对比','Compare')}${state.compareAppliedRange ? ` ${state.compareAppliedRange.from} ~ ${state.compareAppliedRange.to}` : ''} · ${state.from || '-'} ~ ${state.to || '-'} · ${fmt(state.filtered.length)} ${t('个素材','creatives')} · ${t('花费','Spend')} USD ${money(s.spend)} · CPC ${money2(s.cpc)} · ROI ${roi(s.roi)}`;
     }
 
     function optionText(key, fallback) {
-      if (state.multiMode[key] === 'cleared') return '未选择';
+      if (state.multiMode[key] === 'cleared') return t('未选择','None');
       const selected = state[key];
       if (!selected.length) return fallback;
       if (selected.length === 1) return selected[0];
@@ -4571,19 +4627,19 @@
     }
 
     function fallbackText(key) {
-      if (key === 'brand') return '全部品牌';
-      if (key === 'country') return '全部国家';
-      if (key === 'product') return '全部产品';
-      if (key === 'tag1') return '全部一级标签';
-      return '全部主题';
+      if (key === 'brand') return t('全部品牌','All Brands');
+      if (key === 'country') return t('全部国家','All Countries');
+      if (key === 'product') return t('全部产品','All Products');
+      if (key === 'tag1') return t('全部一级标签','All L1 Tags');
+      return t('全部主题','All Topics');
     }
 
     function multiSearchLabel(key) {
-      if (key === 'brand') return '搜索品牌';
-      if (key === 'country') return '搜索国家';
-      if (key === 'product') return '搜索产品';
-      if (key === 'tag1') return '搜索一级标签';
-      return '搜索主题';
+      if (key === 'brand') return t('搜索品牌','Search brand');
+      if (key === 'country') return t('搜索国家','Search country');
+      if (key === 'product') return t('搜索产品','Search product');
+      if (key === 'tag1') return t('搜索一级标签','Search L1 tag');
+      return t('搜索主题','Search topic');
     }
 
     function applyMultiSearchFilter(key) {
@@ -4643,14 +4699,14 @@
       const selected = state.multiMode[key] === 'custom' ? new Set(state[key]) : state.multiMode[key] === 'cleared' ? new Set() : new Set(options);
       $(`${key}Label`).textContent = optionText(key, fallback);
       $(`${key}Panel`).innerHTML = `<div class="multi-actions">
-          <button type="button" data-action="all" data-key="${safe(key)}">全部</button>
-          <button type="button" data-action="none" data-key="${safe(key)}">清空</button>
+          <button type="button" data-action="all" data-key="${safe(key)}">${t('全部','All')}</button>
+          <button type="button" data-action="none" data-key="${safe(key)}">${t('清空','Clear')}</button>
         </div>
         <input class="multi-search" type="search" data-multi-search="${safe(key)}" placeholder="${safe(multiSearchLabel(key))}" value="${safe(state.multiSearch[key] || '')}" />
         <div class="multi-list">` + options.map(value => `<label class="multi-option${String(state.multiSearch[key] || '').trim() && !String(value || '').toLowerCase().includes(String(state.multiSearch[key] || '').trim().toLowerCase()) ? ' search-hidden' : ''}" data-value="${safe(value)}">
           <input type="checkbox" data-key="${safe(key)}" value="${safe(value)}" ${selected.has(value) ? 'checked' : ''}>
           <span title="${safe(value)}">${safe(value)}</span>
-        </label>`).join('') + `<div class="multi-empty">暂无匹配项</div></div>`;
+        </label>`).join('') + `<div class="multi-empty">${t('暂无匹配项','No matches')}</div></div>`;
       applyMultiSearchFilter(key);
     }
 
@@ -4662,11 +4718,11 @@
       state.options.product = collect('product');
       state.options.tag1 = collect('tag1');
       state.options.tag2 = collect('tag2');
-      renderMulti('brand', '全部品牌');
-      renderMulti('country', '全部国家');
-      renderMulti('product', '全部产品');
-      renderMulti('tag1', '全部一级标签');
-      renderMulti('tag2', '全部主题');
+      renderMulti('brand', t('全部品牌','All Brands'));
+      renderMulti('country', t('全部国家','All Countries'));
+      renderMulti('product', t('全部产品','All Products'));
+      renderMulti('tag1', t('全部一级标签','All L1 Tags'));
+      renderMulti('tag2', t('全部主题','All Topics'));
     }
 
     function toggleMulti(key, value) {
@@ -4757,12 +4813,17 @@
         if (state.compareTo) params.set('compareTo', state.compareTo);
       }
       if (state.currentView !== 'overview') params.set('view', state.currentView);
+      if (LANG === 'EN') params.set('lang', 'EN');
       const next = `${location.pathname}?${params.toString()}`;
       history.replaceState(null, '', next);
     }
 
     function applyUrlParams() {
       const params = new URLSearchParams(location.search);
+      const langParam = params.get('lang');
+      LANG = langParam === 'EN' || langParam === 'CN' ? langParam : (localStorage.getItem('harvest-lang') || 'CN');
+      localStorage.setItem('harvest-lang', LANG);
+      applyStaticLang();
       const viewParam = params.get('view');
       state.currentView = viewParam === 'dms' || viewParam === 'category' ? viewParam : 'overview';
       const brandParam = params.get('brand');
@@ -4867,7 +4928,7 @@
         if (wrap) wrap.hidden = false;
         const btn = document.getElementById('refreshData');
         if (btn) {
-          btn.textContent = '刷新数据';
+          btn.textContent = t('刷新数据','Refresh');
           btn.title = '当前为 GitHub Pages 静态页面，刷新会直接调用实时后端，无需跳转。\n单击：快速刷新（约 2-3 分钟）；Shift + 单击：完整刷新。';
         }
       }
@@ -4909,7 +4970,7 @@
         const res = await fetch(apiUrl('refresh/status'), { cache: 'no-store' });
         job = (await res.json()).refresh || {};
       } catch (err) {
-        setRefreshProgress('无法获取刷新进度：' + err.message, 'error');
+        setRefreshProgress(t('无法获取刷新进度：','Cannot get refresh progress: ') + err.message, 'error');
         if (btn) btn.disabled = false;
         REFRESH.busy = false;
         return;
@@ -4919,13 +4980,13 @@
           ? Math.max(0, Math.round((Date.now() - new Date(job.startedAt.replace(/-/g, '/')).getTime()) / 1000))
           : 0;
         const elapsed = sec >= 60 ? `${Math.floor(sec / 60)} 分 ${sec % 60} 秒` : `${sec} 秒`;
-        setRefreshProgress(`[${job.index}/${job.total}] ${job.stage || '处理中'}…（已 ${elapsed}）`);
+        setRefreshProgress(`[${job.index}/${job.total}] ${job.stage || t('处理中','Processing')}…（已 ${elapsed}）`);
         REFRESH.timer = setTimeout(pollRefresh, 3000);
         return;
       }
       if (job.ok) {
         setRefreshProgress('刷新完成，正在重新加载看板…');
-        try { await init(false); } catch (err) { setRefreshProgress('数据重载失败：' + err.message, 'error'); }
+        try { await init(false); } catch (err) { setRefreshProgress(t('数据重载失败：','Reload failed: ') + err.message, 'error'); }
         setRefreshProgress(`数据已更新 · ${job.finishedAt || ''}`, 'ok');
         setTimeout(() => setRefreshProgress(''), 8000);
       } else {
@@ -4951,14 +5012,14 @@
         });
         const info = await res.json();
         if (!info.ok) {
-          setRefreshProgress(info.message || '刷新未能启动', 'error');
+          setRefreshProgress(info.message || t('刷新未能启动','Refresh failed to start'), 'error');
           if (btn) btn.disabled = false;
           REFRESH.busy = false;
           return;
         }
         REFRESH.timer = setTimeout(pollRefresh, 1500);
       } catch (err) {
-        setRefreshProgress('刷新请求失败：' + err.message, 'error');
+        setRefreshProgress(t('刷新请求失败：','Refresh request failed: ') + err.message, 'error');
         if (btn) btn.disabled = false;
         REFRESH.busy = false;
       }
@@ -4977,7 +5038,7 @@
         setTimeout(() => flagDataFreshness(), 6000);
         return true;
       } catch (err) {
-        setRefreshProgress('数据重载失败：' + err.message, 'error');
+        setRefreshProgress(t('数据重载失败：','Reload failed: ') + err.message, 'error');
         return false;
       }
     }
@@ -5005,8 +5066,8 @@
         const sec = job.startedAt
           ? Math.max(0, Math.round((Date.now() - new Date(job.startedAt.replace(/-/g, '/')).getTime()) / 1000))
           : 0;
-        const label = String(job.mode || '').startsWith('auto') ? '数据过期，正在自动更新' : '正在更新数据';
-        setRefreshProgress(`${label} [${job.index}/${job.total}] ${job.stage || '处理中'}…（已 ${sec} 秒）`, 'warn');
+        const label = String(job.mode || '').startsWith('auto') ? t('数据过期，正在自动更新','Data stale, auto-refreshing') : t('正在更新数据','Updating');
+        setRefreshProgress(`${label} [${job.index}/${job.total}] ${job.stage || t('处理中','Processing')}…（已 ${sec} 秒）`, 'warn');
         return next(3000);
       }
       if (info.dataVersion && info.dataVersion !== REFRESH.dataVersion) {
@@ -5020,7 +5081,7 @@
     function copyShareLink() {
       updateUrlParams();
       navigator.clipboard?.writeText(location.href);
-      $('status').textContent = '当前筛选链接已复制';
+      $('status').textContent = t('当前筛选链接已复制','Filter link copied');
     }
 
     function xmlEscape(value) {
@@ -5031,7 +5092,7 @@
       const root = document.querySelector('.view:not([hidden])') || document;
       const tables = [...root.querySelectorAll('table')].filter(table => table.rows.length);
       if (!tables.length) {
-        $('status').textContent = '当前没有可导出的表格';
+        $('status').textContent = t('当前没有可导出的表格','No tables to export');
         return;
       }
       const usedNames = new Set();
@@ -5059,7 +5120,7 @@
 
     function exportDmsCsv() {
       const rows = dmsRows();
-      const headers = ['素材编号','素材名称','Ad_name','国家','产品','素材类型','素材形态','创建时间','花费','CPC','订单','GMV','ROI','尺寸','投放状态','DMS匹配','可下载','下载链接','预览链接','来源文件'];
+      const headers = [t('素材编号','Creative ID'),t('素材名称','Creative Name'),'Ad_name',t('国家','Country'),t('产品','Product'),t('素材类型','Creative Type'),t('素材形态','Creative Format'),t('创建时间','Created'),t('花费','Spend'),'CPC',t('订单','Orders'),'GMV','ROI',t('尺寸','Size'),t('投放状态','Status'),'DMS匹配',t('可下载','Downloadable'),t('下载链接','Download'),t('预览链接','Preview'),t('来源文件','Source File')];
       const body = rows.map(row => [
         row.materialId || row.materialCode || '', row.materialName || '', row.adName || '', row.country || '', row.product || '',
         row.materialType || '', row.materialKind || row.graphicType || '', row.createdAt || '', row.spend || 0, cpcOf(row), row.orders || 0,
@@ -5078,7 +5139,7 @@
 
     function exportCsv() {
       const rows = [...state.filtered].sort((a, b) => b.spend - a.spend);
-      const headers = ['素材编号','Ad_name','国家','产品','素材类型','图文类型','素材创建时间','开始日期','结束日期','DMS一级标签','DMS二级标签','DMS三级标签','收割三大类','花费','曝光','链接点击','订单','GMV','ROI','CPM','CTR','CVR','CPA','CPC','广告细分','Campaign'];
+      const headers = [t('素材编号','Creative ID'),'Ad_name',t('国家','Country'),t('产品','Product'),t('素材类型','Creative Type'),t('图文类型','Image Type'),t('素材创建时间','Creative Created'),t('开始日期','Start Date'),t('结束日期','End Date'),'DMS一级标签','DMS二级标签','DMS三级标签',t('收割三大类','Harvest Tiers'),t('花费','Spend'),t('曝光','Impressions'),t('链接点击','Link Clicks'),t('订单','Orders'),'GMV','ROI','CPM','CTR','CVR','CPA','CPC',t('广告细分','Ad Breakdown'),'Campaign'];
       const body = rows.map(row => [
         materialLabel(row), row.adName, row.country, row.product, row.materialType, row.graphicType, materialCreatedDay(row), row.firstDate, row.lastDate,
         row.tag1, row.tag2, row.tag3, harvestTagLabel(row.harvestTag), row.spend, row.impressions, row.linkClick, row.conversions, row.purchaseValue,
@@ -5132,7 +5193,7 @@
         state.themesMeta = null;
       }
       enrichRowsWithDmsCreatedAt();
-      $('sourceLine').textContent = `${state.raw.source} · 口径：${state.raw.scope || '全部素材'} · included ${fmt(state.raw.includedRows)} 素材 · generated ${state.raw.generatedAt}`;
+      $('sourceLine').textContent = `${state.raw.source} · ${t('口径：','Scope: ')}${state.raw.scope || '全部素材'} · included ${fmt(state.raw.includedRows)} 素材 · generated ${state.raw.generatedAt}`;
       if (!REFRESH.busy) flagDataFreshness();
       if (resetFilters) {
         state.brand = [];
@@ -5169,9 +5230,9 @@
       if (button) {
         button.classList.toggle('collapsed', !!collapsed);
         button.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
-        button.title = collapsed ? '展开全部筛选条件' : '收起筛选，仅保留日期 / 品牌 / 产品';
+        button.title = collapsed ? '展开全部筛选条件' : t('收起筛选，仅保留日期 / 品牌 / 产品','Collapse filters; keep date/brand/product');
         const text = button.querySelector('.filters-toggle-text');
-        if (text) text.textContent = collapsed ? '展开筛选' : '收起筛选';
+        if (text) text.textContent = collapsed ? '展开筛选' : t('收起筛选','Collapse Filters');
       }
       if (persist) {
         try { localStorage.setItem(FILTERS_COLLAPSE_KEY, collapsed ? '1' : '0'); } catch { /* ignore */ }
@@ -5249,6 +5310,15 @@
       state.originType = button.dataset.otype;
       document.querySelectorAll('#originTypeToggle button').forEach(item => item.classList.toggle('active', item === button));
       renderOriginAnalysis();
+    }));
+    document.querySelectorAll('.lang-toggle button').forEach(button => button.addEventListener('click', () => {
+      const next = button.dataset.lang;
+      if (next === LANG) return;
+      LANG = next;
+      localStorage.setItem('harvest-lang', LANG);
+      // 部分表头/指标常量在脚本加载时求值，重载页面才能在 EN 下重新构建
+      updateUrlParams();
+      location.reload();
     }));
     ['compareFrom', 'compareTo'].forEach(id => $(id).addEventListener('change', () => applyFilters()));
     document.querySelectorAll('#materialTypes input').forEach(input => input.addEventListener('change', () => {
@@ -5470,20 +5540,20 @@
       box.hidden = false;
       document.body.style.overflow = 'hidden';
       const titleEl = $('lbTitle');
-      if (titleEl) titleEl.textContent = trigger.dataset.lbTitle || '素材快照';
+      if (titleEl) titleEl.textContent = trigger.dataset.lbTitle || t('素材快照','Creative Snapshot');
       const badges = $('lbBadges');
       if (badges) {
         const matched = trigger.dataset.lbMatch === '1';
         const ready = trigger.dataset.lbReady === '1';
-        badges.innerHTML = `<span class="lb-badge ${matched ? 'ok' : 'warn'}">${matched ? 'DMS 已匹配' : '待 DMS 导出'}</span>`
-          + `<span class="lb-badge ${ready ? 'ok' : 'warn'}">${ready ? '可下载' : '暂无源文件'}</span>`;
+        badges.innerHTML = `<span class="lb-badge ${matched ? 'ok' : 'warn'}">${matched ? 'DMS 已匹配' : t('待 DMS 导出','Pending DMS Export')}</span>`
+          + `<span class="lb-badge ${ready ? 'ok' : 'warn'}">${ready ? '可下载' : t('暂无源文件','No source file')}</span>`;
       }
       renderLightboxThemes(trigger.dataset.lbKey || '');
       const dl = $('lbDownload');
       if (dl) {
         dl.href = dmsProxyUrl(dlUrl, true) || '#';
         dl.style.display = dlUrl ? '' : 'none';
-        dl.textContent = LB.video ? '下载视频' : '下载原图';
+        dl.textContent = LB.video ? '下载视频' : t('下载原图','Download Image');
       }
       const hint = $('lbHint');
       if (hint) {
