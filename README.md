@@ -36,7 +36,7 @@
 - **DMS 素材库**：包含封面预览、视频快照、下载链接（直连 OSS）
 - **导出**：一键导出当前视图的所有表格为 Excel / CSV，支持「分享链接」（筛选条件写入 URL）
 - **CN / EN 双语**：右上角语言切换（参考 Facerinna 看板样式），全量翻译筛选栏、Tab、KPI、表头、状态栏、提示文案；品牌 / 国家 / 素材编号 / 广告名 / 产品标签名等数据专有名保持原样。语言写入 URL 参数 `lang=EN` 与 localStorage，分享链接保留语言。切换会重载页面，保证脚本加载时按正确语言构建表头常量
-  - **卖点 / 文案标签英文化**：`image_themes.json` 每个标签在 `zh` 之外新增 `en` 字段（智谱 glm-4-flash 免费模型批量翻译，缓存 `data/theme_en_cache.json`，`scripts/translate_theme_en.py --all` 增量补翻 / `--apply` 回写）。EN 模式下卡片标签、卖点/文案关键词分析表、素材大图弹窗、场景字段全部显示英文；CN 模式保持「原文 + 中文」不变。缺 `en` 时自动回退画面原文 `src`，再回退 `zh`
+  - **卖点 / 文案标签英文化**：`image_themes.json` 每个标签在 `zh` 之外新增 `en` 字段（智谱 glm-4-flash 免费模型批量翻译，缓存 `data/theme_en_cache.json`，`scripts/translate_theme_en.py --all` 增量补翻 / `--apply` 回写）。EN 模式下卡片标签、卖点/文案关键词分析表、素材大图弹窗同时显示**英文译文 + 画面原文 `src`**（英文为主、原文为辅；关键词表头为 `English / Original`）；CN 模式保持「原文 + 中文」不变。缺 `en` 时自动回退画面原文 `src`，再回退 `zh`
   - **产品 / 标签名英文化**：`data/product_en_from_xlsx.json` 保存《投放产品名称管理.xlsx》原始对照（206 条），`scripts/build_display_en.py` 合并 Excel 英文简称、视觉标签译文缓存与人工补充词典，生成 `data/display_en.json`。EN 模式下产品下拉、华人素材分组、DMS 一/二/三级标签树、素材形态、搜索框 / Min / Max 占位符全部英文；中英混排标签自动剥掉中文部分。DMS 原始素材名 / Ad name 作为专有名保留原样
 
 ## 标签体系说明

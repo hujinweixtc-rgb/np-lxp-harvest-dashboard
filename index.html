@@ -2914,7 +2914,7 @@
         }
       }
       const headers = [
-        [t('关键词','Keyword'), 'zh', ''],
+        [LANG === 'EN' ? 'English / Original' : '关键词', 'zh', ''],
         [t('素材数','Creatives'), 'posts', 'num'],
         [t('花费','Spend'), 'spend', 'num'],
         ['CTR', 'ctr', 'num'],
@@ -2922,7 +2922,7 @@
         [t('订单','Orders'), 'orders', 'num'],
         ['ROI', 'roi', 'num']
       ];
-      const aiKwLabel = { zh: t('关键词','Keyword'), posts: t('素材数','Creatives'), spend: t('花费','Spend'), ctr: 'CTR', cpc: 'CPC', orders: t('订单','Orders'), roi: 'ROI' };
+      const aiKwLabel = { zh: LANG === 'EN' ? 'English / Original' : '关键词', posts: t('素材数','Creatives'), spend: t('花费','Spend'), ctr: 'CTR', cpc: 'CPC', orders: t('订单','Orders'), roi: 'ROI' };
       const aiKwValue = (item, key) => {
         if (key === 'posts') return Number(item.posts || 0);
         if (key === 'spend') return Number(item.spend || 0);
@@ -2942,18 +2942,25 @@
         const list = [...map.values()]
           .sort((a, b) => (aiKwValue(a, sort.key) - aiKwValue(b, sort.key)) * sort.dir)
           .slice(0, 40);
-        const body = list.map(item => `<tr>
-          <td><div class="ai-kw"><b>${safe(LANG === 'EN' ? (item.en || item.zh) : item.zh)}</b>${LANG === 'CN' && item.src && item.src !== item.zh ? `<i>${safe(item.src)}</i>` : ''}</div></td>
+        const body = list.map(item => {
+          const label = LANG === 'EN' ? (String(item.en || '').trim() || item.zh) : item.zh;
+          const original = tagDifferent(item.src, label) ? String(item.src || '').trim() : '';
+          const tip = LANG === 'EN'
+            ? `EN: ${label}${original ? ` · Original: ${original}` : ''}`
+            : (item.src && item.src !== item.zh ? `${item.src} / ${item.zh}` : item.zh);
+          return `<tr>
+          <td><div class="ai-kw" title="${safe(tip)}"><b>${safe(label)}</b>${original ? `<i>${safe(original)}</i>` : ''}</div></td>
           <td class="num">${fmt(item.posts)}</td>
           <td class="num">${money(item.spend)}</td>
           <td class="num">${pct(item.impressions ? item.clicks / item.impressions : 0)}</td>
           <td class="num">${money2(item.clicks ? item.spend / item.clicks : 0)}</td>
           <td class="num">${fmt(item.orders)}</td>
           <td class="num">${roi(item.spend ? item.gmv / item.spend : 0)}</td>
-        </tr>`).join('');
+        </tr>`;
+        }).join('');
         table.innerHTML = `<thead><tr>${headers.map(([label, key, cls]) => key === 'zh'
           ? `<th>${label}</th>`
-          : `<th class="${cls} sortable${sort.key === key ? ' active-sort' : ''}" data-ai-sort="${key}" title="点击按${label}排序">${label}${aiKwArrow(sort, key)}</th>`).join('')}</tr></thead>`
+          : `<th class="${cls} sortable${sort.key === key ? ' active-sort' : ''}" data-ai-sort="${key}" title="${LANG === 'EN' ? `Sort by ${label}` : `点击按${label}排序`}">${label}${aiKwArrow(sort, key)}</th>`).join('')}</tr></thead>`
           + `<tbody>${body || `<tr><td colspan="${headers.length}" class="empty">${t('当前筛选下暂无已分析素材','No analyzed creatives under current filters')}</td></tr>`}</tbody>`;
       };
       draw(sellTable, groups.sell, 'sell');
@@ -2977,8 +2984,8 @@
       bindAiKwSort(sellTable, 'sell');
       bindAiKwSort(copyTable, 'copy');
       const sorts = state.aiKwSort;
-      const sortText = (k) => `${aiKwLabel[sorts[k].key]}${sorts[k].dir > 0 ? '升序' : t('降序','descending')}`;
-      $('aiKwNote').textContent = `视觉模型从素材快照提取 · 当前筛选内已分析 ${fmt(analyzed)} 条素材 · 卖点按${sortText('sell')} / ${t('文案按','Copy by ')}${sortText('copy')}，${t('各取 Top 40','Top 40 each')}`;
+      const sortText = (k) => `${aiKwLabel[sorts[k].key]} ${sorts[k].dir > 0 ? t('升序','ascending') : t('降序','descending')}`;
+      $('aiKwNote').textContent = `${t('视觉模型从素材快照提取','Extracted from creative snapshots by vision model')} · ${t('当前筛选内已分析','Analyzed under current filters')} ${fmt(analyzed)} ${t('条素材','creatives')} · ${t('卖点按','Selling by ')}${sortText('sell')} / ${t('文案按','Copy by ')}${sortText('copy')} · ${t('各取 Top 40','Top 40 each')}`;
     }
 
     function deltaChip(current, base) {
@@ -3626,14 +3633,24 @@
       if (LANG === 'EN') return en || src || zh;
       return zh || src || en;
     }
+    // 画面原文（src）；EN 模式同时展示英文译文和原文，CN 模式保持「原文 + 中文」
+    function tagOriginalOf(tag) {
+      return String(tag?.src || '').trim();
+    }
+    function tagDifferent(a, b) {
+      return String(a || '').trim().toLowerCase() !== String(b || '').trim().toLowerCase();
+    }
     function themeChipMarkup(tag, kind) {
-      const src = String(tag.src || '').trim();
+      const src = tagOriginalOf(tag);
       const zh = String(tag.zh || '').trim();
       const label = tagTextOf(tag);
       if (!label) return '';
-      const tip = src && src !== zh ? `${src} / ${zh}` : zh;
+      const original = tagDifferent(src, label) ? src : '';
+      const tip = LANG === 'EN'
+        ? `EN: ${label}${original ? ` · Original: ${original}` : ''}`
+        : (src && src !== zh ? `${src} / ${zh}` : zh);
       return `<span class="theme-chip ${kind}" title="${safe(tip)}">`
-        + `${LANG === 'CN' && src && src !== label ? `<i>${safe(src)}</i>` : ''}<b>${safe(label)}</b></span>`;
+        + `${original ? `<i>${safe(original)}</i>` : ''}<b>${safe(label)}</b></span>`;
     }
 
     // 卡片上的标签全量铺开（不折叠、不截断），卖点在上、文案关键词在下
@@ -3663,12 +3680,18 @@
       const gridOf = (tags, kind, label) => {
         if (!tags.length) return '';
         const items = tags.map(theme => {
-          const src = String(theme.src || '').trim();
+          const src = tagOriginalOf(theme);
           const zh = String(theme.zh || '').trim();
           const labelText = tagTextOf(theme);
           if (!labelText) return '';
-          return `<div class="lb-theme-item ${kind}" title="${safe(src && src !== zh ? `${src} / ${zh}` : zh)}">`
-            + `${LANG === 'CN' && src && src !== labelText ? `<i>${safe(src)}</i>` : ''}<b>${safe(labelText)}</b></div>`;
+          const original = tagDifferent(src, labelText) ? src : '';
+          const tip = LANG === 'EN'
+            ? `EN: ${labelText}${original ? ` · Original: ${original}` : ''}`
+            : (src && src !== zh ? `${src} / ${zh}` : zh);
+          const inner = LANG === 'EN'
+            ? `<b>${safe(labelText)}</b>${original ? `<i>${safe(original)}</i>` : ''}`
+            : `${original ? `<i>${safe(original)}</i>` : ''}<b>${safe(labelText)}</b>`;
+          return `<div class="lb-theme-item ${kind}" title="${safe(tip)}">${inner}</div>`;
         }).join('');
         return `<div class="lb-themes-sec"><div class="lb-themes-sec-head">${label}</div>`
           + `<div class="lb-themes-grid">${items}</div></div>`;
