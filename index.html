@@ -1895,7 +1895,7 @@
         </div>
         <div class="field span4">
           <label><span data-cn="搜索素材 / 广告 / 标签" data-en="Search creative / ad / tag">搜索素材 / 广告 / 标签</span></label>
-          <input id="search" placeholder="输入素材编号、Ad name、Campaign 或标签" />
+          <input id="search" data-cn="输入素材编号、Ad name、Campaign 或标签" data-en="Creative ID, Ad name, Campaign or tag" placeholder="输入素材编号、Ad name、Campaign 或标签" />
         </div>
         <div class="field span2">
           <label><span data-cn="操作" data-en="Actions">操作</span></label>
@@ -1906,23 +1906,23 @@
           <div class="metric-ranges">
             <div class="metric-range">
               <span class="mr-name"><span data-cn="花费" data-en="Spend">花费</span></span><span class="mr-between"><span data-cn="介于" data-en="Between">介于</span></span>
-              <input id="spendMin" type="number" min="0" step="0.01" placeholder="最小值">
-              <input id="spendMax" type="number" min="0" step="0.01" placeholder="最大值">
+              <input id="spendMin" type="number" min="0" step="0.01" data-cn="最小值" data-en="Min" placeholder="最小值">
+              <input id="spendMax" type="number" min="0" step="0.01" data-cn="最大值" data-en="Max" placeholder="最大值">
             </div>
             <div class="metric-range">
               <span class="mr-name"><span data-cn="订单" data-en="Orders">订单</span></span><span class="mr-between"><span data-cn="介于" data-en="Between">介于</span></span>
-              <input id="ordersMin" type="number" min="0" step="1" placeholder="最小值">
-              <input id="ordersMax" type="number" min="0" step="1" placeholder="最大值">
+              <input id="ordersMin" type="number" min="0" step="1" data-cn="最小值" data-en="Min" placeholder="最小值">
+              <input id="ordersMax" type="number" min="0" step="1" data-cn="最大值" data-en="Max" placeholder="最大值">
             </div>
             <div class="metric-range">
               <span class="mr-name">ROI</span><span class="mr-between"><span data-cn="介于" data-en="Between">介于</span></span>
-              <input id="roiMin" type="number" min="0" step="0.01" placeholder="最小值">
-              <input id="roiMax" type="number" min="0" step="0.01" placeholder="最大值">
+              <input id="roiMin" type="number" min="0" step="0.01" data-cn="最小值" data-en="Min" placeholder="最小值">
+              <input id="roiMax" type="number" min="0" step="0.01" data-cn="最大值" data-en="Max" placeholder="最大值">
             </div>
             <div class="metric-range">
               <span class="mr-name">CPC</span><span class="mr-between"><span data-cn="介于" data-en="Between">介于</span></span>
-              <input id="cpcMin" type="number" min="0" step="0.01" placeholder="最小值">
-              <input id="cpcMax" type="number" min="0" step="0.01" placeholder="最大值">
+              <input id="cpcMin" type="number" min="0" step="0.01" data-cn="最小值" data-en="Min" placeholder="最小值">
+              <input id="cpcMax" type="number" min="0" step="0.01" data-cn="最大值" data-en="Max" placeholder="最大值">
             </div>
           </div>
         </div>
@@ -2285,6 +2285,8 @@
         copy: { key: 'spend', dir: -1 }
       },
       options: { brand: [], country: [], product: [], tag1: [], tag2: [] },
+      // 产品 / 标签英文字典（来自《投放产品名称管理.xlsx》与既有译文缓存）
+      displayEn: { products: {}, tags: {} },
       chineseFilter: 'all', // all | cn（仅华人素材） | non（非华人素材）
       originType: '图文', // 国内/本地化图文对比模块的素材类型：图文 | 视频 | all
       multiSearch: { brand: '', country: '', product: '', tag1: '', tag2: '' },
@@ -2312,6 +2314,18 @@
       const raw = String(value ?? '');
       if (LANG !== 'EN' || !raw) return raw;
       if (VALUE_EN[raw]) return VALUE_EN[raw];
+      const dict = state.displayEn || {};
+      if (dict.products && dict.products[raw]) return dict.products[raw];
+      if (dict.tags && dict.tags[raw]) return dict.tags[raw];
+      // 中英混排标签（如「功效 Function」）：EN 模式只保留英文部分
+      if (/[\u4e00-\u9fff]/.test(raw)) {
+        const left = raw.replace(/[\u4e00-\u9fff]+/g, ' ')
+          .replace(/[（）()【】\[\]{}、，,·:：|/\\\-_]+/g, ' ')
+          .replace(/\s+/g, ' ')
+          .replace(/\b(AI|Al)\s*$/i, '')
+          .trim();
+        if (left) return left;
+      }
       // 数据专有名（品牌 / 国家 / 编号 / 广告名）原样保留
       return raw;
     }
@@ -2329,6 +2343,8 @@
         } else {
           el.textContent = next;
         }
+        // 输入框 placeholder 也是静态文案，切换语言时同步替换
+        if (el.tagName === 'INPUT' && 'placeholder' in el) el.placeholder = next;
       });
       document.documentElement.lang = LANG === 'EN' ? 'en' : 'zh-CN';
       document.querySelectorAll('.lang-toggle button').forEach(b => b.classList.toggle('active', b.dataset.lang === LANG));
@@ -2773,7 +2789,9 @@
         awa: { id: 'ROI≥4.8 / CTR≥1.5%', my: 'ROI≥4.8 / CTR≥1.5%' }
       };
       const line = lines[key] || lines.conv;
-      return `达标线（按 ${HARVEST_TAG1_LABELS[key] || key || 'conv'} 档） ID ${line.id} · MY ${line.my}`;
+      return LANG === 'EN'
+        ? `Benchmark (${translateName(key || 'conv')}) · ID ${line.id} · MY ${line.my}`
+        : `达标线（按 ${HARVEST_TAG1_LABELS[key] || key || 'conv'} 档） ID ${line.id} · MY ${line.my}`;
     }
 
     function treeColorClass(node) {
@@ -2785,11 +2803,11 @@
       const children = (node.children || []).slice(0, 6);
       const leaves = children.length
         ? `<div class="tree-child-leaves">${
-            children.map(child => `<span class="tree-leaf" title="${safe(child.name)}">${safe(short(child.name, 18))} · ${fmt(child.posts)} / ${roi(child.roi)}</span>`).join('')
+            children.map(child => `<span class="tree-leaf" title="${safe(translateName(child.name))}">${safe(short(translateName(child.name), 18))} · ${fmt(child.posts)} / ${roi(child.roi)}</span>`).join('')
           }</div>`
         : '';
       return `<div class="tree-child ${treeColorClass(node)}">
-        <div class="tree-child-title">${safe(node.name)}</div>
+        <div class="tree-child-title">${safe(translateName(node.name))}</div>
         <div class="tree-child-meta">
           <span>${t('素材','Creatives')}${fmt(node.posts)}</span>
           <span>${t('订单','Orders')}${fmt(node.conversions)}</span>
@@ -2809,7 +2827,7 @@
       const compareMap = new Map(compareFlat.map(node => [node.path.join(' / '), node]));
 
       $('tagTreeLegend').innerHTML = tree.length
-        ? tree.map(node => `<span class="badge">${safe(node.tag1)} · ${fmt(node.posts)} 素材 · ${money(node.spend)} 花费 · ${roi(node.roi)} ROI</span>`).join('')
+        ? tree.map(node => `<span class="badge">${safe(translateName(node.tag1))} · ${fmt(node.posts)} ${t('素材','creatives')} · ${money(node.spend)} ${t('花费','spend')} · ${roi(node.roi)} ROI</span>`).join('')
         : `<span class="small">${t('当前筛选下没有带 DMS 一级标签的素材','No creatives with DMS L1 tags under current filters')}</span>`;
 
       const anchorMonth = harvestAnchorMonth();
@@ -2820,7 +2838,7 @@
       $('tagTreemap').innerHTML = tree.length
         ? tree.map(node => `<div class="tree-root" style="flex:${Math.max(1, Number(node.spend || 0))}">
             <div class="tree-root-head">
-              <div class="tree-root-title">${safe(node.tag1)}</div>
+              <div class="tree-root-title">${safe(translateName(node.tag1))}</div>
               <div class="tree-root-meta">
                 <span>${t('素材','Creatives')}${fmt(node.posts)}</span>
                 <span>${t('花费','Spend')}${money(node.spend)}</span>
@@ -2843,7 +2861,7 @@
           const indent = (node.level - 1) * 18;
           const marker = node.level === 1 ? '▾' : node.level === 2 ? '└' : '•';
           return `<tr>
-            <td><div class="tree-indent" style="padding-left:${indent}px"><span class="depth">${safe(marker)}</span><span title="${safe(node.name)}">${safe(short(node.name, 42))}</span></div></td>
+            <td><div class="tree-indent" style="padding-left:${indent}px"><span class="depth">${safe(marker)}</span><span title="${safe(translateName(node.name))}">${safe(short(translateName(node.name), 42))}</span></div></td>
             <td class="num">${metricCell(node.posts, compare.posts, v => fmt(v))}</td>
             <td class="num">${metricCell(node.spend, compare.spend, money)}</td>
             <td class="num">${metricCell(node.purchaseValue, compare.purchaseValue, money)}</td>
@@ -2853,7 +2871,7 @@
             <td class="num">${metricCell(node.successCount, compare.successCount, v => fmt(v))}</td>
             <td class="num">${metricCell(node.successRate, compare.successRate, pct)}</td>
           </tr>`;
-        }).join('') : `<tr><td colspan="${headers.length}" class="empty">当前筛选下暂无层级汇总数据</td></tr>`
+        }).join('') : `<tr><td colspan="${headers.length}" class="empty">${t('当前筛选下暂无层级汇总数据','No hierarchy data under current filters')}</td></tr>`
       }</tbody>`;
     }
 
@@ -2936,7 +2954,7 @@
         table.innerHTML = `<thead><tr>${headers.map(([label, key, cls]) => key === 'zh'
           ? `<th>${label}</th>`
           : `<th class="${cls} sortable${sort.key === key ? ' active-sort' : ''}" data-ai-sort="${key}" title="点击按${label}排序">${label}${aiKwArrow(sort, key)}</th>`).join('')}</tr></thead>`
-          + `<tbody>${body || `<tr><td colspan="${headers.length}" class="empty">当前筛选下暂无已分析素材</td></tr>`}</tbody>`;
+          + `<tbody>${body || `<tr><td colspan="${headers.length}" class="empty">${t('当前筛选下暂无已分析素材','No analyzed creatives under current filters')}</td></tr>`}</tbody>`;
       };
       draw(sellTable, groups.sell, 'sell');
       draw(copyTable, groups.copy, 'copy');
@@ -2969,7 +2987,7 @@
       const old = Number(base || 0);
       if (!old && !now) return '<span class="delta">0.0%</span>';
       if (!old) {
-        return `<span class="delta bad">↑ 新增</span>`;
+        return `<span class="delta bad">↑ ${t('新增','New')}</span>`;
       }
       const change = (now - old) / old;
       if (Math.abs(change) < 0.0001) return '<span class="delta">0.0%</span>';
@@ -3022,17 +3040,17 @@
         return;
       }
       $(id).innerHTML = `<div class="barrow header ${showSpendShare ? 'with-share' : ''} ${showCpc ? 'with-cpc' : ''}">
-          <div>${t('维度','Dimension')}</div><div>${t('花费占比','Spend Share')}</div><div class="num">${t('花费','Spend')}</div><div class="num hide-mobile">${t('订单','Orders')}</div><div class="num hide-mobile">ROI</div>${showCpc ? '<div class="num hide-mobile" title="CPC = 花费 / 链接点击（USD）">CPC</div>' : ''}${showSpendShare ? '<div class="num hide-mobile">花费占比</div>' : ''}
+          <div>${t('维度','Dimension')}</div><div>${t('花费占比','Spend Share')}</div><div class="num">${t('花费','Spend')}</div><div class="num hide-mobile">${t('订单','Orders')}</div><div class="num hide-mobile">ROI</div>${showCpc ? `<div class="num hide-mobile" title="${t('CPC = 花费 / 链接点击（USD）','CPC = Spend / Link Clicks (USD)')}">CPC</div>` : ''}${showSpendShare ? `<div class="num hide-mobile">${t('花费占比','Spend Share')}</div>` : ''}
         </div>` + top.map(row => {
           const cls = row.name === '视频' ? 'video' : row.name === '图文' ? 'image' : '';
           const roiClass = row.roi > avgRoi ? 'roi-high' : row.roi < avgRoi ? 'roi-low' : 'roi-mid';
           const spendShare = totalSpend ? row.spend / totalSpend : 0;
           return `<div class="barrow ${showSpendShare ? 'with-share' : ''} ${showCpc ? 'with-cpc' : ''}">
-            <div class="name" title="${safe(row.name)}">${safe(short(row.name, 34))}</div>
+            <div class="name" title="${safe(translateName(row.name))}">${safe(short(translateName(row.name), 34))}</div>
             <div class="track"><div class="fill ${cls}" style="width:${Math.max(2, row.spend / max * 100)}%"></div></div>
             <div class="num">${money(row.spend)}</div>
             <div class="num hide-mobile">${fmt(row.conversions)}</div>
-            <div class="num hide-mobile ${roiClass}">${roi(row.roi)}</div>${showCpc ? `<div class="num hide-mobile" title="CPC = 花费 / 链接点击（USD）">${money2(row.cpc)}</div>` : ''}${showSpendShare ? `<div class="num hide-mobile">${pct(spendShare)}</div>` : ''}
+            <div class="num hide-mobile ${roiClass}">${roi(row.roi)}</div>${showCpc ? `<div class="num hide-mobile" title="${t('CPC = 花费 / 链接点击（USD）','CPC = Spend / Link Clicks (USD)')}">${money2(row.cpc)}</div>` : ''}${showSpendShare ? `<div class="num hide-mobile">${pct(spendShare)}</div>` : ''}
           </div>`;
         }).join('');
     }
@@ -3100,7 +3118,7 @@
         shown.length ? shown.map(row => {
           const compare = compareMap.get(row.name) || {};
           return `<tr>
-            <td><b title="${safe(row.name)}">${safe(short(row.name, 42))}</b></td>
+            <td><b title="${safe(translateName(row.name))}">${safe(short(translateName(row.name), 42))}</b></td>
             <td class="num">${metricCell(row.spend, compare.spend, money)}</td>
             <td class="num">${metricCell(row.roi, compare.roi, roi)}</td>
             <td class="num">${metricCell(row.conversions, compare.conversions, v => fmt(v))}</td>
@@ -3110,9 +3128,9 @@
             <td class="num">${metricCell(row.purchaseValue, compare.purchaseValue, money)}</td>
             <td class="num">${metricCell(row.cvr, compare.cvr, pct)}</td>
           </tr>`;
-        }).join('') : `<tr><td colspan="${headers.length}" class="empty">当前筛选下暂无产品数据</td></tr>`
+        }).join('') : `<tr><td colspan="${headers.length}" class="empty">${t('当前筛选下暂无产品数据','No product data under current filters')}</td></tr>`
       }</tbody></table>`;
-      $('productCount').textContent = `${fmt(rows.length)} 个产品 · 按花费排序`;
+      $('productCount').textContent = `${fmt(rows.length)} ${t('个产品 · 按花费排序','products · by spend')}`;
     }
 
     // 华人素材分析：用不受三态筛选影响的全量行集，拆全部/华人/非华人三组对比
@@ -3126,9 +3144,9 @@
       const cmpCn = cmpAll.filter(row => row.isChinese);
       const cmpNon = cmpAll.filter(row => !row.isChinese);
       const groups = [
-        { label: '全部素材', rows: all, base: cmpAll, hl: false, tag: '' },
-        { label: `华人素材（${fmt(cn.length)}）`, rows: cn, base: cmpCn, hl: true, tag: '重点' },
-        { label: `非华人素材（${fmt(non.length)}）`, rows: non, base: cmpNon, hl: false, tag: '' }
+        { label: t('全部素材','All Creatives'), rows: all, base: cmpAll, hl: false, tag: '' },
+        { label: `${t('华人素材','CN Creatives')}（${fmt(cn.length)}）`, rows: cn, base: cmpCn, hl: true, tag: t('重点','Focus') },
+        { label: `${t('非华人素材','Non-CN Creatives')}（${fmt(non.length)}）`, rows: non, base: cmpNon, hl: false, tag: '' }
       ];
       // [标签, 当前值, 当前数, 对比数, 越高越好]
       const metric = (m, b) => [
@@ -3166,14 +3184,14 @@
         cnProducts.length ? cnProducts.map(r => {
           const b = cmpProductMap.get(r.name) || {};
           return `<tr>
-          <td title="${safe(r.name)}">${safe(short(r.name, 12))}</td>
+          <td title="${safe(translateName(r.name))}">${safe(short(translateName(r.name), 12))}</td>
           <td class="num">${cell(fmt(r.posts), r.posts, b.posts, true)}</td>
           <td class="num">${cell(money(r.spend), r.spend, b.spend, false)}</td>
           <td class="num">${cell(fmt(r.conversions), r.conversions, b.conversions, true)}</td>
           <td class="num">${cell(roi(r.roi), r.roi, b.roi, true)}</td>
           <td class="num">${cell(money2(r.cpc), r.cpc, b.cpc, false)}</td></tr>`;
         }).join('')
-          : `<tr><td colspan="6" class="empty">当前筛选下暂无华人素材</td></tr>`
+          : `<tr><td colspan="6" class="empty">${t('当前筛选下暂无华人素材','No CN creatives under current filters')}</td></tr>`
       }</tbody>`;
 
       // 华人素材分收割标签（三大类）与一级标签
@@ -3191,14 +3209,14 @@
         labelRows.length ? labelRows.map(r => {
           const b = r.base || {};
           return `<tr>
-          <td title="${safe(r.name)}">${safe(short(r.name, 12))}</td>
+          <td title="${safe(translateName(r.name))}">${safe(short(translateName(r.name), 12))}</td>
           <td class="num">${cell(fmt(r.posts), r.posts, b.posts, true)}</td>
           <td class="num">${cell(money(r.spend), r.spend, b.spend, false)}</td>
           <td class="num">${cell(fmt(r.conversions), r.conversions, b.conversions, true)}</td>
           <td class="num">${cell(roi(r.roi), r.roi, b.roi, true)}</td>
           <td class="num">${cell(money2(r.cpc), r.cpc, b.cpc, false)}</td></tr>`;
         }).join('')
-          : `<tr><td colspan="6" class="empty">暂无标签数据</td></tr>`
+          : `<tr><td colspan="6" class="empty">${t('暂无标签数据','No tag data')}</td></tr>`
       }</tbody>`;
     }
 
@@ -3207,6 +3225,10 @@
       domestic: { label: '国内图文', test: n => /Helen|Linda/i.test(n) },
       local: { label: '本地化图文', test: n => /Faye|陈耀菲/i.test(n) }
     };
+    const ORIGIN_LABEL_EN = { domestic: 'Domestic Image', local: 'Localized Image', other: 'Other PIC' };
+    function originLabel(key) {
+      return t(ORIGIN_PIC[key]?.label || '其他策划', ORIGIN_LABEL_EN[key] || 'Other PIC');
+    }
     function originGroupOf(row) {
       const pic = String(row.planPicName || '').trim();
       if (ORIGIN_PIC.domestic.test(pic)) return 'domestic';
@@ -3222,7 +3244,7 @@
       const keys = ['domestic', 'local', 'other'];
       const groups = keys.map(key => ({
         key,
-        label: `${ORIGIN_PIC[key]?.label || '其他策划'}（${fmt(byType.filter(r => originGroupOf(r) === key).length)}）`,
+        label: `${originLabel(key)}（${fmt(byType.filter(r => originGroupOf(r) === key).length)}）`,
         rows: byType.filter(r => originGroupOf(r) === key),
         base: cmpByType.filter(r => originGroupOf(r) === key),
         hl: key === 'domestic',
@@ -3257,7 +3279,7 @@
         ...r,
         originKey: originGroupOf(r),
         market: `${r.brand || '-'} · ${r.country || '-'}`,
-        originProduct: `${short(r.product || '未标注', 12)} · ${ORIGIN_PIC[originGroupOf(r)]?.label || '其他策划'}`
+        originProduct: `${short(translateName(r.product || '未标注'), 18)} · ${originLabel(originGroupOf(r))}`
       }));
       const decorated = withOrigin(byType);
       const cmpDecorated = withOrigin(cmpByType);
@@ -3270,7 +3292,7 @@
       const thead = `<thead><tr><th>${t('分组','Group')}</th><th class="num">${t('素材','Creatives')}</th><th class="num">${t('花费','Spend')}</th><th class="num">${t('订单','Orders')}</th><th class="num">ROI</th><th class="num">CPC</th></tr></thead>`;
       const body = (rows, baseMap) => rows.length ? rows.map(r => {
         const b = baseMap.get(r.name) || {};
-        return `<tr><td title="${safe(r.name)}">${safe(short(r.name, 18))}</td>
+        return `<tr><td title="${safe(translateName(r.name))}">${safe(short(translateName(r.name), 18))}</td>
           <td class="num">${cell(fmt(r.posts), r.posts, b.posts, true)}</td>
           <td class="num">${cell(money(r.spend), r.spend, b.spend, false)}</td>
           <td class="num">${cell(fmt(r.conversions), r.conversions, b.conversions, true)}</td>
@@ -3279,7 +3301,9 @@
       }).join('') : `<tr><td colspan="6" class="empty">${t('当前筛选下暂无国内/本地化图文素材','No domestic/localized creatives')}</td></tr>`;
       $('originMarketTable').innerHTML = `<thead><tr><th>${t('品牌 · 市场','Brand · Market')}</th><th class="num">${t('素材','Creatives')}</th><th class="num">${t('花费','Spend')}</th><th class="num">${t('订单','Orders')}</th><th class="num">ROI</th><th class="num">CPC</th></tr></thead><tbody>${body(marketRows, cmpMarketMap)}</tbody>`;
       $('originProductTable').innerHTML = thead + `<tbody>${body(productRows, cmpProductMap)}</tbody>`;
-      $('originNote').textContent = `按 DMS 策划 PIC 区分：Helen / Linda = 国内图文，陈耀菲 Faye = 本地化图文 · 当前类型：${state.originType === 'all' ? '全部' : state.originType} · 不受「华人素材」三态筛选影响`;
+      $('originNote').textContent = LANG === 'EN'
+        ? `By DMS planning PIC: Helen / Linda = Domestic, Faye = Localized · Type: ${translateName(state.originType)} · Independent of the CN filter`
+        : `按 DMS 策划 PIC 区分：Helen / Linda = 国内图文，陈耀菲 Faye = 本地化图文 · 当前类型：${state.originType} · 不受「华人素材」三态筛选影响`;
     }
 
     function renderHarvestTags() {
@@ -3328,22 +3352,22 @@
         return `<div class="tag-group">
           <div class="tag-group-head">
         <div class="tag-group-title">
-          <span>${safe(parent.label)}</span>
+          <span>${safe(translateName(parent.label))}</span>
           <span class="small">${safe(labelName)} ${fmt(items.length)} ${t('项 · 总花费(USD)',' items · Spend (USD)')}${money(parentMetrics.spend)}</span>
         </div>
         <span class="tag-column-head">${t('订单','Orders')}</span>
         <span class="tag-column-head">ROI</span>
-        <span class="tag-column-head" title="CPC = 花费 / 链接点击（USD）">CPC</span>
+        <span class="tag-column-head" title="${t('CPC = 花费 / 链接点击（USD）','CPC = Spend / Link Clicks (USD)')}">CPC</span>
           </div>
           <div class="tag-group-body">${
             items.map(item => {
               const roiClass = item.roi > 0 ? (item.roi >= parentMetrics.roi ? 'roi-high' : 'roi-low') : 'roi-mid';
               return `<div class="tag-row">
-                <div class="label" title="${safe(item.name)}">${safe(short(item.name, 32))}</div>
+                <div class="label" title="${safe(translateName(item.name))}">${safe(short(translateName(item.name), 32))}</div>
                 <div class="track"><div class="fill" style="width:${Math.max(2, item.spend / max * 100)}%"></div></div>
                 <div class="num">${fmt(item.conversions)}</div>
                 <div class="num ${roiClass}">${roi(item.roi)}</div>
-                <div class="num" title="CPC = 花费 / 链接点击（USD）">${money2(item.cpc)}</div>
+                <div class="num" title="${t('CPC = 花费 / 链接点击（USD）','CPC = Spend / Link Clicks (USD)')}">${money2(item.cpc)}</div>
               </div>`;
             }).join('')
           }</div>
@@ -3443,21 +3467,21 @@
         const typeClass = row.materialType === '视频' ? 'video' : 'image';
         const roiClass = Number(row.roi || 0) > avgRoi ? 'roi-high' : Number(row.roi || 0) < avgRoi ? 'roi-low' : 'roi-mid';
         return `<article class="dms-card">
-          <div class="dms-cover">${cover}<span class="chip ${typeClass}">#${i + 1} ${safe(row.materialType || '-')}</span></div>
+          <div class="dms-cover">${cover}<span class="chip ${typeClass}">#${i + 1} ${safe(translateName(row.materialType || '-'))}</span></div>
           <div class="dms-body">
             <div class="dms-title compact" title="${safe(row.materialName || row.adName || row.materialId)}">${safe(short(row.materialName || row.adName || row.materialId, 44))}</div>
-            <div class="small">${safe(row.materialId || row.materialCode || '-')} · ${safe(row.country || '-')} · ${safe(row.product || '-')}</div>
+            <div class="small">${safe(row.materialId || row.materialCode || '-')} · ${safe(row.country || '-')} · ${safe(translateName(row.product || '-'))}</div>
             ${themeChipsHtml(row)}
             <div class="dms-meta">
               <span>${t('花费','Spend')}<b>${money(row.spend)}</b></span>
               <span>${t('订单','Orders')}<b>${fmt(row.orders)}</b></span>
               <span>CTR<b>${pct(cardCtr(row))}</b></span>
               <span class="${roiClass}">ROI<b>${roi(row.roi)}</b></span>
-              <span class="dms-meta-wide" title="CPC = 花费 / 链接点击（USD）">CPC<b>${money2(row.cpc ?? cpcOf(row))}</b></span>
+              <span class="dms-meta-wide" title="${t('CPC = 花费 / 链接点击（USD）','CPC = Spend / Link Clicks (USD)')}">CPC<b>${money2(row.cpc ?? cpcOf(row))}</b></span>
             </div>
           </div>
         </article>`;
-      }).join('') || `<div class="empty">当前筛选下暂无 DMS 素材</div>`;
+      }).join('') || `<div class="empty">${t('当前筛选下暂无 DMS 素材','No DMS creatives under current filters')}</div>`;
     }
 
     function dmsPreviewUrl(row) {
@@ -3562,8 +3586,8 @@
     function renderDmsFallbackCover(row = {}, fallbackText = '') {
       const typeText = String(row.materialType || row.materialKind || fallbackText || '');
       const isVideo = /video|视频|頻|频/i.test(typeText);
-      const title = short(row.materialName || row.adName || row.product || fallbackText || t('素材封面','Cover'), 42);
-      const sub = [row.product, row.country].filter(Boolean).join(' · ') || (isVideo ? '视频素材' : t('图文素材','Image'));
+      const title = short(translateName(row.materialName || row.adName || row.product || fallbackText || t('素材封面','Cover')), 42);
+      const sub = [translateName(row.product), row.country].filter(Boolean).join(' · ') || (isVideo ? t('视频素材','Video') : t('图文素材','Image'));
       const code = row.materialId || row.materialCode || row.key || 'DMS';
       return `<div class="dms-fallback-cover ${isVideo ? 'video' : 'image'}">
         <div class="dms-fallback-brand">${safe(row.brand || 'NP / LXP / FR / SKT')}</div>
@@ -3711,7 +3735,7 @@
     }
 
     function dmsDownloadState(row) {
-      return dmsDownloadUrl(row) && /^https?:\/\//.test(dmsDownloadUrl(row)) ? '可下载' : t('待DMS导出','Pending DMS Export');
+      return dmsDownloadUrl(row) && /^https?:\/\//.test(dmsDownloadUrl(row)) ? t('可下载','Downloadable') : t('待DMS导出','Pending DMS Export');
     }
 
     function renderDmsTable(rows, avgRoi = 0) {
@@ -3732,8 +3756,8 @@
           <td><b>${safe(row.materialId || row.materialCode || '-')}</b><div class="small">${safe(row.sourceFile || '')}</div></td>
           <td><div class="creative-cell"><b title="${safe(row.materialName || row.adName || '')}">${safe(short(row.materialName || row.adName || '-', 58))}</b><span>${safe(short(row.adName || '', 72))}</span></div></td>
           <td>${safe(row.country || '-')}</td>
-          <td>${safe(row.product || '-')}</td>
-          <td><span class="chip ${row.materialType === '视频' || row.materialType === '��Ƶ' ? 'video' : 'image'}">${safe(row.materialType || '-')}</span><div class="small">${safe(row.materialKind || row.graphicType || '')}</div></td>
+          <td>${safe(translateName(row.product || '-'))}</td>
+          <td><span class="chip ${row.materialType === '视频' || row.materialType === '��Ƶ' ? 'video' : 'image'}">${safe(translateName(row.materialType || '-'))}</span><div class="small">${safe(translateName(row.materialKind || row.graphicType || ''))}</div></td>
           <td class="num">${money(row.spend)}</td>
           <td class="num">${money2(cpcOf(row))}</td>
           <td class="num">${fmt(row.orders)}</td>
@@ -3745,7 +3769,7 @@
           <td>${download}</td>
         </tr>`;
       }).join('');
-      $('dmsTable').innerHTML = thead + `<tbody>${body || `<tr><td colspan="${headers.length}" class="empty">当前筛选下暂无 DMS 素材</td></tr>`}</tbody>`;
+      $('dmsTable').innerHTML = thead + `<tbody>${body || `<tr><td colspan="${headers.length}" class="empty">${t('当前筛选下暂无 DMS 素材','No DMS creatives under current filters')}</td></tr>`}</tbody>`;
     }
 
     function renderDmsMaterials() {
@@ -3753,7 +3777,7 @@
       const matched = rows.filter(row => row.matchedDms).length;
       const ready = rows.filter(row => row.downloadReady || /^https?:\/\//.test(dmsDownloadUrl(row))).length;
       const avgRoi = rows.length ? rows.reduce((sum, row) => sum + Number(row.roi || 0), 0) / rows.length : 0;
-      $('dmsSubtitle').textContent = `${dmsRangeText()} ${t('有花费的图文 / 视频素材 · DMS匹配','Paid image/video · DMS matched ')}${fmt(matched)}/${fmt(rows.length)} · 可下载 ${fmt(ready)}`;
+      $('dmsSubtitle').textContent = `${dmsRangeText()} ${t('有花费的图文 / 视频素材 · DMS匹配','Paid image/video · DMS matched ')}${fmt(matched)}/${fmt(rows.length)} · ${t('可下载','Downloadable')} ${fmt(ready)}`;
       $('dmsCount').innerHTML = `${t('命中素材','Matched')}<b>${fmt(rows.length)}</b> 个`;
       if ($('dmsSourceNote')) {
         $('dmsSourceNote').textContent = `优先解析/展示7月有花费图文视频 · 待解析 ${fmt(state.dms?.missingMediaCount || 0)} 个 · 导出文件 ${fmt((state.dms?.dmsFiles || []).length)} 个 · 生成 ${state.dms?.generatedAt || '-'}`;
@@ -3766,21 +3790,21 @@
         const typeClass = row.materialType === '视频' || row.materialType === '��Ƶ' ? 'video' : 'image';
         const roiClass = Number(row.roi || 0) > avgRoi ? 'roi-high' : Number(row.roi || 0) < avgRoi ? 'roi-low' : 'roi-mid';
         return `<article class="dms-card">
-          <div class="dms-cover">${cover}<span class="chip ${typeClass}">#${i + 1} ${safe(row.materialType || '-')}</span></div>
+          <div class="dms-cover">${cover}<span class="chip ${typeClass}">#${i + 1} ${safe(translateName(row.materialType || '-'))}</span></div>
           <div class="dms-body">
             <div class="dms-title compact" title="${safe(row.materialName || row.adName || row.materialId)}">${safe(short(row.materialName || row.adName || row.materialId, 44))}</div>
-            <div class="small">${safe(row.materialId || row.materialCode || '-')} · ${safe(row.country || '-')} · ${safe(row.product || '-')}</div>
+            <div class="small">${safe(row.materialId || row.materialCode || '-')} · ${safe(row.country || '-')} · ${safe(translateName(row.product || '-'))}</div>
             ${themeChipsHtml(row)}
             <div class="dms-meta">
               <span>${t('花费','Spend')}<b>${money(row.spend)}</b></span>
               <span>${t('订单','Orders')}<b>${fmt(row.orders)}</b></span>
               <span>CTR<b>${pct(cardCtr(row))}</b></span>
               <span class="${roiClass}">ROI<b>${roi(row.roi)}</b></span>
-              <span class="dms-meta-wide" title="CPC = 花费 / 链接点击（USD）">CPC<b>${money2(row.cpc ?? cpcOf(row))}</b></span>
+              <span class="dms-meta-wide" title="${t('CPC = 花费 / 链接点击（USD）','CPC = Spend / Link Clicks (USD)')}">CPC<b>${money2(row.cpc ?? cpcOf(row))}</b></span>
             </div>
           </div>
         </article>`;
-      }).join('') || `<div class="empty">当前筛选下暂无 DMS 素材</div>`;
+      }).join('') || `<div class="empty">${t('当前筛选下暂无 DMS 素材','No DMS creatives under current filters')}</div>`;
       renderDmsTable(rows, avgRoi);
     }
 
@@ -3993,21 +4017,23 @@
         return String(av || '').localeCompare(String(bv || ''), 'zh-Hans-CN') * state.sortDir;
       });
       const shown = rows.slice(0, TABLE_LIMIT);
-      $('tableNote').textContent = `筛选后 ${fmt(rows.length)} 个素材，当前展示前 ${fmt(shown.length)} 条`;
+      $('tableNote').textContent = LANG === 'EN'
+        ? `${fmt(rows.length)} creatives after filters · showing top ${fmt(shown.length)}`
+        : `筛选后 ${fmt(rows.length)} 个素材，当前展示前 ${fmt(shown.length)} 条`;
       const thead = `<thead><tr>${headers.map(h => `<th class="${h[2] ? 'num' : ''}" data-sort="${safe(h[1])}">${safe(h[0])}${state.sortKey === h[1] ? (state.sortDir > 0 ? ' ↑' : ' ↓') : ''}</th>`).join('')}</tr></thead>`;
       const tbody = shown.map(row => {
-        const tagLine = [row.tag1, row.tag2, row.tag3].filter(Boolean).join(' / ');
+        const tagLine = [row.tag1, row.tag2, row.tag3].filter(Boolean).map(translateName).join(' / ');
         const harvestLine = row.harvestTag && row.harvestTag !== '未标注'
-          ? `<div class="small">收割三大类：${safe(harvestTagLabel(row.harvestTag))}</div>` : '';
+          ? `<div class="small">${t('收割三大类：','Harvest group: ')}${safe(translateName(harvestTagLabel(row.harvestTag)))}</div>` : '';
         const inferredLine = row.tagInferred
-          ? `<div class="small">关键词补标 L${safe(String(row.tagInferred).split('L').filter(Boolean).join('/L'))}</div>` : '';
+          ? `<div class="small">${t('关键词补标','Keyword tagged')} L${safe(String(row.tagInferred).split('L').filter(Boolean).join('/L'))}</div>` : '';
         const typeClass = row.materialType === '视频' ? 'video' : 'image';
-        const url = row.url && String(row.url).startsWith('http') ? `<a href="${safe(row.url)}" target="_blank" rel="noopener">打开</a>` : '';
+        const url = row.url && String(row.url).startsWith('http') ? `<a href="${safe(row.url)}" target="_blank" rel="noopener">${t('打开','Open')}</a>` : '';
         return `<tr>
           <td><div class="creative-cell"><div class="creative-row">${renderPostThumb(row)}<div class="creative-text"><b title="${safe(materialLabel(row))}">${safe(short(materialLabel(row), 58))}</b><span title="${safe(row.adName)}">${safe(short(row.adName, 82))}</span>${url}</div></div></div></td>
-          <td><span class="chip ${typeClass}">${safe(row.materialType)}</span><div class="small">${safe(row.graphicType || '-')}</div></td>
+          <td><span class="chip ${typeClass}">${safe(translateName(row.materialType))}</span><div class="small">${safe(translateName(row.graphicType || '-'))}</div></td>
           <td>${safe(row.country || '-')}</td>
-          <td>${safe(row.product || '-')}</td>
+          <td>${safe(translateName(row.product || '-'))}</td>
           <td>${safe(row.firstDate || '-')}<br><span class="small">${safe(row.lastDate || '-')}</span></td>
           <td>${safe(short(tagLine || '未标注', 60))}${harvestLine}${inferredLine}</td>
           <td class="num">${money(row.spend)}</td>
@@ -4024,7 +4050,7 @@
           <td>${safe(short(row.adDetail || '-', 42))}</td>
         </tr>`;
       }).join('');
-      $('postTable').innerHTML = thead + `<tbody>${tbody || `<tr><td colspan="${headers.length}" class="empty">当前筛选下暂无明细</td></tr>`}</tbody>`;
+      $('postTable').innerHTML = thead + `<tbody>${tbody || `<tr><td colspan="${headers.length}" class="empty">${t('当前筛选下暂无明细','No rows under current filters')}</td></tr>`}</tbody>`;
     }
 
     function boardCombos() {
@@ -4114,7 +4140,7 @@
           <td class="num">-</td>
           <td class="num">-</td>
         </tr>` : '';
-      table.innerHTML = thead + `<tbody>${body || `<tr><td colspan="${headers.length}" class="empty">当前筛选下暂无大盘数据</td></tr>`}${totalRow}</tbody>`;
+      table.innerHTML = thead + `<tbody>${body || `<tr><td colspan="${headers.length}" class="empty">${t('当前筛选下暂无大盘数据','No overall data under current filters')}</td></tr>`}${totalRow}</tbody>`;
       const note = $('boardNote');
       if (note) {
         const range = state.board?.range || {};
@@ -4214,7 +4240,7 @@
       const now = Number(current || 0);
       const old = Number(base || 0);
       if (!old && !now) return '<span class="delta">0.0%</span>';
-      if (!old) return '<span class="delta good">↑ 新增</span>';
+      if (!old) return `<span class="delta good">↑ ${t('新增','New')}</span>`;
       const change = (now - old) / old;
       if (Math.abs(change) < 0.0001) return '<span class="delta">0.0%</span>';
       const up = change > 0;
@@ -4226,7 +4252,9 @@
       const cutoff = ageCutoff();
       const winTo = state.to || ageAnchor();
       const from7 = addDays(winTo, -6);
-      $('ageNote').textContent = `${t('创建时间','Created')}≥ ${cutoff}（近30天）= 新素材，更早 = 老素材 · 近7天 ${from7} ~ ${winTo} · LTV${t('贡献占比','Contribution')}= 该组近7天GMV / 全部素材近7天GMV`;
+      $('ageNote').textContent = LANG === 'EN'
+        ? `Created ≥ ${cutoff} (last 30 days) = New, earlier = Old · Last 7 days ${from7} ~ ${winTo} · LTV Contribution = this group's last-7-day GMV / all creatives' last-7-day GMV`
+        : `创建时间≥ ${cutoff}（近30天）= 新素材，更早 = 老素材 · 近7天 ${from7} ~ ${winTo} · LTV贡献占比 = 该组近7天GMV / 全部素材近7天GMV`;
       const curAll = state.filtered;
       const prevAll = state.compareFiltered || [];
       const total7 = last7Gmv(curAll, winTo);
@@ -4320,9 +4348,9 @@
         const caret = hasChildren
           ? `<span class="age-toggle" data-key="${safe(node.key)}" title="展开/收起下级漏斗">${open ? '▾' : '▸'}</span>`
           : '';
-        const l1 = node.level === 1 ? `${caret} ${safe(node.l1)}` : '';
-        const l2 = node.level === 2 ? `${caret} ${safe(node.l2)}` : '';
-        const l3 = node.level === 3 ? `${caret} ${safe(node.l3)}` : '';
+        const l1 = node.level === 1 ? `${caret} ${safe(translateName(node.l1))}` : '';
+        const l2 = node.level === 2 ? `${caret} ${safe(translateName(node.l2))}` : '';
+        const l3 = node.level === 3 ? `${caret} ${safe(translateName(node.l3))}` : '';
         const m = node.metrics;
         const b = node.base;
         return `<tr class="age-row-l${node.level}">`
@@ -4447,7 +4475,7 @@
     function renderCategorySummary(rows) {
       $('categorySummary').innerHTML = CATEGORY_TAGS.map(tag => {
         const metrics = sumRows(rows.filter(row => harvestKeyOf(row) === tag.key));
-        return `<span class="badge">${safe(tag.label)} · ${fmt(metrics.posts)} 素材 · ${money(metrics.spend)} 花费 · ${roi(metrics.roi)} ROI</span>`;
+        return `<span class="badge">${safe(translateName(tag.label))} · ${fmt(metrics.posts)} ${t('素材','creatives')} · ${money(metrics.spend)} ${t('花费','spend')} · ${roi(metrics.roi)} ROI</span>`;
       }).join('');
     }
     const CATEGORY_HEAD = `<thead><tr>
@@ -4558,20 +4586,20 @@
       const seenProd = new Set();
       return visible.map(node => {
         const catCell = seenCat.has(node.cat) ? ''
-          : `<td rowspan="${catSpans.get(node.cat)}" title="${safe(node.cat)}">${safe(short(node.cat, 14))}</td>`;
+          : `<td rowspan="${catSpans.get(node.cat)}" title="${safe(translateName(node.cat))}">${safe(short(translateName(node.cat), 14))}</td>`;
         seenCat.add(node.cat);
         const prodKey = categoryPath(node.cat, node.product);
         const prodCell = seenProd.has(prodKey) ? ''
-          : `<td rowspan="${prodSpans.get(prodKey)}" title="${safe(node.product)}">${safe(short(node.product, 22))}</td>`;
+          : `<td rowspan="${prodSpans.get(prodKey)}" title="${safe(translateName(node.product))}">${safe(short(translateName(node.product), 22))}</td>`;
         seenProd.add(prodKey);
         const hasChildren = node.children.length > 0;
         const open = state.categoryExpanded.has(node.key);
         const caret = hasChildren
           ? `<span class="age-toggle" data-key="${safe(node.key)}" title="展开/收起下级漏斗">${open ? '▾' : '▸'}</span>`
           : '';
-        const l1 = node.level === 1 ? `${caret} ${safe(node.l1)}` : '';
-        const l2 = node.level === 2 ? `${caret} ${safe(node.l2)}` : '';
-        const l3 = node.level === 3 ? `${caret} ${safe(node.l3)}` : '';
+        const l1 = node.level === 1 ? `${caret} ${safe(translateName(node.l1))}` : '';
+        const l2 = node.level === 2 ? `${caret} ${safe(translateName(node.l2))}` : '';
+        const l3 = node.level === 3 ? `${caret} ${safe(translateName(node.l3))}` : '';
         const m = node.metrics;
         const b = node.base;
         return `<tr class="age-row-l${node.level}">`
@@ -4624,8 +4652,8 @@
       drawTrend();
       const s = sumRows(state.filtered);
       const compareText = state.compareAppliedRange ? ` · 对比 ${state.compareAppliedRange.from} ~ ${state.compareAppliedRange.to}` : '';
-      const cnText = state.chineseFilter === 'cn' ? ' · 仅华人素材' : state.chineseFilter === 'non' ? ' · 非华人素材' : '';
-      $('productCount').textContent = `${fmt(groupRows(state.filtered, 'product').length)} ${t('个产品',' products')}`;
+      const cnText = state.chineseFilter === 'cn' ? ` · ${t('仅华人素材','CN only')}` : state.chineseFilter === 'non' ? ` · ${t('非华人素材','Non-CN')}` : '';
+      $('productCount').textContent = `${fmt(groupRows(state.filtered, 'product').length)} ${t('个产品','products')}`;
       $('status').textContent = `${countryText()}${cnText} · ${t('对比','Compare')}${state.compareAppliedRange ? ` ${state.compareAppliedRange.from} ~ ${state.compareAppliedRange.to}` : ''} · ${state.from || '-'} ~ ${state.to || '-'} · ${fmt(state.filtered.length)} ${t('个素材','creatives')} · ${t('花费','Spend')} USD ${money(s.spend)} · CPC ${money2(s.cpc)} · ROI ${roi(s.roi)}`;
     }
 
@@ -4633,7 +4661,7 @@
       if (state.multiMode[key] === 'cleared') return t('未选择','None');
       const selected = state[key];
       if (!selected.length) return fallback;
-      if (selected.length === 1) return selected[0];
+      if (selected.length === 1) return translateName(selected[0]);
       return `${selected.length} 项已选`;
     }
 
@@ -4660,7 +4688,8 @@
       let matches = 0;
       box.querySelectorAll('.multi-option').forEach(option => {
         const value = String(option.dataset.value || '');
-        const visible = !query || value.toLowerCase().includes(query);
+        const label = String(option.dataset.label || translateName(value));
+        const visible = !query || value.toLowerCase().includes(query) || label.toLowerCase().includes(query);
         option.classList.toggle('search-hidden', !visible);
         if (visible) matches += 1;
       });
@@ -4714,10 +4743,15 @@
           <button type="button" data-action="none" data-key="${safe(key)}">${t('清空','Clear')}</button>
         </div>
         <input class="multi-search" type="search" data-multi-search="${safe(key)}" placeholder="${safe(multiSearchLabel(key))}" value="${safe(state.multiSearch[key] || '')}" />
-        <div class="multi-list">` + options.map(value => `<label class="multi-option${String(state.multiSearch[key] || '').trim() && !String(value || '').toLowerCase().includes(String(state.multiSearch[key] || '').trim().toLowerCase()) ? ' search-hidden' : ''}" data-value="${safe(value)}">
-          <input type="checkbox" data-key="${safe(key)}" value="${safe(value)}" ${selected.has(value) ? 'checked' : ''}>
-          <span title="${safe(value)}">${safe(value)}</span>
-        </label>`).join('') + `<div class="multi-empty">${t('暂无匹配项','No matches')}</div></div>`;
+        <div class="multi-list">` + options.map(value => {
+          const label = translateName(value);
+          const q = String(state.multiSearch[key] || '').trim().toLowerCase();
+          const hide = q && !String(value || '').toLowerCase().includes(q) && !label.toLowerCase().includes(q);
+          return `<label class="multi-option${hide ? ' search-hidden' : ''}" data-value="${safe(value)}" data-label="${safe(label)}">
+            <input type="checkbox" data-key="${safe(key)}" value="${safe(value)}" ${selected.has(value) ? 'checked' : ''}>
+            <span title="${safe(label)}">${safe(label)}</span>
+          </label>`;
+        }).join('') + `<div class="multi-empty">${t('暂无匹配项','No matches')}</div></div>`;
       applyMultiSearchFilter(key);
     }
 
@@ -5131,7 +5165,7 @@
 
     function exportDmsCsv() {
       const rows = dmsRows();
-      const headers = [t('素材编号','Creative ID'),t('素材名称','Creative Name'),'Ad_name',t('国家','Country'),t('产品','Product'),t('素材类型','Creative Type'),t('素材形态','Creative Format'),t('创建时间','Created'),t('花费','Spend'),'CPC',t('订单','Orders'),'GMV','ROI',t('尺寸','Size'),t('投放状态','Status'),'DMS匹配',t('可下载','Downloadable'),t('下载链接','Download'),t('预览链接','Preview'),t('来源文件','Source File')];
+      const headers = [t('素材编号','Creative ID'),t('素材名称','Creative Name'),'Ad_name',t('国家','Country'),t('产品','Product'),t('素材类型','Creative Type'),t('素材形态','Creative Format'),t('创建时间','Created'),t('花费','Spend'),'CPC',t('订单','Orders'),'GMV','ROI',t('尺寸','Size'),t('投放状态','Status'),t('DMS匹配','DMS Matched'),t('可下载','Downloadable'),t('下载链接','Download'),t('预览链接','Preview'),t('来源文件','Source File')];
       const body = rows.map(row => [
         row.materialId || row.materialCode || '', row.materialName || '', row.adName || '', row.country || '', row.product || '',
         row.materialType || '', row.materialKind || row.graphicType || '', row.createdAt || '', row.spend || 0, cpcOf(row), row.orders || 0,
@@ -5203,8 +5237,21 @@
         state.themes = {};
         state.themesMeta = null;
       }
+      // 产品 / 标签英文显示映射（Excel 产品对照 + 既有译文缓存）
+      try {
+        const enRes = await fetch(dataUrl('display_en.json'), { cache: 'no-store' });
+        if (enRes.ok) {
+          const enDoc = await enRes.json();
+          state.displayEn = {
+            products: (enDoc && enDoc.products) || {},
+            tags: (enDoc && enDoc.tags) || {}
+          };
+        }
+      } catch {
+        state.displayEn = { products: {}, tags: {} };
+      }
       enrichRowsWithDmsCreatedAt();
-      $('sourceLine').textContent = `${state.raw.source} · ${t('口径：','Scope: ')}${state.raw.scope || '全部素材'} · included ${fmt(state.raw.includedRows)} 素材 · generated ${state.raw.generatedAt}`;
+      $('sourceLine').textContent = `${state.raw.source} · ${t('口径：','Scope: ')}${translateName(state.raw.scope || '全部素材')} · included ${fmt(state.raw.includedRows)} 素材 · generated ${state.raw.generatedAt}`;
       if (!REFRESH.busy) flagDataFreshness();
       if (resetFilters) {
         state.brand = [];
@@ -5557,7 +5604,7 @@
         const matched = trigger.dataset.lbMatch === '1';
         const ready = trigger.dataset.lbReady === '1';
         badges.innerHTML = `<span class="lb-badge ${matched ? 'ok' : 'warn'}">${matched ? 'DMS 已匹配' : t('待 DMS 导出','Pending DMS Export')}</span>`
-          + `<span class="lb-badge ${ready ? 'ok' : 'warn'}">${ready ? '可下载' : t('暂无源文件','No source file')}</span>`;
+          + `<span class="lb-badge ${ready ? 'ok' : 'warn'}">${ready ? t('可下载','Downloadable') : t('暂无源文件','No source file')}</span>`;
       }
       renderLightboxThemes(trigger.dataset.lbKey || '');
       const dl = $('lbDownload');
