@@ -2883,7 +2883,7 @@
             seen.add(zh);
             let bucket = groups[kind].get(zh);
             if (!bucket) {
-              bucket = { zh, src: String(tag.src || '').trim(), posts: 0, spend: 0, gmv: 0, orders: 0, impressions: 0, clicks: 0 };
+              bucket = { zh, en: String(tag.en || '').trim(), src: String(tag.src || '').trim(), posts: 0, spend: 0, gmv: 0, orders: 0, impressions: 0, clicks: 0 };
               groups[kind].set(zh, bucket);
             }
             bucket.posts += 1;
@@ -2925,7 +2925,7 @@
           .sort((a, b) => (aiKwValue(a, sort.key) - aiKwValue(b, sort.key)) * sort.dir)
           .slice(0, 40);
         const body = list.map(item => `<tr>
-          <td><div class="ai-kw"><b>${safe(item.zh)}</b>${item.src && item.src !== item.zh ? `<i>${safe(item.src)}</i>` : ''}</div></td>
+          <td><div class="ai-kw"><b>${safe(LANG === 'EN' ? (item.en || item.zh) : item.zh)}</b>${LANG === 'CN' && item.src && item.src !== item.zh ? `<i>${safe(item.src)}</i>` : ''}</div></td>
           <td class="num">${fmt(item.posts)}</td>
           <td class="num">${money(item.spend)}</td>
           <td class="num">${pct(item.impressions ? item.clicks / item.impressions : 0)}</td>
@@ -3594,13 +3594,22 @@
       return { sell, copy };
     }
 
+    // 标签显示文本：EN 模式优先英文字段 en（无 en 时退回画面原文 src，再退回 zh）
+    function tagTextOf(tag) {
+      const src = String(tag?.src || '').trim();
+      const zh = String(tag?.zh || '').trim();
+      const en = String(tag?.en || '').trim();
+      if (LANG === 'EN') return en || src || zh;
+      return zh || src || en;
+    }
     function themeChipMarkup(tag, kind) {
       const src = String(tag.src || '').trim();
       const zh = String(tag.zh || '').trim();
-      if (!zh) return '';
+      const label = tagTextOf(tag);
+      if (!label) return '';
       const tip = src && src !== zh ? `${src} / ${zh}` : zh;
       return `<span class="theme-chip ${kind}" title="${safe(tip)}">`
-        + `${src ? `<i>${safe(src)}</i>` : ''}<b>${safe(zh)}</b></span>`;
+        + `${LANG === 'CN' && src && src !== label ? `<i>${safe(src)}</i>` : ''}<b>${safe(label)}</b></span>`;
     }
 
     // 卡片上的标签全量铺开（不折叠、不截断），卖点在上、文案关键词在下
@@ -3612,8 +3621,8 @@
       const copyHtml = copy.map(t => themeChipMarkup(t, 'copy')).join('');
       if (!sellHtml && !copyHtml) return '';
       return `<div class="theme-groups">
-        ${sellHtml ? `<div class="theme-row sell"><span class="theme-label">卖点</span>${sellHtml}</div>` : ''}
-        ${copyHtml ? `<div class="theme-row copy"><span class="theme-label">文案</span>${copyHtml}</div>` : ''}
+        ${sellHtml ? `<div class="theme-row sell"><span class="theme-label">${t('卖点','Selling')}</span>${sellHtml}</div>` : ''}
+        ${copyHtml ? `<div class="theme-row copy"><span class="theme-label">${t('文案','Copy')}</span>${copyHtml}</div>` : ''}
       </div>`;
     }
 
@@ -3632,23 +3641,25 @@
         const items = tags.map(theme => {
           const src = String(theme.src || '').trim();
           const zh = String(theme.zh || '').trim();
-          if (!zh) return '';
+          const labelText = tagTextOf(theme);
+          if (!labelText) return '';
           return `<div class="lb-theme-item ${kind}" title="${safe(src && src !== zh ? `${src} / ${zh}` : zh)}">`
-            + `${src ? `<i>${safe(src)}</i>` : ''}<b>${safe(zh)}</b></div>`;
+            + `${LANG === 'CN' && src && src !== labelText ? `<i>${safe(src)}</i>` : ''}<b>${safe(labelText)}</b></div>`;
         }).join('');
         return `<div class="lb-themes-sec"><div class="lb-themes-sec-head">${label}</div>`
           + `<div class="lb-themes-grid">${items}</div></div>`;
       };
-      const rows = [[t('场景','Scene'), item.scene], [t('图上语言','On-image Language'), THEME_LANG_LABEL[String(item.lang || '').toLowerCase()] || '']]
+      const sceneText = LANG === 'EN' ? (item.sceneEn || item.scene || '') : (item.scene || '');
+      const rows = [[t('场景','Scene'), sceneText], [t('图上语言','On-image Language'), THEME_LANG_LABEL[String(item.lang || '').toLowerCase()] || '']]
         .filter(([, value]) => value);
       const kv = rows.length
         ? `<dl class="lb-themes-kv">${rows.map(([k, v]) => `<dt>${k}</dt><dd>${safe(v)}</dd>`).join('')}</dl>`
         : '';
       const onimage = (item.onimage || item.onimageZh)
-        ? `<div class="lb-themes-onimage"><em>${t('图上文案','On-image Copy')}</em>${safe(item.onimage || '')}${item.onimageZh ? `<span class="lb-onimage-zh">中译：${safe(item.onimageZh)}</span>` : ''}</div>`
+        ? `<div class="lb-themes-onimage"><em>${t('图上文案','On-image Copy')}</em>${safe(item.onimage || '')}${LANG === 'CN' && item.onimageZh ? `<span class="lb-onimage-zh">中译：${safe(item.onimageZh)}</span>` : ''}</div>`
         : '';
       const metaBits = [item.model, item.analyzedAt].filter(Boolean).map(safe).join(' · ');
-      box.innerHTML = `<div class="lb-themes-head">卖点 &amp; 文案<span>${metaBits}</span></div>`
+      box.innerHTML = `<div class="lb-themes-head">${t('卖点 &amp; 文案','Selling Points &amp; Copy')}<span>${metaBits}</span></div>`
         + gridOf(sell, 'sell', t('卖点标签','Selling Points'))
         + gridOf(copy, 'copy', t('文案主题关键词','Copy Themes'))
         + kv + onimage
